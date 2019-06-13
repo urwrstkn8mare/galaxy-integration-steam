@@ -1,6 +1,6 @@
-# Steam Integration	
+# Steam Integration
 
-Steam integration for Galaxy
+GOG Galaxy 2.0 Community integration for Steam.
 
 ## Credits
 

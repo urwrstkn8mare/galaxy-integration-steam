@@ -51,6 +51,12 @@ class AuthenticatedHttpClient(HttpClient):
 
         return response
 
+    async def head(self, *args, **kwargs):
+        try:
+            return await super().request("HEAD", *args, **kwargs)
+        except AuthenticationRequired:
+            self._auth_lost()
+
     def _auth_lost(self):
         if self._auth_lost_callback:
             self._auth_lost_callback()
@@ -144,6 +150,9 @@ class SteamHttpClient:
 
     async def get_achievements(self, steam_id, game_id):
         url = "https://steamcommunity.com/profiles/{}/stats/{}/".format(steam_id, game_id)
+        # get final url, append params
+        response = await self._http_client.head(url, allow_redirects=True)
+        url = response.url
         params = {
             "tab": "achievements",
             "l": "english"

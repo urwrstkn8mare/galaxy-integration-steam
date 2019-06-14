@@ -195,6 +195,7 @@ class SteamPlugin(Plugin):
             for game_id in game_ids:
                 game_time = game_times.get(game_id)
                 if game_time is None:
+                    logging.error("Game time for the game %s unavailable", game_id)
                     self.game_time_import_failure(game_id, UnknownError())
                 else:
                     self.game_time_import_success(game_time)
@@ -211,14 +212,11 @@ class SteamPlugin(Plugin):
 
         try:
             for game in games:
-                last_played = game.get("last_played")
-                if last_played is None:
-                    continue
                 game_id = str(game["appid"])
                 game_times[game_id] = GameTime(
                     game_id,
                     int(float(game.get("hours_forever", "0").replace(",", "")) * 60),
-                    last_played
+                    game.get("last_played", 0)
                 )
         except (KeyError, ValueError):
             logging.exception("Can not parse backend response")

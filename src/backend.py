@@ -2,12 +2,16 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 import aiohttp
 from yarl import URL
 from requests_html import HTML
 from galaxy.api.errors import AuthenticationRequired, UnknownBackendResponse, AccessDenied
 from galaxy.http import HttpClient
+
+def is_absolute(url):
+    return bool(urlparse(url).netloc)
 
 class CookieJar(aiohttp.CookieJar):
     def __init__(self):
@@ -21,7 +25,6 @@ class CookieJar(aiohttp.CookieJar):
         super().update_cookies(cookies, url)
         if cookies and self._cookies_updated_callback:
             self._cookies_updated_callback(list(self))
-
 
 class AuthenticatedHttpClient(HttpClient):
     def __init__(self):
@@ -50,12 +53,6 @@ class AuthenticatedHttpClient(HttpClient):
             self._auth_lost()
 
         return response
-
-    async def head(self, *args, **kwargs):
-        try:
-            return await super().request("HEAD", *args, **kwargs)
-        except AuthenticationRequired:
-            self._auth_lost()
 
     def _auth_lost(self):
         if self._auth_lost_callback:
@@ -149,15 +146,22 @@ class SteamHttpClient:
                 raise UnknownBackendResponse()
 
     async def get_achievements(self, steam_id, game_id):
-        url = "https://steamcommunity.com/profiles/{}/stats/{}/".format(steam_id, game_id)
-        # get final url, append params
-        response = await self._http_client.head(url, allow_redirects=True)
-        url = response.url
+        host = "https://steamcommunity.com"
+        url = host + "/profiles/{}/stats/{}/".format(steam_id, game_id)
         params = {
             "tab": "achievements",
             "l": "english"
         }
-        response = await self._http_client.get(url, params=params)
+        # manual redirects, append params
+        while True:
+            response = await self._http_client.get(url, allow_redirects=False, params=params)
+            if 300 <= response.status and response.status < 400:
+                url = response.headers["Location"]
+                if not is_absolute(url):
+                    url = host + url
+                continue
+            break
+
         text = await response.text()
 
         def parse(text):

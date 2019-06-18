@@ -10,8 +10,8 @@ if platform.system() == "Windows":
     def registry_apps_as_dict():
         try:
             apps = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam\Apps")
-        except OSError:
-            logging.exception("Failed to read Steam registry")
+        except OSError as e:
+            logging.info("Steam Apps registry cannot be read: {}".format(str(e)))
             return {}
 
         apps_dict = dict()

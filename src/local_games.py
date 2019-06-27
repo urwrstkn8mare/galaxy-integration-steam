@@ -11,7 +11,7 @@ if platform.system() == "Windows":
         try:
             apps = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam\Apps")
         except OSError as e:
-            logging.info("Steam Apps registry cannot be read: {}".format(str(e)))
+            logging.info("Steam Apps registry cannot be read: %s", str(e))
             return {}
 
         apps_dict = dict()
@@ -20,6 +20,10 @@ if platform.system() == "Windows":
         while True:
             try:
                 sub_key_name = winreg.EnumKey(apps, sub_key_index)
+            except OSError:
+                # OSError marks end of the enumeration: https://docs.python.org/3/library/winreg.html#winreg.EnumKey
+                break
+            try:
                 sub_key_dict = dict()
                 with winreg.OpenKey(apps, sub_key_name) as sub_key:
                     value_index = 0

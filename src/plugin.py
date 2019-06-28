@@ -1,8 +1,6 @@
 import asyncio
-import binascii
 import logging
 import platform
-import pickle
 import random
 import re
 import sys
@@ -18,8 +16,6 @@ from galaxy.api.errors import (
 )
 from galaxy.api.consts import Platform, LicenseType
 from galaxy.api.jsonrpc import InvalidParams
-
-import serialization
 from backend import SteamHttpClient, AuthenticatedHttpClient
 from local_games import local_games_list, get_state_changes
 from registry_monitor import get_steam_registry_monitor
@@ -101,14 +97,6 @@ class SteamPlugin(Plugin):
     def shutdown(self):
         asyncio.create_task(self._http_client.close())
         self._regmon.close()
-
-    def handshake_complete(self):
-        achievements_cache = self.persistent_cache.get("achievements")
-        if achievements_cache is not None:
-            try:
-                self._achievements_cache = serialization.loads(achievements_cache)
-            except (pickle.UnpicklingError, binascii.Error):
-                logging.error("Can not deserialize achievements cache")
 
     async def _do_auth(self, morsels):
         cookies = [(morsel.key, morsel) for morsel in morsels]
@@ -273,12 +261,6 @@ class SteamPlugin(Plugin):
                 tasks.append(asyncio.create_task(self._import_game_achievements(game_id, timestamp)))
 
             await asyncio.gather(*tasks)
-            if tasks:
-                try:
-                    self.persistent_cache["achievements"] = serialization.dumps(self._achievements_cache)
-                    self.push_cache()
-                except (pickle.PicklingError, binascii.Error):
-                    logging.error("Can not serialize achievements cache")
         except Exception as error:
             logging.exception("Failed to retrieve game times")
             for game_id in remaining_game_ids:

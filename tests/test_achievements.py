@@ -6,9 +6,7 @@ from galaxy.api.types import Achievement
 from galaxy.api.errors import AuthenticationRequired, BackendError
 import pytest
 
-import serialization
 from backend import SteamHttpClient
-from cache import Cache
 
 async def wait_for_tasks():
     """wait until all tasks are finished"""
@@ -27,9 +25,6 @@ def import_failure(authenticated_plugin, mocker):
 def import_finished(authenticated_plugin, mocker):
     return mocker.patch.object(authenticated_plugin, "achievements_import_finished")
 
-@pytest.fixture()
-def push_cache(authenticated_plugin, mocker):
-    return mocker.patch.object(authenticated_plugin, "push_cache")
 
 @pytest.mark.asyncio
 class TestGetUnlockedAchievements:
@@ -103,20 +98,7 @@ class TestStartAchievementsImport:
         import_failure.assert_called_once_with("236850", BackendError())
         import_finished.assert_called_once_with()
 
-    async def test_push_cache(self, authenticated_plugin, backend_client, push_cache):
-        backend_client.get_games.return_value = [
-            {
-                "appid": 17923,
-                "hours_forever": "3",
-                "last_played": 1549385501
-            }
-        ]
-        backend_client.get_achievements.return_value = [(1549383000, "name")]
-        await authenticated_plugin.start_achievements_import(["17923"])
-        await wait_for_tasks()
-        push_cache.assert_called_once_with()
-
-    async def test_valid_cache(self, authenticated_plugin, backend_client, import_success, import_finished, push_cache):
+    async def test_valid_cache(self, authenticated_plugin, backend_client, import_success, import_finished):
         backend_client.get_games.return_value = [
             {
                 "appid": 17923,
@@ -131,7 +113,6 @@ class TestStartAchievementsImport:
         assert backend_client.get_achievements.call_count == 1
         assert import_success.call_count == 1
         assert import_finished.call_count == 1
-        assert push_cache.call_count == 1
 
         await authenticated_plugin.start_achievements_import(["17923"])
         await wait_for_tasks()
@@ -140,9 +121,7 @@ class TestStartAchievementsImport:
         assert import_success.call_count == 2
         assert import_finished.call_count == 2
 
-        assert push_cache.call_count == 1
-
-    async def test_invalid_cache(self, authenticated_plugin, backend_client, import_success, import_finished, push_cache):
+    async def test_invalid_cache(self, authenticated_plugin, backend_client, import_success, import_finished):
         backend_client.get_games.return_value = [
             {
                 "appid": 17923,
@@ -175,35 +154,6 @@ class TestStartAchievementsImport:
                 Achievement(1549385599, None, "namee")
             ]
         )
-
-    async def test_initialize_cache(self, create_authenticated_plugin, backend_client, steam_id, login, mocker):
-        achievements_cache = Cache()
-        achievements_cache.update("17923", [Achievement(1549383000, None, "name")], 1549385501)
-        cache = {
-            "achievements": serialization.dumps(achievements_cache)
-        }
-        plugin = await create_authenticated_plugin(steam_id, login, cache)
-        import_success = mocker.patch.object(plugin, "game_achievements_import_success")
-        import_finished = mocker.patch.object(plugin, "achievements_import_finished")
-
-        backend_client.get_games.return_value = [
-            {
-                "appid": 17923,
-                "hours_forever": "3",
-                "last_played": 1549385501
-            }
-        ]
-        await plugin.start_achievements_import(["17923"])
-        await wait_for_tasks()
-        assert backend_client.get_games.call_count == 1
-        assert backend_client.get_achievements.call_count == 0
-        import_success.assert_called_once_with(
-            "17923",
-            [
-                Achievement(1549383000, None, "name")
-            ]
-        )
-        assert import_finished.call_count == 1
 
     async def test_get_games_failure(self, authenticated_plugin, backend_client, import_failure, import_finished):
         error = BackendError()

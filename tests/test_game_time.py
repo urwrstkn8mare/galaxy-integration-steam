@@ -134,4 +134,4 @@ class TestStartGameTimesImport:
         await asyncio.sleep(0)
 
         import_failure.assert_called_once_with("281990", UnknownError())
-        import_finished.assert_called_with()
+        import_finished.assert_called_once_with()

@@ -1,6 +1,8 @@
 import asyncio
+import binascii
 import logging
 import platform
+import pickle
 import random
 import re
 import sys
@@ -12,10 +14,12 @@ from typing import Dict
 from galaxy.api.plugin import Plugin, create_and_run_plugin
 from galaxy.api.types import Achievement, Authentication, Cookie, FriendInfo, Game, GameTime, LicenseInfo, NextStep
 from galaxy.api.errors import (
-    AuthenticationRequired, UnknownBackendResponse, AccessDenied, InvalidCredentials, UnknownError
+    AuthenticationRequired, UnknownBackendResponse, AccessDenied, InvalidCredentials, UnknownError, ApplicationError
 )
 from galaxy.api.consts import Platform, LicenseType
 from galaxy.api.jsonrpc import InvalidParams
+
+import serialization
 from backend import SteamHttpClient, AuthenticatedHttpClient
 from local_games import local_games_list, get_state_changes
 from registry_monitor import get_steam_registry_monitor
@@ -82,6 +86,8 @@ class SteamPlugin(Plugin):
         credentials = {
             "cookies": morsels_to_dicts(cookies)
         }
+        # temporary fix - to not clear stored credentials
+        self.persistent_cache["credentials"] = credentials
         self.store_credentials(credentials)
 
     @staticmethod
@@ -97,6 +103,14 @@ class SteamPlugin(Plugin):
     def shutdown(self):
         asyncio.create_task(self._http_client.close())
         self._regmon.close()
+
+    def handshake_complete(self):
+        achievements_cache = self.persistent_cache.get("achievements")
+        if achievements_cache is not None:
+            try:
+                self._achievements_cache = serialization.loads(achievements_cache)
+            except (pickle.UnpicklingError, binascii.Error):
+                logging.error("Can not deserialize achievements cache")
 
     async def _do_auth(self, morsels):
         cookies = [(morsel.key, morsel) for morsel in morsels]
@@ -190,6 +204,7 @@ class SteamPlugin(Plugin):
 
     async def import_game_times(self, game_ids):
         remaining_game_ids = set(game_ids)
+        error = UnknownError()
         try:
             game_times = await self._get_game_times_dict()
             for game_id in game_ids:
@@ -200,10 +215,15 @@ class SteamPlugin(Plugin):
                 else:
                     self.game_time_import_success(game_time)
                 remaining_game_ids.remove(game_id)
-        except Exception as error:
-            logging.exception("Fail to import game times")
-            for game_id in remaining_game_ids:
-                self.game_time_import_failure(game_id, error)
+        except ApplicationError as e:
+            logging.exception("Failed to import game times")
+            error = e
+        except Exception as e:
+            logging.exception("Unexpected error when importing game time")
+            error = UnknownError(str(e))
+        finally:
+            # any other exceptions or not answered game_ids are responded with an error
+            [self.game_time_import_failure(game_id, error) for game_id in remaining_game_ids]
 
     async def _get_game_times_dict(self) -> Dict[str, GameTime]:
         games = await self._client.get_games(self._steam_id)
@@ -238,6 +258,7 @@ class SteamPlugin(Plugin):
 
     async def import_games_achievements(self, game_ids):
         remaining_game_ids = set(game_ids)
+        error = UnknownError()
         try:
             game_times = await self._get_game_times_dict()
 
@@ -247,6 +268,7 @@ class SteamPlugin(Plugin):
                 if game_time is None or game_time.time_played == 0:
                     # no game time - assume empty achievements
                     self.game_achievements_import_success(game_id, [])
+                    remaining_game_ids.remove(game_id)
                     continue
 
                 timestamp = game_time.last_played_time
@@ -255,14 +277,27 @@ class SteamPlugin(Plugin):
                 if achievements is not None:
                     # return from cache
                     self.game_achievements_import_success(game_id, achievements)
+                    remaining_game_ids.remove(game_id)
                     continue
 
                 # fetch from backend and update cache
                 tasks.append(asyncio.create_task(self._import_game_achievements(game_id, timestamp)))
+                remaining_game_ids.remove(game_id)
 
             await asyncio.gather(*tasks)
-        except Exception as error:
-            logging.exception("Failed to retrieve game times")
+            if tasks:
+                try:
+                    self.persistent_cache["achievements"] = serialization.dumps(self._achievements_cache)
+                    self.push_cache()
+                except (pickle.PicklingError, binascii.Error):
+                    logging.error("Can not serialize achievements cache")
+        except ApplicationError as _error:
+            logging.exception("Failed to import achievement")
+            error = _error
+        except Exception as _error:
+            logging.exception("Unexpected error when importing achievements")
+            error = UnknownError(str(_error))
+        finally:
             for game_id in remaining_game_ids:
                 self.game_achievements_import_failure(game_id, error)
 
@@ -272,8 +307,12 @@ class SteamPlugin(Plugin):
             achievements = await self._get_achievements(game_id)
             self.game_achievements_import_success(game_id, achievements)
             self._achievements_cache.update(game_id, achievements, timestamp)
-        except Exception as error:
+        except ApplicationError as error:
+            logging.exception("Failed to import achievement for game: {}".format(game_id))
             self.game_achievements_import_failure(game_id, error)
+        except Exception as error:
+            logging.exception("Unexpected error when importing achievements for game: {}".format(game_id))
+            self.game_achievements_import_failure(game_id, UnknownError(str(error)))
 
     async def _get_achievements(self, game_id):
         achievements = await self._client.get_achievements(self._steam_id, game_id)

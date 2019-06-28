@@ -46,21 +46,29 @@ def login():
     return "tester"
 
 @pytest.fixture()
-async  def authenticated_plugin(create_plugin, backend_client, steam_id, login):
-    plugin = create_plugin()
-    backend_client.get_profile.return_value = "http://url"
-    backend_client.get_profile_data.return_value = steam_id, login
-    credentials = {
-        "cookies": [
-            {
-                "name": "cookie",
-                "value": "value",
-                "domain": "steamcommunity.com",
-                "path": "/"
-            }
-        ]
-    }
+async def create_authenticated_plugin(create_plugin, backend_client, mocker):
+    async def function(steam_id, login, cache):
+        mocker.patch.object(SteamPlugin, "persistent_cache", new_callable=mocker.PropertyMock, return_value=cache)
+        plugin = create_plugin()
+        backend_client.get_profile.return_value = "http://url"
+        backend_client.get_profile_data.return_value = steam_id, login
+        credentials = {
+            "cookies": [
+                {
+                    "name": "cookie",
+                    "value": "value",
+                    "domain": "steamcommunity.com",
+                    "path": "/"
+                }
+            ]
+        }
+        plugin.handshake_complete()
+        await plugin.authenticate(credentials)
 
-    await plugin.authenticate(credentials)
+        return plugin
 
-    return plugin
+    return function
+
+@pytest.fixture()
+async def authenticated_plugin(create_authenticated_plugin, steam_id, login):
+    return await create_authenticated_plugin(steam_id, login, {})

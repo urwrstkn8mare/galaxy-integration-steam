@@ -52,6 +52,21 @@ class TestGetGameTimes:
                 "last_played": 1549385500
             },
             GameTime("610080", 86820, 1549385500)
+        ),
+        (
+            {
+                "appid": 7684123,
+                "hours_forever": "0"
+            },
+            GameTime("7684123", 0, None)
+        ),
+        (
+            {
+                "appid": 7684123,
+                "hours_forever": "1",
+                "last_played": 86400
+            },
+            GameTime("7684123", 60, None)
         )
     ])
     async def test_game_time(self, authenticated_plugin, backend_client, steam_id, backend_response, result):

@@ -86,8 +86,6 @@ class SteamPlugin(Plugin):
         credentials = {
             "cookies": morsels_to_dicts(cookies)
         }
-        # temporary fix - to not clear stored credentials
-        self.persistent_cache["credentials"] = credentials
         self.store_credentials(credentials)
 
     @staticmethod
@@ -233,10 +231,14 @@ class SteamPlugin(Plugin):
         try:
             for game in games:
                 game_id = str(game["appid"])
+                last_played = game.get("last_played")
+                if last_played == 86400:
+                    # 86400 is used as sentinel value for games no supporting last_played
+                    last_played = None
                 game_times[game_id] = GameTime(
                     game_id,
                     int(float(game.get("hours_forever", "0").replace(",", "")) * 60),
-                    game.get("last_played", 0)
+                    last_played
                 )
         except (KeyError, ValueError):
             logging.exception("Can not parse backend response")

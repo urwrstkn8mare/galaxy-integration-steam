@@ -208,7 +208,7 @@ class SteamPlugin(Plugin):
             for game_id in game_ids:
                 game_time = game_times.get(game_id)
                 if game_time is None:
-                    logging.error("Game time for the game %s unavailable", game_id)
+                    logging.warning("Game %s not owned")
                     self.game_time_import_failure(game_id, UnknownError())
                 else:
                     self.game_time_import_success(game_time)
@@ -267,8 +267,12 @@ class SteamPlugin(Plugin):
             tasks = []
             for game_id in game_ids:
                 game_time = game_times.get(game_id)
-                if game_time is None or game_time.time_played == 0:
-                    # no game time - assume empty achievements
+                if game_time is None:
+                    logging.warning("Game %s not owned")
+                    self.game_achievements_import_failure(game_id, UnknownError())
+                    remaining_game_ids.remove(game_id)
+                    continue
+                if game_time.time_played == 0:
                     self.game_achievements_import_success(game_id, [])
                     remaining_game_ids.remove(game_id)
                     continue

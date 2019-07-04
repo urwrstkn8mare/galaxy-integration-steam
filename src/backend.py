@@ -131,19 +131,26 @@ class SteamHttpClient:
 
     @staticmethod
     def parse_date(text_time):
-        def try_parse(date_format):
-            d = datetime.strptime(text_time, date_format)
+        def try_parse(text, date_format):
+            d = datetime.strptime(text, date_format)
             return datetime.combine(d.date(), d.time(), timezone.utc)
 
-        try:
-            return try_parse("Unlocked %d %b, %Y @ %I:%M%p")
-        except ValueError:
+        formats = (
+            "Unlocked %d %b, %Y @ %I:%M%p",
+            "Unlocked %d %b @ %I:%M%p",
+            "Unlocked %b %d, %Y @ %I:%M%p",
+            "Unlocked %b %d @ %I:%M%p"
+        )
+        for date_format in formats:
             try:
-                return try_parse("Unlocked %d %b @ %I:%M%p") \
-                    .replace(year=datetime.utcnow().year)
+                date = try_parse(text_time, date_format)
+                if date.year == 1900:
+                    date = date.replace(year=datetime.utcnow().year)
+                return date
             except ValueError:
-                logging.exception("Unexpected date format: {}. Please report to the developers".format(text_time))
-                raise UnknownBackendResponse()
+                continue
+            logging.exception("Unexpected date format: {}. Please report to the developers".format(text_time))
+            raise UnknownBackendResponse()
 
     async def get_achievements(self, steam_id, game_id):
         host = "https://steamcommunity.com"

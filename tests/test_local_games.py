@@ -214,8 +214,8 @@ def test_get_custom_library_folders(tmp_path):
     path.write_text(dedent(data))
     library_folders =  get_custom_library_folders(path)
     assert library_folders == [
-        r"D:\Steam",
-        r"E:\Games\Steam"
+        os.path.join(r"D:\Steam", "steamapps"),
+        os.path.join(r"E:\Games\Steam", "steamapps")
     ]
 
 

@@ -99,6 +99,7 @@ def get_app_states_from_registry(app_dict):
 
 def local_games_list():
     library_folders = get_library_folders()
+    logging.debug("Checking library folders: %s", str(library_folders))
     apps_ids = get_installed_games(library_folders)
     app_states = get_app_states_from_registry(registry_apps_as_dict())
     local_games = []
@@ -154,7 +155,7 @@ def get_configuration_folder():
 def get_custom_library_folders(config_path: str) -> List[str]:
     """Parses library folders config file and returns a list of folders paths"""
     try:
-        config = vdf.load(open(config_path), mapper=CaseInsensitiveDict)
+        config = vdf.load(open(config_path, encoding="utf-8"), mapper=CaseInsensitiveDict)
         result = []
         for i in itertools.count(1):
             library_folders = config["LibraryFolders"]
@@ -162,7 +163,7 @@ def get_custom_library_folders(config_path: str) -> List[str]:
             library_folder = library_folders.get(key)
             if library_folder is None:
                 break
-            result.append(library_folder)
+            result.append(os.path.join(library_folder, "steamapps"))
 
         return result
     except (FileNotFoundError, SyntaxError, KeyError):

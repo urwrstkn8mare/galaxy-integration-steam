@@ -6,9 +6,8 @@ from galaxy.api.types import Achievement
 from galaxy.api.errors import AuthenticationRequired, BackendError, UnknownError
 import pytest
 
-import serialization
 from backend import SteamHttpClient
-from cache import Cache
+
 
 async def wait_for_tasks():
     """wait until all tasks are finished"""
@@ -122,22 +121,27 @@ class TestStartAchievementsImport:
                 "appid": 17923,
                 "hours_forever": "3",
                 "last_played": 1549385501
-            }
+            },
+            {
+                "appid": 138921,
+                "hours_forever": "2",
+                "last_played": None
+            },
         ]
         backend_client.get_achievements.return_value = [(1549383000, "name")]
-        await authenticated_plugin.start_achievements_import(["17923"])
+        await authenticated_plugin.start_achievements_import(["17923", "138921"])
         await wait_for_tasks()
         assert backend_client.get_games.call_count == 1
-        assert backend_client.get_achievements.call_count == 1
-        assert import_success.call_count == 1
+        assert backend_client.get_achievements.call_count == 2
+        assert import_success.call_count == 2
         assert import_finished.call_count == 1
         assert push_cache.call_count == 1
 
-        await authenticated_plugin.start_achievements_import(["17923"])
+        await authenticated_plugin.start_achievements_import(["17923", "138921"])
         await wait_for_tasks()
         assert backend_client.get_games.call_count == 2
-        assert backend_client.get_achievements.call_count == 1 # no new calls to backend
-        assert import_success.call_count == 2
+        assert backend_client.get_achievements.call_count == 2 # no new calls to backend
+        assert import_success.call_count == 4
         assert import_finished.call_count == 2
 
         assert push_cache.call_count == 1
@@ -177,10 +181,22 @@ class TestStartAchievementsImport:
         )
 
     async def test_initialize_cache(self, create_authenticated_plugin, backend_client, steam_id, login, mocker):
-        achievements_cache = Cache()
-        achievements_cache.update("17923", [Achievement(1549383000, None, "name")], 1549385501)
         cache = {
-            "achievements": serialization.dumps(achievements_cache)
+            "achievements": """{
+                "17923": {
+                    "achievements": [
+                        {
+                            "unlock_time": 1549383000,
+                            "achievement_id": null,
+                            "achievement_name": "name"
+                        }
+                    ],
+                    "fingerprint": {
+                        "time_played": 1549385501,
+                        "last_played_time": 180
+                    }
+                }
+            }"""
         }
         plugin = await create_authenticated_plugin(steam_id, login, cache)
         import_success = mocker.patch.object(plugin, "game_achievements_import_success")

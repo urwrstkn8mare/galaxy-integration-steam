@@ -4,29 +4,28 @@ from typing import Any
 @dataclass
 class CacheEntry:
     value: Any
-    timestamp: int
+    fingerprint: Any
 
 class Cache:
     def __init__(self):
         self._entries = {}
 
-    def get(self, key, timestamp):
+    def get(self, key, fingerprint):
         entry = self._entries.get(key)
         if entry is None:
             return None
-        if entry.timestamp < timestamp:
+        if entry.fingerprint != fingerprint:
             return None
         return entry.value
 
-    def update(self, key, value, timestamp):
+    def update(self, key, value, fingerprint):
         entry = self._entries.get(key)
         if entry is None:
-            self._entries[key] = CacheEntry(value, timestamp)
+            self._entries[key] = CacheEntry(value, fingerprint)
         else:
-            if entry.timestamp < timestamp:
-                entry.value = value
-                entry.timestamp = timestamp
+            entry.value = value
+            entry.identifier = fingerprint
 
     def __iter__(self):
         for key, entry in self._entries.items():
-            yield key, entry.value
+            yield key, entry.value, entry.fingerprint

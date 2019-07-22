@@ -1,8 +1,7 @@
 import asyncio
-import binascii
+import json
 import logging
 import platform
-import pickle
 import random
 import re
 import sys
@@ -19,7 +18,7 @@ from galaxy.api.errors import (
 from galaxy.api.consts import Platform, LicenseType
 from galaxy.api.jsonrpc import InvalidParams
 
-import serialization
+import achievements_cache
 from backend import SteamHttpClient, AuthenticatedHttpClient
 from local_games import local_games_list, get_state_changes
 from registry_monitor import get_steam_registry_monitor
@@ -103,12 +102,13 @@ class SteamPlugin(Plugin):
         self._regmon.close()
 
     def handshake_complete(self):
-        achievements_cache = self.persistent_cache.get("achievements")
-        if achievements_cache is not None:
+        achievements_cache_ = self.persistent_cache.get("achievements")
+        if achievements_cache_ is not None:
             try:
-                self._achievements_cache = serialization.loads(achievements_cache)
-            except (pickle.UnpicklingError, binascii.Error):
-                logging.error("Can not deserialize achievements cache")
+                achievements_cache_ = json.loads(achievements_cache_)
+                self._achievements_cache = achievements_cache.from_dict(achievements_cache_)
+            except Exception:
+                logging.exception("Can not deserialize achievements cache")
 
     async def _do_auth(self, morsels):
         cookies = [(morsel.key, morsel) for morsel in morsels]
@@ -277,8 +277,8 @@ class SteamPlugin(Plugin):
                     remaining_game_ids.remove(game_id)
                     continue
 
-                timestamp = game_time.last_played_time
-                achievements = self._achievements_cache.get(game_id, timestamp)
+                fingerprint = achievements_cache.Fingerprint(game_time.last_played_time, game_time.time_played)
+                achievements = self._achievements_cache.get(game_id, fingerprint)
 
                 if achievements is not None:
                     # return from cache
@@ -287,16 +287,16 @@ class SteamPlugin(Plugin):
                     continue
 
                 # fetch from backend and update cache
-                tasks.append(asyncio.create_task(self._import_game_achievements(game_id, timestamp)))
+                tasks.append(asyncio.create_task(self._import_game_achievements(game_id, fingerprint)))
                 remaining_game_ids.remove(game_id)
 
             await asyncio.gather(*tasks)
             if tasks:
                 try:
-                    self.persistent_cache["achievements"] = serialization.dumps(self._achievements_cache)
+                    self.persistent_cache["achievements"] = achievements_cache.as_dict(self._achievements_cache)
                     self.push_cache()
-                except (pickle.PicklingError, binascii.Error):
-                    logging.error("Can not serialize achievements cache")
+                except Exception:
+                    logging.exception("Can not serialize achievements cache")
         except ApplicationError as _error:
             logging.exception("Failed to import achievement")
             error = _error
@@ -307,12 +307,12 @@ class SteamPlugin(Plugin):
             for game_id in remaining_game_ids:
                 self.game_achievements_import_failure(game_id, error)
 
-    async def _import_game_achievements(self, game_id, timestamp):
+    async def _import_game_achievements(self, game_id, fingerprint):
         """For fetching single game achievements"""
         try:
             achievements = await self._get_achievements(game_id)
             self.game_achievements_import_success(game_id, achievements)
-            self._achievements_cache.update(game_id, achievements, timestamp)
+            self._achievements_cache.update(game_id, achievements, fingerprint)
         except ApplicationError as error:
             logging.exception("Failed to import achievement for game: {}".format(game_id))
             self.game_achievements_import_failure(game_id, error)

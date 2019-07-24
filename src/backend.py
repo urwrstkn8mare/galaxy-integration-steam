@@ -5,13 +5,19 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 import aiohttp
-from yarl import URL
-from requests_html import HTML
-from galaxy.api.errors import AuthenticationRequired, UnknownBackendResponse, AccessDenied
+from galaxy.api.errors import AccessDenied, AuthenticationRequired, UnknownBackendResponse
 from galaxy.http import HttpClient
+from requests_html import HTML
+from yarl import URL
+
 
 def is_absolute(url):
     return bool(urlparse(url).netloc)
+
+
+async def get_text(response: aiohttp.ClientResponse) -> str:
+    return await response.text(encoding="utf-8", errors="replace")
+
 
 class CookieJar(aiohttp.CookieJar):
     def __init__(self):
@@ -25,6 +31,7 @@ class CookieJar(aiohttp.CookieJar):
         super().update_cookies(cookies, url)
         if cookies and self._cookies_updated_callback:
             self._cookies_updated_callback(list(self))
+
 
 class AuthenticatedHttpClient(HttpClient):
     def __init__(self):
@@ -47,7 +54,7 @@ class AuthenticatedHttpClient(HttpClient):
         except AuthenticationRequired:
             self._auth_lost()
 
-        html = await response.text(encoding="utf-8", errors="replace")
+        html = await get_text(response)
         # "Login" button in menu
         if html.find('class="menuitem" href="https://store.steampowered.com/login/') != -1:
             self._auth_lost()
@@ -66,8 +73,7 @@ class SteamHttpClient:
 
     async def get_profile(self):
         url = "https://steamcommunity.com/"
-        response = await self._http_client.get(url, allow_redirects=True)
-        text = await response.text()
+        text = await get_text(await self._http_client.get(url, allow_redirects=True))
 
         def parse(text):
             html = HTML(html=text)
@@ -83,8 +89,7 @@ class SteamHttpClient:
         return await loop.run_in_executor(None, parse, text)
 
     async def get_profile_data(self, url):
-        response = await self._http_client.get(url, allow_redirects=True)
-        text = await response.text()
+        text = await get_text(await self._http_client.get(url, allow_redirects=True))
 
         def parse(text):
             html = HTML(html=text)
@@ -110,10 +115,9 @@ class SteamHttpClient:
 
     async def get_games(self, steam_id):
         url = "https://steamcommunity.com/profiles/{}/games/?tab=all".format(steam_id)
-        response = await self._http_client.get(url)
 
         # find js array with games
-        text = await response.text()
+        text = await get_text(await self._http_client.get(url))
         variable = "var rgGames ="
         start = text.find(variable)
         if start == -1:
@@ -149,8 +153,9 @@ class SteamHttpClient:
                 return date
             except ValueError:
                 continue
-            logging.exception("Unexpected date format: {}. Please report to the developers".format(text_time))
-            raise UnknownBackendResponse()
+
+        logging.exception("Unexpected date format: {}. Please report to the developers".format(text_time))
+        raise UnknownBackendResponse()
 
     async def get_achievements(self, steam_id, game_id):
         host = "https://steamcommunity.com"
@@ -169,7 +174,7 @@ class SteamHttpClient:
                 continue
             break
 
-        text = await response.text()
+        text = await get_text(response)
 
         def parse(text):
             html = HTML(html=text)
@@ -193,11 +198,6 @@ class SteamHttpClient:
         return await loop.run_in_executor(None, parse, text)
 
     async def get_friends(self, steam_id):
-        response = await self._http_client.get(
-            "https://steamcommunity.com/profiles/{}/friends/".format(steam_id),
-            params={"l": "english", "ajax": 1}
-        )
-
         def parse_response(text):
             def parse_id(profile):
                 return profile.attrs["data-steamid"]
@@ -216,4 +216,13 @@ class SteamHttpClient:
                 raise UnknownBackendResponse()
 
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, parse_response, await response.text(encoding="utf-8", errors="replace"))
+        return await loop.run_in_executor(
+            None,
+            parse_response,
+            await get_text(
+                await self._http_client.get(
+                    "https://steamcommunity.com/profiles/{}/friends/".format(steam_id),
+                    params={"l": "english", "ajax": 1}
+                )
+            )
+        )

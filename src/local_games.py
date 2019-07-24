@@ -17,9 +17,14 @@ class CaseInsensitiveDict(dict):
         return super().__getitem__(key.lower())
 
 
+def load_vdf(path: str):
+    return vdf.load(open(path, encoding="utf-8"), mapper=CaseInsensitiveDict)
+
+
 # Windows registry implementation
 if platform.system() == "Windows":
     import winreg
+
 
     def registry_apps_as_dict():
         try:
@@ -63,10 +68,7 @@ if platform.system() == "Windows":
 elif platform.system().lower() == "darwin":
     def registry_apps_as_dict():
         try:
-            registry = vdf.load(
-                open(os.path.expanduser("~/Library/Application Support/Steam/registry.vdf")),
-                mapper=CaseInsensitiveDict
-            )
+            registry = load_vdf(os.path.expanduser("~/Library/Application Support/Steam/registry.vdf"))
         except OSError:
             logging.exception("Failed to read Steam registry")
             return {}
@@ -98,18 +100,22 @@ def get_app_states_from_registry(app_dict):
 
 
 def local_games_list():
-    library_folders = get_library_folders()
-    logging.debug("Checking library folders: %s", str(library_folders))
-    apps_ids = get_installed_games(library_folders)
-    app_states = get_app_states_from_registry(registry_apps_as_dict())
     local_games = []
-    for app_id in apps_ids:
-        app_state = app_states.get(app_id)
-        if app_state is None:
-            continue
-        local_game = LocalGame(app_id, app_state)
-        local_games.append(local_game)
-    return local_games
+    try:
+        library_folders = get_library_folders()
+        logging.debug("Checking library folders: %s", str(library_folders))
+        apps_ids = get_installed_games(library_folders)
+        app_states = get_app_states_from_registry(registry_apps_as_dict())
+        for app_id in apps_ids:
+            app_state = app_states.get(app_id)
+            if app_state is None:
+                continue
+            local_game = LocalGame(app_id, app_state)
+            local_games.append(local_game)
+    except:
+        logging.exception("Failed to get local games list")
+    finally:
+        return local_games
 
 
 def get_state_changes(old_list, new_list):
@@ -121,7 +127,8 @@ def get_state_changes(old_list, new_list):
     # added games
     result.extend(local_game for local_game in new_list if local_game.game_id in new_dict.keys() - old_dict.keys())
     # state changed
-    result.extend(LocalGame(id, new_dict[id]) for id in new_dict.keys() & old_dict.keys() if new_dict[id] != old_dict[id])
+    result.extend(
+        LocalGame(id, new_dict[id]) for id in new_dict.keys() & old_dict.keys() if new_dict[id] != old_dict[id])
     return result
 
 
@@ -134,7 +141,7 @@ def get_library_folders() -> Iterable[str]:
     library_folders = get_custom_library_folders(library_folders_config)
     if library_folders is None:
         return []
-    library_folders.insert(0, steam_apps_folder) # default location
+    library_folders.insert(0, steam_apps_folder)  # default location
     return library_folders
 
 
@@ -155,7 +162,7 @@ def get_configuration_folder():
 def get_custom_library_folders(config_path: str) -> List[str]:
     """Parses library folders config file and returns a list of folders paths"""
     try:
-        config = vdf.load(open(config_path, encoding="utf-8"), mapper=CaseInsensitiveDict)
+        config = load_vdf(config_path)
         result = []
         for i in itertools.count(1):
             library_folders = config["LibraryFolders"]
@@ -186,7 +193,7 @@ def get_installed_games(library_paths: Iterable[str]) -> Iterable[str]:
 
 def get_app_id(app_manifest_path: str) -> str:
     try:
-        config = vdf.load(open(app_manifest_path), mapper=CaseInsensitiveDict)
+        config = load_vdf(app_manifest_path)
         return config["AppState"]["appid"]
     except (FileNotFoundError, SyntaxError, KeyError):
         logging.exception("Failed to parse %s", app_manifest_path)

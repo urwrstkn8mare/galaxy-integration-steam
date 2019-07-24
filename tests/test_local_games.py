@@ -101,6 +101,9 @@ def test_values_as_string():
 
 def test_get_app_id_success(tmp_path):
     data = """\
+        "漢字не_аски"
+        {
+        }
         "AppState"
         {
             "appid"		"92700"
@@ -170,7 +173,7 @@ def test_get_app_id_success(tmp_path):
         }
     """
     path = tmp_path / "appmanifest_92700.acf"
-    path.write_text(dedent(data))
+    path.write_text(dedent(data), encoding="utf-8")
     assert get_app_id(path) == "92700"
 
 

@@ -18,7 +18,7 @@ class CaseInsensitiveDict(dict):
 
 
 def load_vdf(path: str):
-    return vdf.load(open(path, encoding="utf-8"), mapper=CaseInsensitiveDict)
+    return vdf.load(open(path, encoding="utf-8", errors="replace"), mapper=CaseInsensitiveDict)
 
 
 # Windows registry implementation

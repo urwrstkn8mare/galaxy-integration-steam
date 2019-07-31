@@ -93,11 +93,14 @@ class SteamHttpClient:
 
         def parse(text):
             html = HTML(html=text)
-            # find login
-            pulldown = html.find("#account_pulldown", first=True)
-            if not pulldown:
+            # find persona_name
+            div = html.find("div.profile_header_centered_persona", first=True)
+            if not div:
                 raise UnknownBackendResponse()
-            login = pulldown.text
+            span = div.find("span.actual_persona_name", first=True)
+            if not span:
+                raise UnknownBackendResponse()
+            persona_name = span.text
 
             # find steam id
             variable = 'g_steamID = "'
@@ -108,7 +111,7 @@ class SteamHttpClient:
             end = text.find('";', start)
             steam_id = text[start:end]
 
-            return steam_id, login
+            return steam_id, persona_name
 
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, parse, text)

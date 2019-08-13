@@ -8,12 +8,12 @@ import sys
 import webbrowser
 from functools import partial
 from http.cookies import SimpleCookie, Morsel
-from typing import Dict
+from typing import Any, Dict, List
 
 from galaxy.api.plugin import Plugin, create_and_run_plugin
 from galaxy.api.types import Achievement, Authentication, Cookie, FriendInfo, Game, GameTime, LicenseInfo, NextStep
 from galaxy.api.errors import (
-    AuthenticationRequired, UnknownBackendResponse, AccessDenied, InvalidCredentials, UnknownError, ApplicationError
+    AuthenticationRequired, UnknownBackendResponse, AccessDenied, InvalidCredentials, UnknownError
 )
 from galaxy.api.consts import Platform, LicenseType
 from galaxy.api.jsonrpc import InvalidParams
@@ -80,6 +80,8 @@ class SteamPlugin(Plugin):
         self._http_client = AuthenticatedHttpClient()
         self._client = SteamHttpClient(self._http_client)
         self._achievements_cache = Cache()
+        self._achievements_cache_updated = False
+        self._achievements_semaphore = asyncio.Semaphore(20)
 
     def _store_cookies(self, cookies):
         credentials = {
@@ -187,41 +189,17 @@ class SteamPlugin(Plugin):
 
         return owned_games
 
-    async def get_game_times(self):
-        """"Left for automatic feature detection"""
-        if self._steam_id is None:
-            raise AuthenticationRequired()
-        game_times = await self._get_game_times_dict()
-        return list(game_times.values())
-
-    async def start_game_times_import(self, game_ids):
+    async def prepare_game_times_context(self, game_ids: List[str]) -> Any:
         if self._steam_id is None:
             raise AuthenticationRequired()
 
-        await super().start_game_times_import(game_ids)
+        return await self._get_game_times_dict()
 
-    async def import_game_times(self, game_ids):
-        remaining_game_ids = set(game_ids)
-        error = UnknownError()
-        try:
-            game_times = await self._get_game_times_dict()
-            for game_id in game_ids:
-                game_time = game_times.get(game_id)
-                if game_time is None:
-                    logging.warning("Game %s not owned")
-                    self.game_time_import_failure(game_id, UnknownError())
-                else:
-                    self.game_time_import_success(game_time)
-                remaining_game_ids.remove(game_id)
-        except ApplicationError as e:
-            logging.exception("Failed to import game times")
-            error = e
-        except Exception as e:
-            logging.exception("Unexpected error when importing game time")
-            error = UnknownError(str(e))
-        finally:
-            # any other exceptions or not answered game_ids are responded with an error
-            [self.game_time_import_failure(game_id, error) for game_id in remaining_game_ids]
+    async def get_game_time(self, game_id: str, context: Any) -> GameTime:
+        game_time = context.get(game_id)
+        if game_time is None:
+            raise UnknownError("Game {} not owned".format(game_id))
+        return game_time
 
     async def _get_game_times_dict(self) -> Dict[str, GameTime]:
         games = await self._client.get_games(self._steam_id)
@@ -246,83 +224,39 @@ class SteamPlugin(Plugin):
 
         return game_times
 
-    async def get_unlocked_achievements(self, game_id):
+    async def prepare_achievements_context(self, game_ids: List[str]) -> Any:
         if self._steam_id is None:
             raise AuthenticationRequired()
 
-        return await self._get_achievements(game_id)
+        return await self._get_game_times_dict()
 
-    async def start_achievements_import(self, game_ids):
-        if self._steam_id is None:
-            raise AuthenticationRequired()
+    async def get_unlocked_achievements(self, game_id: str, context: Any) -> List[Achievement]:
+        game_time = await self.get_game_time(game_id, context)
+        if game_time.time_played == 0:
+            return []
 
-        await super().start_achievements_import(game_ids)
+        fingerprint = achievements_cache.Fingerprint(game_time.last_played_time, game_time.time_played)
+        achievements = self._achievements_cache.get(game_id, fingerprint)
 
-    async def import_games_achievements(self, game_ids):
-        remaining_game_ids = set(game_ids)
-        error = UnknownError()
-        try:
-            game_times = await self._get_game_times_dict()
+        if achievements is not None:
+            # return from cache
+            return achievements
 
-            tasks = []
-            for game_id in game_ids:
-                game_time = game_times.get(game_id)
-                if game_time is None:
-                    logging.warning("Game %s not owned")
-                    self.game_achievements_import_failure(game_id, UnknownError())
-                    remaining_game_ids.remove(game_id)
-                    continue
-                if game_time.time_played == 0:
-                    self.game_achievements_import_success(game_id, [])
-                    remaining_game_ids.remove(game_id)
-                    continue
+        # fetch from backend and update cache
+        achievements = await self._get_achievements(game_id)
+        self._achievements_cache.update(game_id, achievements, fingerprint)
+        self._achievements_cache_updated = True
+        return achievements
 
-                fingerprint = achievements_cache.Fingerprint(game_time.last_played_time, game_time.time_played)
-                achievements = self._achievements_cache.get(game_id, fingerprint)
-
-                if achievements is not None:
-                    # return from cache
-                    self.game_achievements_import_success(game_id, achievements)
-                    remaining_game_ids.remove(game_id)
-                    continue
-
-                # fetch from backend and update cache
-                tasks.append(asyncio.create_task(self._import_game_achievements(game_id, fingerprint)))
-                remaining_game_ids.remove(game_id)
-
-            await asyncio.gather(*tasks)
-            if tasks:
-                try:
-                    self.persistent_cache["achievements"] = achievements_cache.as_dict(self._achievements_cache)
-                    self.push_cache()
-                except Exception:
-                    logging.exception("Can not serialize achievements cache")
-        except ApplicationError as _error:
-            logging.exception("Failed to import achievement")
-            error = _error
-        except Exception as _error:
-            logging.exception("Unexpected error when importing achievements")
-            error = UnknownError(str(_error))
-        finally:
-            for game_id in remaining_game_ids:
-                self.game_achievements_import_failure(game_id, error)
-
-    async def _import_game_achievements(self, game_id, fingerprint):
-        """For fetching single game achievements"""
-        try:
-            achievements = await self._get_achievements(game_id)
-            self.game_achievements_import_success(game_id, achievements)
-            self._achievements_cache.update(game_id, achievements, fingerprint)
-        except ApplicationError as error:
-            logging.exception("Failed to import achievement for game: {}".format(game_id))
-            self.game_achievements_import_failure(game_id, error)
-        except Exception as error:
-            logging.exception("Unexpected error when importing achievements for game: {}".format(game_id))
-            self.game_achievements_import_failure(game_id, UnknownError(str(error)))
+    def achievements_import_complete(self) -> None:
+        if self._achievements_cache_updated:
+            self.push_cache()
+            self._achievements_cache_updated = False
 
     async def _get_achievements(self, game_id):
-        achievements = await self._client.get_achievements(self._steam_id, game_id)
-        return [Achievement(unlock_time, None, name) for unlock_time, name in achievements]
+        async with self._achievements_semaphore:
+            achievements = await self._client.get_achievements(self._steam_id, game_id)
+            return [Achievement(unlock_time, None, name) for unlock_time, name in achievements]
 
     async def get_friends(self):
         if self._steam_id is None:

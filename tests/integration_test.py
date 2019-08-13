@@ -41,25 +41,25 @@ def test_integration():
     plugin_socket.settimeout(TIMEOUT)
     plugin_socket.sendall((json.dumps(request)+"\n").encode("utf-8"))
     response = json.loads(plugin_socket.recv(4096))
-    print(response)
+    features = response["result"].pop("features")
     assert response == {
         "id": "3",
         "jsonrpc": "2.0",
         "result": {
             "platform_name": "steam",
-            "features": [
-                "ImportOwnedGames",
-                "ImportAchievements",
-                "ImportInstalledGames",
-                "LaunchGame",
-                "InstallGame",
-                "UninstallGame",
-                "ImportFriends",
-                "ImportGameTime"
-            ],
             "token": token
         }
-    }, "Response differs from expected"
+    }
+    assert set(features) == {
+        "ImportOwnedGames",
+        "ImportAchievements",
+        "ImportInstalledGames",
+        "LaunchGame",
+        "InstallGame",
+        "UninstallGame",
+        "ImportFriends",
+        "ImportGameTime"
+    }
 
     plugin_socket.close()
     result.wait(TIMEOUT)

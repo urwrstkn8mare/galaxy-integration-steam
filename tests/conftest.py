@@ -1,10 +1,9 @@
 from unittest.mock import MagicMock
 
 import pytest
+from galaxy.unittest.mock import AsyncMock
 
 from plugin import SteamPlugin
-
-from tests.async_mock import AsyncMock
 
 @pytest.fixture
 def backend_client():
@@ -24,6 +23,7 @@ async def create_plugin(backend_client, mocker):
     created_plugins = []
     def function():
         mocker.patch("plugin.SteamHttpClient", return_value=backend_client)
+        mocker.patch("plugin.local_games_list", return_value=[])
         plugin = SteamPlugin(MagicMock(), MagicMock(), None)
         created_plugins.append(plugin)
         return plugin

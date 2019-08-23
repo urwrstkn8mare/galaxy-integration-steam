@@ -6,12 +6,13 @@ import random
 import re
 import sys
 import webbrowser
-from functools import partial
 from http.cookies import SimpleCookie, Morsel
 from typing import Any, Dict, List
 
 from galaxy.api.plugin import Plugin, create_and_run_plugin
-from galaxy.api.types import Achievement, Authentication, Cookie, FriendInfo, Game, GameTime, LicenseInfo, NextStep
+from galaxy.api.types import (
+    Achievement, Authentication, Cookie, FriendInfo, Game, GameTime, LicenseInfo, NextStep, LocalGame
+)
 from galaxy.api.errors import (
     AuthenticationRequired, UnknownBackendResponse, AccessDenied, InvalidCredentials, UnknownError
 )
@@ -76,12 +77,14 @@ class SteamPlugin(Plugin):
         super().__init__(Platform.Steam, __version__, reader, writer, token)
         self._steam_id = None
         self._regmon = get_steam_registry_monitor()
-        self._local_games_cache = local_games_list()
+        self._local_games_cache: List[LocalGame] = []
         self._http_client = AuthenticatedHttpClient()
         self._client = SteamHttpClient(self._http_client)
         self._achievements_cache = Cache()
         self._achievements_cache_updated = False
         self._achievements_semaphore = asyncio.Semaphore(20)
+
+        self.create_task(self._update_local_games(), "Update local games")
 
     def _store_cookies(self, cookies):
         credentials = {
@@ -268,32 +271,26 @@ class SteamPlugin(Plugin):
         ]
 
     def tick(self):
-
-        async def _update_local_games():
-            loop = asyncio.get_running_loop()
-            new_list = await loop.run_in_executor(None, local_games_list)
-            notify_list = get_state_changes(self._local_games_cache, new_list)
-            self._local_games_cache = new_list
-            for local_game_notify in notify_list:
-                self.update_local_game_status(local_game_notify)
-
         if self._regmon.check_if_updated():
-            asyncio.create_task(_update_local_games())
+            self.create_task(self._update_local_games(), "Update local games")
+
+    async def _update_local_games(self):
+        loop = asyncio.get_running_loop()
+        new_list = await loop.run_in_executor(None, local_games_list)
+        notify_list = get_state_changes(self._local_games_cache, new_list)
+        self._local_games_cache = new_list
+        for local_game_notify in notify_list:
+            self.update_local_game_status(local_game_notify)
 
     async def get_local_games(self):
         return self._local_games_cache
 
     @staticmethod
-    async def _open_uri(uri):
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, partial(webbrowser.open, uri))
-
-    @staticmethod
     async def _steam_command(command, game_id):
         if is_uri_handler_installed("steam"):
-            await SteamPlugin._open_uri("steam://{}/{}".format(command, game_id))
+            await webbrowser.open("steam://{}/{}".format(command, game_id))
         else:
-            await SteamPlugin._open_uri("https://store.steampowered.com/about/")
+            await webbrowser.open("https://store.steampowered.com/about/")
 
     async def launch_game(self, game_id):
         await SteamPlugin._steam_command("launch", game_id)

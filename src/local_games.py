@@ -3,7 +3,7 @@ import itertools
 import logging
 import os
 import platform
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 
 import vdf
 from galaxy.api.types import LocalGame, LocalGameState
@@ -159,7 +159,7 @@ def get_configuration_folder():
         raise RuntimeError("Not supported OS")
 
 
-def get_custom_library_folders(config_path: str) -> List[str]:
+def get_custom_library_folders(config_path: str) -> Optional[List[str]]:
     """Parses library folders config file and returns a list of folders paths"""
     try:
         config = load_vdf(config_path)
@@ -173,7 +173,7 @@ def get_custom_library_folders(config_path: str) -> List[str]:
             result.append(os.path.join(library_folder, "steamapps"))
 
         return result
-    except (FileNotFoundError, SyntaxError, KeyError):
+    except (OSError, SyntaxError, KeyError):
         logging.exception("Failed to parse %s", config_path)
         return None
 
@@ -191,10 +191,10 @@ def get_installed_games(library_paths: Iterable[str]) -> Iterable[str]:
             yield app_id
 
 
-def get_app_id(app_manifest_path: str) -> str:
+def get_app_id(app_manifest_path: str) -> Optional[str]:
     try:
         config = load_vdf(app_manifest_path)
         return config["AppState"]["appid"]
-    except (FileNotFoundError, SyntaxError, KeyError):
+    except (OSError, SyntaxError, KeyError):
         logging.exception("Failed to parse %s", app_manifest_path)
         return None

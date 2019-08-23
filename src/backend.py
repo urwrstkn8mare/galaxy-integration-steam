@@ -79,10 +79,12 @@ class SteamHttpClient:
             html = HTML(html=text)
             profile_url = html.find("a.user_avatar", first=True)
             if not profile_url:
+                logging.error("Can not parse backend response - no a.user_avatar")
                 raise UnknownBackendResponse()
             try:
                 return profile_url.attrs["href"]
             except KeyError:
+                logging.exception("Can not parse backend response")
                 return UnknownBackendResponse()
 
         loop = asyncio.get_running_loop()
@@ -96,9 +98,11 @@ class SteamHttpClient:
             # find persona_name
             div = html.find("div.profile_header_centered_persona", first=True)
             if not div:
+                logging.error("Can not parse backend response - no div.profile_header_centered_persona")
                 raise UnknownBackendResponse()
             span = div.find("span.actual_persona_name", first=True)
             if not span:
+                logging.error("Can not parse backend response - no span.actual_persona_name")
                 raise UnknownBackendResponse()
             persona_name = span.text
 
@@ -106,6 +110,7 @@ class SteamHttpClient:
             variable = 'g_steamID = "'
             start = text.find(variable)
             if start == -1:
+                logging.error("Can not parse backend response - no g_steamID variable")
                 raise UnknownBackendResponse()
             start += len(variable)
             end = text.find('";', start)
@@ -132,6 +137,7 @@ class SteamHttpClient:
         try:
             games = json.loads(array)
         except json.JSONDecodeError:
+            logging.exception("Can not parse backend response")
             raise UnknownBackendResponse()
 
         return games
@@ -157,7 +163,7 @@ class SteamHttpClient:
             except ValueError:
                 continue
 
-        logging.exception("Unexpected date format: {}. Please report to the developers".format(text_time))
+        logging.error("Unexpected date format: {}. Please report to the developers".format(text_time))
         raise UnknownBackendResponse()
 
     async def get_achievements(self, steam_id, game_id):

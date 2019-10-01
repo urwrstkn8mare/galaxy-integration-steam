@@ -57,6 +57,7 @@ def test_integration():
         "LaunchGame",
         "InstallGame",
         "UninstallGame",
+        "ShutdownPlatformClient",
         "ImportFriends",
         "ImportGameTime"
     }

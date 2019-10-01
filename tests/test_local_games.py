@@ -5,25 +5,25 @@ from textwrap import dedent
 import pytest
 from galaxy.api.types import LocalGame, LocalGameState
 
-from local_games import (
+from client import (
     get_app_id, get_app_states_from_registry, get_custom_library_folders, get_library_folders, local_games_list
  )
 
 
 @pytest.fixture()
 def mock_get_library_folders(mocker):
-    return mocker.patch("local_games.get_library_folders")
+    return mocker.patch("client.get_library_folders")
 
 
 @pytest.fixture()
 def mock_get_installed_games(mocker):
-    return mocker.patch("local_games.get_installed_games")
+    return mocker.patch("client.get_installed_games")
 
 
 @pytest.fixture()
 def mock_get_app_states_from_registry(mocker):
-    mocker.patch("local_games.registry_apps_as_dict")
-    return mocker.patch("local_games.get_app_states_from_registry")
+    mocker.patch("client.registry_apps_as_dict")
+    return mocker.patch("client.get_app_states_from_registry")
 
 
 def test_dict_to_list_empty():
@@ -268,7 +268,7 @@ def test_get_custom_library_folders_no_file(tmp_path):
 
 @pytest.mark.skipif(platform.system() != "Windows", reason="Based on Windows registry")
 def test_get_library_folders_no_steam(mocker):
-    get_configuration_folder = mocker.patch("local_games.get_configuration_folder")
+    get_configuration_folder = mocker.patch("client.get_configuration_folder")
     get_configuration_folder.return_value = None
     assert get_library_folders() == []
     get_configuration_folder.assert_called_once_with()
@@ -276,16 +276,16 @@ def test_get_library_folders_no_steam(mocker):
 
 def test_get_library_folders_parsing_error(mocker):
     path = "path"
-    get_configuration_folder = mocker.patch("local_games.get_configuration_folder")
+    get_configuration_folder = mocker.patch("client.get_configuration_folder")
     get_configuration_folder.return_value = path
-    get_custom_library_folders = mocker.patch("local_games.get_custom_library_folders")
+    get_custom_library_folders = mocker.patch("client.get_custom_library_folders")
     get_custom_library_folders.return_value = None
     assert get_library_folders() == []
     get_custom_library_folders.assert_called_once_with(os.path.join(path, "steamapps", "libraryfolders.vdf"))
 
 
 def test_local_games_list_no_steam(mocker):
-    get_library_folders = mocker.patch("local_games.get_library_folders")
+    get_library_folders = mocker.patch("client.get_library_folders")
     get_library_folders.return_value = []
     assert local_games_list() == []
     get_library_folders.assert_called_once_with()

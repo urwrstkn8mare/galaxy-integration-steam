@@ -4,6 +4,7 @@ import logging
 import platform
 import random
 import re
+import subprocess
 import sys
 import webbrowser
 from http.cookies import SimpleCookie, Morsel
@@ -21,7 +22,7 @@ from galaxy.api.jsonrpc import InvalidParams
 
 import achievements_cache
 from backend import SteamHttpClient, AuthenticatedHttpClient
-from local_games import local_games_list, get_state_changes
+from client import local_games_list, get_state_changes, get_client_executable
 from registry_monitor import get_steam_registry_monitor
 from uri_scheme_handler import is_uri_handler_installed
 from version import __version__
@@ -102,9 +103,9 @@ class SteamPlugin(Plugin):
             value=hex(random.getrandbits(20 * 8))[2:].upper()
         )
 
-    def shutdown(self):
-        asyncio.create_task(self._http_client.close())
+    async def shutdown(self):
         self._regmon.close()
+        await self._http_client.close()
 
     def handshake_complete(self):
         achievements_cache_ = self.persistent_cache.get("achievements")
@@ -271,7 +272,7 @@ class SteamPlugin(Plugin):
         ]
 
     def tick(self):
-        if self._regmon.check_if_updated():
+        if self._regmon.is_updated():
             self.create_task(self._update_local_games(), "Update local games")
 
     async def _update_local_games(self):
@@ -286,20 +287,32 @@ class SteamPlugin(Plugin):
         return self._local_games_cache
 
     @staticmethod
-    async def _steam_command(command, game_id):
+    def _steam_command(command, game_id):
         if is_uri_handler_installed("steam"):
-            await webbrowser.open("steam://{}/{}".format(command, game_id))
+            webbrowser.open("steam://{}/{}".format(command, game_id))
         else:
-            await webbrowser.open("https://store.steampowered.com/about/")
+            webbrowser.open("https://store.steampowered.com/about/")
 
     async def launch_game(self, game_id):
-        await SteamPlugin._steam_command("launch", game_id)
+        SteamPlugin._steam_command("launch", game_id)
 
     async def install_game(self, game_id):
-        await SteamPlugin._steam_command("install", game_id)
+        SteamPlugin._steam_command("install", game_id)
 
     async def uninstall_game(self, game_id):
-        await SteamPlugin._steam_command("uninstall", game_id)
+        SteamPlugin._steam_command("uninstall", game_id)
+
+    async def shutdown_platform_client(self) -> None:
+        if is_windows():
+            exe = get_client_executable()
+            if exe is None:
+                return
+            cmd = '"{}" -shutdown -silent'.format(exe)
+        else:
+            cmd = "osascript -e 'quit app \"Steam\"'"
+        logging.debug("Running command '%s'", cmd)
+        process = await asyncio.create_subprocess_shell(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        await process.communicate()
 
 
 def main():

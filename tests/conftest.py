@@ -5,6 +5,7 @@ from galaxy.unittest.mock import AsyncMock
 
 from plugin import SteamPlugin
 
+
 @pytest.fixture
 def backend_client():
     mock = MagicMock(spec=())
@@ -18,9 +19,11 @@ def backend_client():
     mock.set_cookies_updated_callback = MagicMock()
     return mock
 
+
 @pytest.fixture()
 async def create_plugin(backend_client, mocker):
     created_plugins = []
+
     def function():
         mocker.patch("plugin.SteamHttpClient", return_value=backend_client)
         mocker.patch("plugin.local_games_list", return_value=[])
@@ -31,19 +34,23 @@ async def create_plugin(backend_client, mocker):
     yield function
 
     for plugin in created_plugins:
-        plugin.shutdown()
+        await plugin.shutdown()
+
 
 @pytest.fixture()
 async def plugin(create_plugin):
     return create_plugin()
 
+
 @pytest.fixture()
 def steam_id():
     return "156"
 
+
 @pytest.fixture()
 def login():
     return "tester"
+
 
 @pytest.fixture()
 async def create_authenticated_plugin(create_plugin, backend_client, mocker):
@@ -68,6 +75,7 @@ async def create_authenticated_plugin(create_plugin, backend_client, mocker):
         return plugin
 
     return function
+
 
 @pytest.fixture()
 async def authenticated_plugin(create_authenticated_plugin, steam_id, login):

@@ -64,8 +64,9 @@ if platform.system() == "Windows":
 
         return apps_dict
 
-# MacOS "registry" implementation (registry.vdf file)
+
 elif platform.system().lower() == "darwin":
+    # MacOS "registry" implementation (registry.vdf file)
     def registry_apps_as_dict():
         try:
             registry = load_vdf(os.path.expanduser("~/Library/Application Support/Steam/registry.vdf"))
@@ -143,6 +144,20 @@ def get_library_folders() -> Iterable[str]:
         return []
     library_folders.insert(0, steam_apps_folder)  # default location
     return library_folders
+
+
+def get_client_executable() -> Optional[str]:
+    if platform.system() == "Windows":
+        try:
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam")
+            return str(winreg.QueryValueEx(key, "SteamExe")[0])
+        except OSError:
+            logging.info("Steam not installed")
+            return None
+    elif platform.system() == "Darwin":
+        return "/Applications/Steam.app/Contents/MacOS/steam_osx"
+    else:
+        raise RuntimeError("Not supported OS")
 
 
 def get_configuration_folder():

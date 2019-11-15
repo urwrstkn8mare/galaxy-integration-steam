@@ -118,7 +118,7 @@ class SteamHttpClient:
             steam_id = text[start:end]
 
             # find miniprofile id
-            profile_link = f'steamcommunity.com/profiles/{steam_id}/" data-miniprofile="'
+            profile_link = f'{url}" data-miniprofile="'
             start = text.find(profile_link)
             if start == -1:
                 logging.error("Can not parse backend response - no steam profile href")

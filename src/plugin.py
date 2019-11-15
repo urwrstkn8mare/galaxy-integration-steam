@@ -12,7 +12,7 @@ from typing import Any, Dict, List
 
 from galaxy.api.plugin import Plugin, create_and_run_plugin
 from galaxy.api.types import (
-    Achievement, Authentication, Cookie, FriendInfo, Game, GameTime, LicenseInfo, NextStep, LocalGame
+    Achievement, Authentication, Cookie, FriendInfo, Game, GameTime, LicenseInfo, NextStep, LocalGame, GameLibrarySettings
 )
 from galaxy.api.errors import (
     AuthenticationRequired, UnknownBackendResponse, AccessDenied, InvalidCredentials, UnknownError
@@ -27,6 +27,7 @@ from registry_monitor import get_steam_registry_monitor
 from uri_scheme_handler import is_uri_handler_installed
 from version import __version__
 from cache import Cache
+from leveldb_parser import LevelDbParser
 
 def is_windows():
     return platform.system().lower() == "windows"
@@ -77,15 +78,22 @@ class SteamPlugin(Plugin):
     def __init__(self, reader, writer, token):
         super().__init__(Platform.Steam, __version__, reader, writer, token)
         self._steam_id = None
+        self._miniprofile_id = None
+        self._level_db_parser = None
         self._regmon = get_steam_registry_monitor()
         self._local_games_cache: List[LocalGame] = []
         self._http_client = AuthenticatedHttpClient()
         self._client = SteamHttpClient(self._http_client)
         self._achievements_cache = Cache()
         self._achievements_cache_updated = False
-        self._achievements_semaphore = asyncio.Semaphore(20)
 
-        self.create_task(self._update_local_games(), "Update local games")
+        self._achievements_semaphore = asyncio.Semaphore(20)
+        self._tags_semaphore = asyncio.Semaphore(5)
+
+        self._library_settings_import_iterator = 0
+        self._game_tags_cache = {}
+
+        self._update_task = self.create_task(self._update_local_games(), "Update local games")
 
     def _store_cookies(self, cookies):
         credentials = {
@@ -129,7 +137,7 @@ class SteamPlugin(Plugin):
             raise InvalidCredentials()
 
         try:
-            self._steam_id, login = await self._client.get_profile_data(profile_url)
+            self._steam_id, self._miniprofile_id, login = await self._client.get_profile_data(profile_url)
         except AccessDenied:
             raise InvalidCredentials()
 
@@ -228,6 +236,39 @@ class SteamPlugin(Plugin):
 
         return game_times
 
+    async def prepare_game_library_settings_context(self, game_ids: List[str]) -> Any:
+        if self._steam_id is None:
+            raise AuthenticationRequired()
+
+        if not self._level_db_parser:
+            self._level_db_parser = LevelDbParser(self._miniprofile_id)
+
+        self._level_db_parser.parse_leveldb()
+
+        if not self._level_db_parser.lvl_db_is_present:
+            return None
+        else:
+            leveldb_static_games_collections_dict = self._level_db_parser.get_static_collections_tags()
+            logging.info(f"Leveldb static settings dict {leveldb_static_games_collections_dict}")
+            return leveldb_static_games_collections_dict
+
+    async def get_game_library_settings(self, game_id: str, context: Any) -> GameLibrarySettings:
+        if not context:
+            return GameLibrarySettings(game_id, None, None)
+        else:
+            game_tags = context.get(game_id)
+            if not game_tags:
+                return GameLibrarySettings(game_id, [], False)
+
+            hidden = False
+            for tag in game_tags:
+                if tag.lower() == 'hidden':
+                    hidden = True
+            if hidden:
+                game_tags.remove('hidden')
+            return GameLibrarySettings(game_id, game_tags, hidden)
+
+
     async def prepare_achievements_context(self, game_ids: List[str]) -> Any:
         if self._steam_id is None:
             raise AuthenticationRequired()
@@ -272,8 +313,8 @@ class SteamPlugin(Plugin):
         ]
 
     def tick(self):
-        if self._regmon.is_updated():
-            self.create_task(self._update_local_games(), "Update local games")
+        if self._update_task.done() and self._regmon.is_updated():
+            self._update_task = self.create_task(self._update_local_games(), "Update local games")
 
     async def _update_local_games(self):
         loop = asyncio.get_running_loop()

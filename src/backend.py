@@ -94,7 +94,7 @@ class SteamHttpClient:
     async def get_profile_data(self, url):
         text = await get_text(await self._http_client.get(url, allow_redirects=True))
 
-        def parse(text):
+        def parse(text, user_profile_url):
             html = HTML(html=text)
             # find persona_name
             div = html.find("div.profile_header_centered_persona", first=True)
@@ -118,7 +118,7 @@ class SteamHttpClient:
             steam_id = text[start:end]
 
             # find miniprofile id
-            profile_link = f'{url}" data-miniprofile="'
+            profile_link = f'{user_profile_url}" data-miniprofile="'
             start = text.find(profile_link)
             if start == -1:
                 logging.error("Can not parse backend response - no steam profile href")
@@ -130,7 +130,7 @@ class SteamHttpClient:
             return steam_id, miniprofile_id, persona_name
 
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, parse, text)
+        return await loop.run_in_executor(None, parse, text, url)
 
     async def get_games(self, steam_id):
         url = "https://steamcommunity.com/profiles/{}/games/?tab=all".format(steam_id)

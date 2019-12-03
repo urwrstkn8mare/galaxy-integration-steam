@@ -1,8 +1,12 @@
 import platform
-import logging as log
+import logging
 import json
 import os
 from dataclasses import dataclass
+
+
+logger = logging.getLogger(__name__)
+
 # Mapping of https://store.steampowered.com/api/appdetails/?appids={}&filters=categories response to local steam values
 TAGS_MAPPING = {
                     28: 1,  # 'Controllers (full)'},
@@ -57,18 +61,18 @@ class LevelDbParser():
             meta_entries = []
             current_pos = 0
             future_pos = 0
-            log.info(f"Looking for last META entry  + user id pair for miniprofile id {self._miniprofile_id}")
+            logger.info(f"Looking for last META entry  + user id pair for miniprofile id {self._miniprofile_id}")
             while future_pos != -1:
                 future_pos = db_log_file.find("META:https://steamloopback.host", current_pos)
                 if future_pos != -1:
                     current_pos = future_pos + 1
                     meta_entries.append(future_pos)
 
-            log.info(f"Meta entries {meta_entries}")
+            logger.info(f"Meta entries {meta_entries}")
 
             for index, meta_entry in reversed(list(enumerate(meta_entries))):
                 user_id = db_log_file.find(str(self._miniprofile_id), meta_entry)
-                log.info(f"User_id {user_id} meta_entry {meta_entries[index]}, index {index}")
+                logger.info(f"User_id {user_id} meta_entry {meta_entries[index]}, index {index}")
                 # Ensure its not a dummy entry
                 if db_log_file.find('showcases-version', meta_entry) < 0:
                     continue
@@ -81,13 +85,13 @@ class LevelDbParser():
         user_json_start, user_json_end = find_last_meta_miniprofile_pair()
 
         if user_json_start == -1:
-            log.info("No user entry in lvldb")
+            logger.info("No user entry in lvldb")
             return []
         if user_json_end == -1:
-            log.info("User json is the last entry in lvldb")
+            logger.info("User json is the last entry in lvldb")
             user_json_end = len(db_log_file)
 
-        log.info(f"User json start {user_json_start} end {user_json_end}")
+        logger.info(f"User json start {user_json_start} end {user_json_end}")
         while True:
             match = db_log_file.find('{', user_json_start)
             if user_json_end > 0 and  match >= user_json_end:
@@ -100,7 +104,7 @@ class LevelDbParser():
                 user_json_start = match + index
             except ValueError:
                 user_json_start = match + 1
-        log.info(f"Retrieved Jsons from lvldb {collections_list}")
+        logger.info(f"Retrieved Jsons from lvldb {collections_list}")
         return collections_list
 
     def parse_leveldb(self):
@@ -116,14 +120,14 @@ class LevelDbParser():
                 db_log_file = self._read_db_log_file(level_db_dir, "utf-16-be")
                 collections_list = self._retrieve_jsons(db_log_file)
         except:
-            log.warning("Unable to read db file, possibly non existent")
+            logger.warning("Unable to read db file, possibly non existent")
             self._lvl_db_available = False
             return []
         else:
             self._lvl_db_available = True
 
         if not collections_list:
-            log.warning("Empty collections list")
+            logger.warning("Empty collections list")
             return []
         fresh_collections_list = []
         pretenders_list = {}
@@ -140,7 +144,7 @@ class LevelDbParser():
             fresh_collections_list.append(pretenders_list[pretender])
 
         if not fresh_collections_list:
-            log.warning(f"Empty collections json")
+            logger.warning(f"Empty collections json")
             return []
 
         collections = []
@@ -149,12 +153,12 @@ class LevelDbParser():
                 collections.append(json.loads(collections_object['value']))
 
         if not collections:
-            log.warning(f"Empty collections list inside collections json")
+            logger.warning(f"Empty collections list inside collections json")
             return []
         else:
             self._collections = collections
 
-        log.info(f"Parsed lvldb {collections}")
+        logger.info(f"Parsed lvldb {collections}")
 
     def get_static_collections_tags(self):
 
@@ -172,7 +176,7 @@ class LevelDbParser():
                         game_settings[str(game)] = [collection_name]
                     else:
                         game_settings[str(game)].append(collection_name)
-        log.info(f"Static collections tags from leveldb {game_settings}")
+        logger.info(f"Static collections tags from leveldb {game_settings}")
         return game_settings
 
     def parse_dynamic_collections(self):
@@ -243,25 +247,25 @@ class LevelDbParser():
     def get_dynamic_tags_for_game(self, game):
         collections = self._dynamic_collections
         game_in_collections = []
-        log.info(f"Collections {collections}")
+        logger.info(f"Collections {collections}")
         try:
             for collection in collections:
                 if self.dynamic_collection_can_be_processed(collections[collection]):
                     if not self._dynamic_tags_match(collections[collection][COLLECTIONS_MAP.CATEGORIES], game['tags']):
-                        log.info(f"Store Tags not matching fully for {collection}, and {game['tags']}")
+                        logger.info(f"Store Tags not matching fully for {collection}, and {game['tags']}")
                         continue
 
                     if collections[collection][COLLECTIONS_MAP.PLAYER]:
 
                         game_translated_player_tags = self.translate_player_tags(game['categories'])
-                        log.info(f"Translated game tags vs real tags {game_translated_player_tags}, {game['categories']}")
+                        logger.info(f"Translated game tags vs real tags {game_translated_player_tags}, {game['categories']}")
 
                         if not self._dynamic_tags_match(collections[collection][COLLECTIONS_MAP.PLAYER], game_translated_player_tags):
-                            log.info(f"Player Tags not matching fully for {collection}, {collections[collection][COLLECTIONS_MAP.PLAYER]} vs {game_translated_player_tags}")
+                            logger.info(f"Player Tags not matching fully for {collection}, {collections[collection][COLLECTIONS_MAP.PLAYER]} vs {game_translated_player_tags}")
                             continue
 
                     game_in_collections.append(collection)
         except Exception as e:
-            log.warning(f"Exception on retrieving dynamic tags for game {repr(e)}")
+            logger.warning(f"Exception on retrieving dynamic tags for game {repr(e)}")
             return []
         return game_in_collections

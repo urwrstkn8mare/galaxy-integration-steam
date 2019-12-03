@@ -9,6 +9,9 @@ import vdf
 from galaxy.api.types import LocalGame, LocalGameState
 
 
+logger = logging.getLogger(__name__)
+
+
 class CaseInsensitiveDict(dict):
     def __setitem__(self, key, value):
         super().__setitem__(key.lower(), value)
@@ -30,7 +33,7 @@ if platform.system() == "Windows":
         try:
             apps = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam\Apps")
         except OSError as e:
-            logging.info("Steam Apps registry cannot be read: %s", str(e))
+            logger.info("Steam Apps registry cannot be read: %s", str(e))
             return {}
 
         apps_dict = dict()
@@ -57,7 +60,7 @@ if platform.system() == "Windows":
                 apps_dict[sub_key_name] = sub_key_dict
                 sub_key_index += 1
             except OSError:
-                logging.exception("Failed to parse Steam registry")
+                logger.exception("Failed to parse Steam registry")
                 break
 
         winreg.CloseKey(apps)
@@ -71,13 +74,13 @@ elif platform.system().lower() == "darwin":
         try:
             registry = load_vdf(os.path.expanduser("~/Library/Application Support/Steam/registry.vdf"))
         except OSError:
-            logging.exception("Failed to read Steam registry")
+            logger.exception("Failed to read Steam registry")
             return {}
 
         try:
             return registry["Registry"]["HKCU"]["Software"]["Valve"]["Steam"]["Apps"]
         except KeyError:
-            logging.exception("Failed to parse Steam registry")
+            logger.exception("Failed to parse Steam registry")
             return {}
 
 # fallback for other systems
@@ -104,7 +107,7 @@ def local_games_list():
     local_games = []
     try:
         library_folders = get_library_folders()
-        logging.debug("Checking library folders: %s", str(library_folders))
+        logger.debug("Checking library folders: %s", str(library_folders))
         apps_ids = get_installed_games(library_folders)
         app_states = get_app_states_from_registry(registry_apps_as_dict())
         for app_id in apps_ids:
@@ -114,7 +117,7 @@ def local_games_list():
             local_game = LocalGame(app_id, app_state)
             local_games.append(local_game)
     except:
-        logging.exception("Failed to get local games list")
+        logger.exception("Failed to get local games list")
     finally:
         return local_games
 
@@ -152,7 +155,7 @@ def get_client_executable() -> Optional[str]:
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam")
             return str(winreg.QueryValueEx(key, "SteamExe")[0])
         except OSError:
-            logging.info("Steam not installed")
+            logger.info("Steam not installed")
             return None
     elif platform.system() == "Darwin":
         return "/Applications/Steam.app/Contents/MacOS/steam_osx"
@@ -166,7 +169,7 @@ def get_configuration_folder():
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam")
             return str(winreg.QueryValueEx(key, "SteamPath")[0])
         except OSError:
-            logging.info("Steam not installed")
+            logger.info("Steam not installed")
             return None
     elif platform.system().lower() == "darwin":
         return os.path.expanduser("~/Library/Application Support/Steam")
@@ -189,7 +192,7 @@ def get_custom_library_folders(config_path: str) -> Optional[List[str]]:
 
         return result
     except (OSError, SyntaxError, KeyError):
-        logging.exception("Failed to parse %s", config_path)
+        logger.exception("Failed to parse %s", config_path)
         return None
 
 
@@ -200,16 +203,8 @@ def get_app_manifests(library_folders: Iterable[str]) -> Iterable[str]:
 
 def get_installed_games(library_paths: Iterable[str]) -> Iterable[str]:
     for app_manifest_path in get_app_manifests(library_paths):
-        logging.debug("Parsing %s", app_manifest_path)
-        app_id = get_app_id(app_manifest_path)
+        logger.debug("Parsing %s", app_manifest_path)
+        # appmanifest_<appid>.acf
+        app_id = os.path.basename(app_manifest_path)[12:-4]
         if app_id:
             yield app_id
-
-
-def get_app_id(app_manifest_path: str) -> Optional[str]:
-    try:
-        config = load_vdf(app_manifest_path)
-        return config["AppState"]["appid"]
-    except (OSError, SyntaxError, KeyError):
-        logging.exception("Failed to parse %s", app_manifest_path)
-        return None

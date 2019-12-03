@@ -2,14 +2,19 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timezone
+from typing import List, Tuple
 from urllib.parse import urlparse
 import vdf
+from galaxy.api.types import UserInfo
 
 import aiohttp
 from galaxy.api.errors import AccessDenied, AuthenticationRequired, UnknownBackendResponse, UnknownError, BackendError
 from galaxy.http import HttpClient
 from requests_html import HTML
 from yarl import URL
+
+
+logger = logging.getLogger(__name__)
 
 
 def is_absolute(url):
@@ -80,12 +85,12 @@ class SteamHttpClient:
             html = HTML(html=text)
             profile_url = html.find("a.user_avatar", first=True)
             if not profile_url:
-                logging.error("Can not parse backend response - no a.user_avatar")
+                logger.error("Can not parse backend response - no a.user_avatar")
                 raise UnknownBackendResponse()
             try:
                 return profile_url.attrs["href"]
             except KeyError:
-                logging.exception("Can not parse backend response")
+                logger.exception("Can not parse backend response")
                 return UnknownBackendResponse()
 
         loop = asyncio.get_running_loop()
@@ -99,11 +104,11 @@ class SteamHttpClient:
             # find persona_name
             div = html.find("div.profile_header_centered_persona", first=True)
             if not div:
-                logging.error("Can not parse backend response - no div.profile_header_centered_persona")
+                logger.error("Can not parse backend response - no div.profile_header_centered_persona")
                 raise UnknownBackendResponse()
             span = div.find("span.actual_persona_name", first=True)
             if not span:
-                logging.error("Can not parse backend response - no span.actual_persona_name")
+                logger.error("Can not parse backend response - no span.actual_persona_name")
                 raise UnknownBackendResponse()
             persona_name = span.text
 
@@ -111,7 +116,7 @@ class SteamHttpClient:
             variable = 'g_steamID = "'
             start = text.find(variable)
             if start == -1:
-                logging.error("Can not parse backend response - no g_steamID variable")
+                logger.error("Can not parse backend response - no g_steamID variable")
                 raise UnknownBackendResponse()
             start += len(variable)
             end = text.find('";', start)
@@ -121,7 +126,7 @@ class SteamHttpClient:
             profile_link = f'{user_profile_url}" data-miniprofile="'
             start = text.find(profile_link)
             if start == -1:
-                logging.error("Can not parse backend response - no steam profile href")
+                logger.error("Can not parse backend response - no steam profile href")
                 raise UnknownBackendResponse()
             start += len(profile_link)
             end = text.find('">', start)
@@ -148,7 +153,7 @@ class SteamHttpClient:
         try:
             games = json.loads(array)
         except json.JSONDecodeError:
-            logging.exception("Can not parse backend response")
+            logger.exception("Can not parse backend response")
             raise UnknownBackendResponse()
 
         return games
@@ -174,7 +179,7 @@ class SteamHttpClient:
             except ValueError:
                 continue
 
-        logging.error("Unexpected date format: {}. Please report to the developers".format(text_time))
+        logger.error("Unexpected date format: {}. Please report to the developers".format(text_time))
         raise UnknownBackendResponse()
 
     async def get_achievements(self, steam_id, game_id):
@@ -209,7 +214,7 @@ class SteamHttpClient:
                     name = row.find("h3", first=True).text
                     achievements.append((unlock_time, name))
             except (AttributeError, ValueError, TypeError):
-                logging.exception("Can not parse backend response")
+                logger.exception("Can not parse backend response")
                 raise UnknownBackendResponse()
 
             return achievements
@@ -223,16 +228,26 @@ class SteamHttpClient:
                 return profile.attrs["data-steamid"]
 
             def parse_name(profile):
-                return HTML(html=profile.html).find(".friend_block_content", first=True).text.split("\nLast Online")[0]
+                return HTML(html=profile.html).find(".friend_block_content", first=True).text.split("\n")[0]
+
+            def parse_avatar(profile):
+                avatar_html = HTML(html=profile.html).find(".player_avatar", first=True).html
+                return HTML(html=avatar_html).find("img")[0].attrs.get("src")
+
+            def parse_url(profile):
+                return HTML(html=profile.html).find(".selectable_overlay", first=True).attrs.get('href')
 
             try:
                 search_results = HTML(html=text).find("#search_results", first=True).html
-                return {
-                    parse_id(profile): parse_name(profile)
+                return [
+                   UserInfo(user_id=parse_id(profile),
+                            user_name=parse_name(profile),
+                            avatar_url=parse_avatar(profile),
+                            profile_url=parse_url(profile))
                     for profile in HTML(html=search_results).find(".friend_block_v2")
-                }
+                ]
             except (AttributeError, ValueError, TypeError):
-                logging.exception("Can not parse backend response")
+                logger.exception("Can not parse backend response")
                 raise UnknownBackendResponse()
 
         loop = asyncio.get_running_loop()
@@ -259,11 +274,11 @@ class SteamHttpClient:
         url_end = remotestorageapp_text.find('">', url_start)
         url = remotestorageapp_text[int(url_start) + len('href="'): int(url_end)]
         sharedconfig = vdf.loads(await get_text(await self._http_client.get(url, allow_redirects=True)))
-        logging.info(f"Sharedconfig file contents {sharedconfig}")
+        logger.info(f"Sharedconfig file contents {sharedconfig}")
         try:
             apps = sharedconfig["UserRoamingConfigStore"]["Software"]["Valve"]["Steam"]["Apps"]
         except KeyError:
-            logging.warning('Cant read users sharedconfig, assuming no tags set')
+            logger.warning('Cant read users sharedconfig, assuming no tags set')
             return []
         game_settings = []
         for app in apps:
@@ -285,7 +300,7 @@ class SteamHttpClient:
             game_info = await self._http_client.get(f"https://store.steampowered.com/broadcast/ajaxgetappinfoforcap?appid={appid}&l=english")
             game_info = await game_info.json()
         except (UnknownError, BackendError):
-            logging.info(f"No store tags defined for {appid}")
+            logger.info(f"No store tags defined for {appid}")
             return {}
         tags = {}
 
@@ -301,9 +316,28 @@ class SteamHttpClient:
             game_info = await self._http_client.get(f"https://store.steampowered.com/api/appdetails/?appids={appid}&filters=categories&l=english")
             game_info = await game_info.json()
         except (UnknownError, BackendError):
-            logging.info(f"No details defined for {appid}")
+            logger.info(f"No details defined for {appid}")
             return []
         if str(appid) in game_info and 'data' in game_info[str(appid)] and 'categories' in game_info[str(appid)]['data']:
             return game_info[str(appid)]['data']['categories']
         return []
 
+    async def get_authentication_data(self) -> Tuple[int, str, str]:
+        url = "https://steamcommunity.com/chat/clientjstoken"
+        response = await self._http_client.get(url)
+        try:
+            data = await response.json()
+            return int(data["steamid"]), data["account_name"], data["token"]
+        except (ValueError, KeyError) :
+            logger.exception("Can not parse backend response")
+            raise UnknownBackendResponse()
+
+    async def get_servers(self) -> List[str]:
+        url = "http://api.steampowered.com/ISteamDirectory/GetCMList/v1/?cellid=0"
+        response = await self._http_client.get(url)
+        try:
+            data = await response.json()
+            return data['response']['serverlist_websockets']
+        except (ValueError, KeyError) :
+            logging.exception("Can not parse backend response")
+            raise UnknownBackendResponse()

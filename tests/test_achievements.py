@@ -158,17 +158,6 @@ async def test_no_game_time(authenticated_plugin):
         await authenticated_plugin.get_unlocked_achievements("17923", context)
 
 
-@pytest.mark.asyncio
-async def test_zero_game_time(authenticated_plugin, backend_client):
-    context = {
-        "17923": GameTime(game_id="17923", time_played=0, last_played_time=1549385501)
-    }
-    achievements = await authenticated_plugin.get_unlocked_achievements("17923", context)
-    assert achievements == []
-
-    backend_client.get_achievements.assert_not_called()
-
-
 @pytest.mark.parametrize("input_time, parsed_date", [
     ("Unlocked 22 Jan @ 12:12am", datetime(datetime.utcnow().year, 1, 22, 0, 12, tzinfo=timezone.utc)),
     ("Unlocked Feb 1 @ 12:12am", datetime(datetime.utcnow().year, 2, 1, 0, 12, tzinfo=timezone.utc)),

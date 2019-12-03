@@ -6,7 +6,7 @@ import pytest
 from galaxy.api.types import LocalGame, LocalGameState
 
 from client import (
-    get_app_id, get_app_states_from_registry, get_custom_library_folders, get_library_folders, local_games_list
+    get_app_states_from_registry, get_custom_library_folders, get_library_folders, local_games_list
  )
 
 
@@ -175,33 +175,7 @@ def test_get_app_id_success(tmp_path):
     """
     path = tmp_path / "appmanifest_92700.acf"
     path.write_text(dedent(data), encoding="utf-8")
-    assert get_app_id(path) == "92700"
-
-
-def test_get_app_id_invalid_file(tmp_path):
-    data = """\
-        "AppState"
-        {
-    """
-    path = tmp_path / "appmanifest_92700.acf"
-    path.write_text(dedent(data))
-    assert get_app_id(path) is None
-
-
-def test_get_app_id_no_file(tmp_path):
-    path = tmp_path / "appmanifest_92700.acf"
-    assert get_app_id(path) is None
-
-
-def test_get_app_id_no_appid(tmp_path):
-    data = """\
-        "AppState"
-        {
-        }
-    """
-    path = tmp_path / "appmanifest_92700.acf"
-    path.write_text(dedent(data))
-    assert get_app_id(path) is None
+    assert os.path.basename(path)[12:-4] == "92700"
 
 
 def test_get_custom_library_folders(tmp_path):
@@ -342,11 +316,10 @@ def test_local_games_list(
 
 
 @pytest.mark.parametrize("data_file, game_id", [
-    ("appmanifest_386360.acf", None),
     ("appmanifest_787480.acf", "787480"),
     ("appmanifest_970570.acf", "970570")
 ])
 def test_get_app_id_real_data(data_file, game_id):
     real_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), data_file)
     assert os.path.exists(real_path)
-    assert get_app_id(real_path) == game_id
+    assert os.path.basename(real_path)[12:-4] == game_id

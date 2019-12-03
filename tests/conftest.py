@@ -2,8 +2,6 @@ from unittest.mock import MagicMock
 
 import pytest
 from galaxy.unittest.mock import AsyncMock, async_return_value
-import os, sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../output')))
 from plugin import SteamPlugin
 
 
@@ -15,14 +13,27 @@ def backend_client():
     mock.get_games = AsyncMock()
     mock.get_achievements = AsyncMock()
     mock.get_friends = AsyncMock()
+    mock.get_authentication_data = AsyncMock()
     mock.set_cookie_jar = MagicMock()
     mock.set_auth_lost_callback = MagicMock()
     mock.set_cookies_updated_callback = MagicMock()
+    mock.get_servers = AsyncMock()
+    return mock
+
+
+@pytest.fixture
+def steam_client():
+    mock = MagicMock(spec=())
+    mock.start = AsyncMock()
+    mock.close = AsyncMock()
+    mock.wait_closed = AsyncMock()
+    mock.run = AsyncMock()
+    mock.get_friends_info = AsyncMock()
     return mock
 
 
 @pytest.fixture()
-async def create_plugin(backend_client, mocker):
+async def create_plugin(backend_client, steam_client, mocker):
     created_plugins = []
 
     def function():
@@ -30,6 +41,7 @@ async def create_plugin(backend_client, mocker):
         writer.drain.side_effect = lambda: async_return_value(None)
 
         mocker.patch("plugin.SteamHttpClient", return_value=backend_client)
+        mocker.patch("plugin.WebSocketClient", return_value=steam_client)
         mocker.patch("plugin.local_games_list", return_value=[])
         plugin = SteamPlugin(MagicMock(), writer, None)
         created_plugins.append(plugin)

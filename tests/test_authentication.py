@@ -2,6 +2,7 @@ import pytest
 import re
 from galaxy.api.types import Authentication, Cookie, NextStep
 from galaxy.api.errors import UnknownBackendResponse, InvalidCredentials
+from galaxy.unittest.mock import skip_loop
 from plugin import AUTH_PARAMS, LOGIN_URI, JS_PERSISTENT_LOGIN
 
 PROFILE_URL = "https://url"
@@ -31,6 +32,7 @@ def auth_info():
 @pytest.mark.asyncio
 async def test_no_stored_credentials(
     backend_client,
+    steam_client,
     plugin,
     cookies,
     auth_info,
@@ -61,10 +63,13 @@ async def test_no_stored_credentials(
 
     backend_client.get_profile.assert_called_once_with()
     backend_client.get_profile_data.assert_called_once_with(PROFILE_URL)
+    await skip_loop()
+    steam_client.run.assert_called_once_with()
 
 @pytest.mark.asyncio
 async def test_stored_credentials(
     backend_client,
+    steam_client,
     plugin,
     auth_info,
     stored_credentials
@@ -76,10 +81,13 @@ async def test_stored_credentials(
 
     backend_client.get_profile.assert_called_with()
     backend_client.get_profile_data.assert_called_with(PROFILE_URL)
+    await skip_loop()
+    steam_client.run.assert_called_once_with()
 
 @pytest.mark.asyncio
 async def test_invalid_stored_credentials(
     backend_client,
+    steam_client,
     plugin,
     stored_credentials,
     mocker
@@ -89,9 +97,11 @@ async def test_invalid_stored_credentials(
     with pytest.raises(InvalidCredentials):
         await plugin.authenticate(stored_credentials)
     lost_authentication.assert_not_called()
+    await skip_loop()
+    steam_client.run.assert_not_called()
 
 @pytest.mark.asyncio
-async def test_stored_credentials_old_format(backend_client, plugin, auth_info):
+async def test_stored_credentials_old_format(backend_client, steam_client, plugin, auth_info):
     stored_credentials = {
         "cookies": {
             "cookie": "value"
@@ -104,3 +114,5 @@ async def test_stored_credentials_old_format(backend_client, plugin, auth_info):
 
     backend_client.get_profile.assert_called_with()
     backend_client.get_profile_data.assert_called_with(PROFILE_URL)
+    await skip_loop()
+    steam_client.run.assert_called_once_with()

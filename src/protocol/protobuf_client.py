@@ -101,7 +101,6 @@ class ProtobufClient:
         data = data + header + body
 
         logger.debug("Sending message %d (%d bytes)", emsg, len(data))
-        logger.debug(data.hex())
         await self._socket.send(data)
 
     async def _heartbeat(self, interval):

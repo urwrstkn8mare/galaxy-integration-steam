@@ -7,3 +7,5 @@ build/
 output/
 *.spec
 .idea/
+.vscode/
+.mypy_cache/

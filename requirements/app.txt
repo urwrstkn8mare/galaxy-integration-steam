@@ -1,4 +1,4 @@
-galaxy.plugin.api==0.60
+galaxy.plugin.api==0.61
 requests-html==0.10.0
 protobuf==3.10.0
 vdf==3.0

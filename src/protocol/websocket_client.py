@@ -3,7 +3,6 @@ import logging
 import ssl
 from typing import Optional
 
-import certifi
 import websockets
 from galaxy.api.errors import BackendNotAvailable, BackendTimeout, BackendError, NetworkError
 
@@ -21,16 +20,20 @@ RECONNECT_INTERVAL_SECONDS = 20
 
 
 class WebSocketClient:
-    def __init__(self, backend_client: SteamHttpClient, servers_cache: ServersCache, friends_cache: FriendsCache):
+    def __init__(
+        self,
+        backend_client: SteamHttpClient,
+        ssl_context: ssl.SSLContext,
+        servers_cache: ServersCache,
+        friends_cache: FriendsCache
+    ):
         self._backend_client = backend_client
+        self._ssl_context = ssl_context
         self._servers_cache = servers_cache
         self._websocket: Optional[websockets.WebSocketClientProtocol] = None
         self._protocol_client: Optional[ProtocolClient] = None
 
         self._friends_cache = friends_cache
-
-        self._ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        self._ssl_context.load_verify_locations(certifi.where())
 
     async def run(self):
         loop = asyncio.get_running_loop()

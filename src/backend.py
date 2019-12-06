@@ -212,6 +212,7 @@ class SteamHttpClient:
                         continue
                     unlock_time = int(self.parse_date(unlock_time.text).timestamp())
                     name = row.find("h3", first=True).text
+                    name = name if name != '' else ' '
                     achievements.append((unlock_time, name))
             except (AttributeError, ValueError, TypeError):
                 logger.exception("Can not parse backend response")

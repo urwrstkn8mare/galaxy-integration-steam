@@ -24,7 +24,7 @@ class Cache:
             self._entries[key] = CacheEntry(value, fingerprint)
         else:
             entry.value = value
-            entry.identifier = fingerprint
+            entry.fingerprint = fingerprint
 
     def __iter__(self):
         for key, entry in self._entries.items():

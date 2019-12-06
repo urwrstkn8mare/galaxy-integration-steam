@@ -76,7 +76,24 @@ async def test_push_cache(authenticated_plugin, backend_client, push_cache):
     backend_client.get_achievements.return_value = [(1549383000, "name")]
     await authenticated_plugin.get_unlocked_achievements("17923", context)
     authenticated_plugin.achievements_import_complete()
+    authenticated_plugin.tick()
     push_cache.assert_called_once_with()
+    assert "achievements" in authenticated_plugin.persistent_cache
+    assert authenticated_plugin.persistent_cache["achievements"] == {
+        "17923": {
+            "achievements": [
+                {
+                    "unlock_time": 1549383000,
+                    "achievement_id": None,
+                    "achievement_name": "name"
+                }
+            ],
+            "fingerprint": {
+                "time_played": 1549385501,
+                "last_played_time": 180
+            }
+        }
+    }
 
 
 @pytest.mark.asyncio
@@ -87,11 +104,13 @@ async def test_valid_cache(authenticated_plugin, backend_client, push_cache):
     backend_client.get_achievements.return_value = [(1549383000, "name")]
     await authenticated_plugin.get_unlocked_achievements("17923", context)
     authenticated_plugin.achievements_import_complete()
+    authenticated_plugin.tick()
     assert backend_client.get_achievements.call_count == 1
     assert push_cache.call_count == 1
 
     await authenticated_plugin.get_unlocked_achievements("17923", context)
     authenticated_plugin.achievements_import_complete()
+    authenticated_plugin.tick()
     assert backend_client.get_achievements.call_count == 1 # no new calls to backend
     assert push_cache.call_count == 1
 
@@ -104,6 +123,7 @@ async def test_invalid_cache(authenticated_plugin, backend_client, push_cache):
     backend_client.get_achievements.return_value = [(1549383000, "name")]
     await authenticated_plugin.get_unlocked_achievements("17923", context)
     authenticated_plugin.achievements_import_complete()
+    authenticated_plugin.tick()
     assert backend_client.get_achievements.call_count == 1
     assert push_cache.call_count == 1
 
@@ -116,8 +136,30 @@ async def test_invalid_cache(authenticated_plugin, backend_client, push_cache):
     ]
     await authenticated_plugin.get_unlocked_achievements("17923", context)
     authenticated_plugin.achievements_import_complete()
+    authenticated_plugin.tick()
     assert backend_client.get_achievements.call_count == 2
     assert push_cache.call_count == 2
+    assert "achievements" in authenticated_plugin.persistent_cache
+    assert authenticated_plugin.persistent_cache["achievements"] == {
+        "17923": {
+            "achievements": [
+                {
+                    "unlock_time": 1549383000,
+                    "achievement_id": None,
+                    "achievement_name": "name"
+                },
+                {
+                    "unlock_time": 1549385599,
+                    "achievement_id": None,
+                    "achievement_name": "namee"
+                }
+            ],
+            "fingerprint": {
+                "time_played": 1549385600,
+                "last_played_time": 180
+            }
+        }
+    }
 
 
 @pytest.mark.asyncio

@@ -223,13 +223,12 @@ class ProtobufClient:
             if user.HasField("persona_state"):
                 user_info.state = EPersonaState(user.persona_state)
             if user.HasField("gameid"):
-                if user.gameid != 0:
-                    user_info.game_id = user.gameid
+                user_info.game_id = user.gameid
                 rich_presence: Dict[str, str] = {}
                 for element in user.rich_presence:
                     rich_presence[element.key] = element.value
                 user_info.rich_presence = rich_presence
-            if user.HasField("game_name") and user.game_name:
+            if user.HasField("game_name"):
                 user_info.game_name = user.game_name
 
             await self.user_info_handler(user_id, user_info)

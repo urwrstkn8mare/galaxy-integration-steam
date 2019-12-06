@@ -16,7 +16,9 @@ def from_user_info(user_info: UserInfo) -> UserPresence:
     else:
         state = PresenceState.Unknown
 
-    game_id = str(user_info.game_id) if user_info.game_id is not None else None
+    game_id = str(user_info.game_id) if user_info.game_id is not None and user_info.game_id != 0 else None
+
+    game_title = user_info.game_name if user_info.game_name is not None and user_info.game_name else None
 
     status = None
     if user_info.rich_presence is not None:
@@ -25,6 +27,6 @@ def from_user_info(user_info: UserInfo) -> UserPresence:
     return UserPresence(
         presence_state=state,
         game_id=game_id,
-        game_title=user_info.game_name,
+        game_title=game_title,
         in_game_status=status
     )

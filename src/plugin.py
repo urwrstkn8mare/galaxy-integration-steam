@@ -5,11 +5,13 @@ import platform
 import random
 import re
 import subprocess
+import ssl
 import sys
 import webbrowser
 from http.cookies import SimpleCookie, Morsel
 from typing import Any, Dict, List, Optional
 
+import certifi
 from galaxy.api.plugin import Plugin, create_and_run_plugin
 from galaxy.api.types import (
     Achievement, Authentication, Cookie, Game, GameTime, LicenseInfo, NextStep, LocalGame, GameLibrarySettings, UserPresence
@@ -27,6 +29,7 @@ from client import local_games_list, get_state_changes, get_client_executable
 from servers_cache import ServersCache
 from presence import from_user_info
 from friends_cache import FriendsCache
+from persistent_cache_state import PersistentCacheState
 from protocol.websocket_client import WebSocketClient
 from protocol.types import UserInfo
 from registry_monitor import get_steam_registry_monitor
@@ -91,12 +94,16 @@ class SteamPlugin(Plugin):
         self._level_db_parser = None
         self._regmon = get_steam_registry_monitor()
         self._local_games_cache: Optional[List[LocalGame]] = None
+        self._ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        self._ssl_context.load_verify_locations(certifi.where())
         self._http_client = AuthenticatedHttpClient()
         self._client = SteamHttpClient(self._http_client)
-        self._persistent_cache_update_event = asyncio.Event()
-        self._servers_cache = ServersCache(self._client, self.persistent_cache, self._persistent_cache_update_event)
+        self._persistent_storage_state = PersistentCacheState()
+        self._servers_cache = ServersCache(
+            self._client, self._ssl_context, self.persistent_cache, self._persistent_storage_state
+        )
         self._friends_cache = FriendsCache()
-        self._steam_client = WebSocketClient(self._client, self._servers_cache, self._friends_cache)
+        self._steam_client = WebSocketClient(self._client, self._ssl_context, self._servers_cache, self._friends_cache)
         self._achievements_cache = Cache()
         self._achievements_cache_updated = False
 
@@ -108,11 +115,6 @@ class SteamPlugin(Plugin):
 
         self._update_task = None
 
-        self._persistent_cache_update_event_task = self.create_task(
-            self._persistent_cache_update_event_waiter(),
-            "Update persistent cache"
-        )
-
         def user_presence_update_handler(user_id: str, user_info: UserInfo):
             self.update_user_presence(user_id, from_user_info(user_info))
 
@@ -123,12 +125,6 @@ class SteamPlugin(Plugin):
             "cookies": morsels_to_dicts(cookies)
         }
         self.store_credentials(credentials)
-
-    async def _persistent_cache_update_event_waiter(self):
-        while True:
-            self._persistent_cache_update_event.clear()
-            await self._persistent_cache_update_event.wait()
-            self.push_cache()
 
     @staticmethod
     def _create_two_factor_fake_cookie():
@@ -169,7 +165,7 @@ class SteamPlugin(Plugin):
 
         try:
             self._steam_id, self._miniprofile_id, login = await self._client.get_profile_data(profile_url)
-            self._internal_task_manager.create_task(self._steam_client.run(), "Run WebSocketClient")
+            self.create_task(self._steam_client.run(), "Run WebSocketClient")
         except AccessDenied:
             raise InvalidCredentials()
 
@@ -330,7 +326,7 @@ class SteamPlugin(Plugin):
 
     def achievements_import_complete(self) -> None:
         if self._achievements_cache_updated:
-            self.push_cache()
+            self._persistent_storage_state.modified = True
             self._achievements_cache_updated = False
 
     async def _get_achievements(self, game_id):
@@ -361,6 +357,12 @@ class SteamPlugin(Plugin):
                 (self._update_task is None or self._update_task.done()) and \
                 self._regmon.is_updated():
             self._update_task = self.create_task(self._update_local_games(), "Update local games")
+
+        if self._persistent_storage_state.modified:
+            # serialize
+            self.persistent_cache["achievements"] = achievements_cache.as_dict(self._achievements_cache)
+            self.push_cache()
+            self._persistent_storage_state.modified = False
 
     async def _update_local_games(self):
         loop = asyncio.get_running_loop()

@@ -1,23 +1,30 @@
 import asyncio
 import time
 import logging
-import ssl
 from operator import itemgetter
+import ssl
 from typing import Dict, List, Any
 
 import websockets
-import certifi
 
 from backend import SteamHttpClient
+from persistent_cache_state import PersistentCacheState
 
 
 logger = logging.getLogger(__name__)
 
 class ServersCache:
-    def __init__(self, backend_client: SteamHttpClient, persistent_cache: Dict[str, Any], persistent_cache_update_event):
+    def __init__(
+        self,
+        backend_client: SteamHttpClient,
+        ssl_context: ssl.SSLContext,
+        persistent_cache: Dict[str, Any],
+        persistent_cache_state: PersistentCacheState
+    ):
         self._backend_client = backend_client
+        self._ssl_context = ssl_context
         self._persistent_cache = persistent_cache
-        self._persistent_cache_update_event = persistent_cache_update_event
+        self._persistent_cache_state = persistent_cache_state
 
     def _read_cache(self):
         if 'servers_cache' not in self._persistent_cache:
@@ -53,15 +60,13 @@ class ServersCache:
         }
 
         self._persistent_cache['servers_cache'] = servers_cache
-        self._persistent_cache_update_event.set()
+        self._persistent_cache_state.modified = True
 
     async def _test_servers(self, raw_server_list: List[str]) -> Dict[str, int]:
         async def test_server(server):
             try:
                 start_time = time.time()
-                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-                ssl_context.load_verify_locations(certifi.where())
-                websocket = await asyncio.wait_for(websockets.connect(server, ssl=ssl_context), 5)
+                websocket = await asyncio.wait_for(websockets.connect(server, ssl=self._ssl_context), 5)
                 time_to_connect = time.time() - start_time
                 time_to_connect = int(time_to_connect*1000)
                 await websocket.close()

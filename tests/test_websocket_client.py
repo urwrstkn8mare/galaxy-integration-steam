@@ -49,7 +49,7 @@ def friends_cache(mocker):
 
 @pytest.fixture
 async def client(backend_client, servers_cache, protocol_client, friends_cache):
-    return WebSocketClient(backend_client, servers_cache, friends_cache)
+    return WebSocketClient(backend_client, MagicMock(), servers_cache, friends_cache)
 
 
 @pytest.mark.asyncio

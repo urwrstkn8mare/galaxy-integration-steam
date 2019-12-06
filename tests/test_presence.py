@@ -2,10 +2,43 @@ import pytest
 
 from protocol.consts import EPersonaState
 from protocol.types import UserInfo
+from presence import from_user_info
 
 from galaxy.api.errors import AuthenticationRequired, UnknownError
 from galaxy.api.consts import PresenceState
 from galaxy.api.types import UserPresence
+
+
+@pytest.mark.parametrize(
+    "user_info,user_presence",
+    [
+        # Empty
+        (
+                UserInfo(),
+                UserPresence(presence_state=PresenceState.Unknown)
+        ),
+        # Offline
+        (
+                UserInfo(state=EPersonaState.Offline),
+                UserPresence(presence_state=PresenceState.Offline)
+        ),
+        # User online not playing a game
+        (
+                UserInfo(state=EPersonaState.Online, game_id=0, game_name="", rich_presence={}),
+                UserPresence(presence_state=PresenceState.Online, game_id=None, game_title=None, in_game_status=None)
+        ),
+        # User online playing a game
+        (
+                UserInfo(state=EPersonaState.Online, game_id=1512, game_name="abc", rich_presence={"status": "menu"}),
+                UserPresence(
+                    presence_state=PresenceState.Online, game_id="1512", game_title="abc", in_game_status="menu"
+                )
+        )
+    ]
+)
+def test_from_user_info(user_info, user_presence):
+    assert from_user_info(user_info) == user_presence
+
 
 CONTEXT = {
     "76561198040630463": UserInfo(name="John", state=EPersonaState.Offline),

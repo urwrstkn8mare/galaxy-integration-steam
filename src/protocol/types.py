@@ -41,7 +41,7 @@ class UserInfo:
         for field in fields(self):
             new_value = getattr(other, field.name)
             old_value = getattr(self, field.name)
-            if new_value is not None or field.name in ['game_id']:
+            if new_value is not None:
                 if new_value != old_value:
                     setattr(self, field.name, new_value)
                     updated = True

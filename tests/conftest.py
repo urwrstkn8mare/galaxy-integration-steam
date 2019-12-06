@@ -50,7 +50,8 @@ async def create_plugin(backend_client, steam_client, mocker):
     yield function
 
     for plugin in created_plugins:
-        await plugin.shutdown()
+        plugin.close()
+        await plugin.wait_closed()
 
 
 @pytest.fixture()

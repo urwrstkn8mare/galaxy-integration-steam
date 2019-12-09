@@ -130,7 +130,7 @@ class ProtocolClient:
         if not incremental:
             self._friends_cache.reset(initial_friends)
             # set online state to get friends statuses
-            await self._protobuf_client.set_persona_state(EPersonaState.Online)
+            await self._protobuf_client.set_persona_state(EPersonaState.Invisible)
             await self._protobuf_client.get_friends_statuses()
             await self._protobuf_client.get_user_infos(initial_friends, self._STATUS_FLAG)
 

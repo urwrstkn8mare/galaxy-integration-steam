@@ -1752,6 +1752,7 @@ class EPersonaState(enum.IntEnum):
     Snooze = 4
     LookingToTrade = 5
     LookingToPlay = 6
+    Invisible = 7
 
 
 class EAccountType(enum.IntEnum):

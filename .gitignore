@@ -9,3 +9,4 @@ output/
 .idea/
 .vscode/
 .mypy_cache/
+.venv

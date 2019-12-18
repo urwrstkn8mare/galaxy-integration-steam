@@ -143,7 +143,7 @@ class ProtocolClient:
         self._friends_cache.update(user_id, user_info)
 
     async def _license_import_handler(self, licenses):
-        logger.info(f"Starting license import for {licenses}")
+        logger.info(f"Starting license import for {[license.package_id for license in licenses]}")
         package_ids = []
 
         for license in licenses:

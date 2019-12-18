@@ -198,7 +198,8 @@ def get_custom_library_folders(config_path: str) -> Optional[List[str]]:
 
 def get_app_manifests(library_folders: Iterable[str]) -> Iterable[str]:
     for library_folder in library_folders:
-        yield from glob.iglob(os.path.join(library_folder, "*.acf"))
+        escaped_path = glob.escape(library_folder)
+        yield from glob.iglob(os.path.join(escaped_path, "*.acf"))
 
 
 def get_installed_games(library_paths: Iterable[str]) -> Iterable[str]:

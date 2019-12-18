@@ -46,3 +46,13 @@ class UserInfo:
                     setattr(self, field.name, new_value)
                     updated = True
         return updated
+
+@dataclass
+class AppInfo:
+    appid: Optional[int] = None
+    buffer: Optional[str] = None  # Text vdf
+
+@dataclass
+class PackageInfo:
+    appid: Optional[int] = None
+    buffer: Optional[str] = None  # Binary vdf

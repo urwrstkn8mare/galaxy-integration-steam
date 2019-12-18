@@ -10,6 +10,7 @@ from backend import SteamHttpClient
 from protocol.protocol_client import ProtocolClient
 from servers_cache import ServersCache
 from friends_cache import FriendsCache
+from games_cache import GamesCache
 
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,8 @@ class WebSocketClient:
         backend_client: SteamHttpClient,
         ssl_context: ssl.SSLContext,
         servers_cache: ServersCache,
-        friends_cache: FriendsCache
+        friends_cache: FriendsCache,
+        games_cache: GamesCache
     ):
         self._backend_client = backend_client
         self._ssl_context = ssl_context
@@ -34,6 +36,7 @@ class WebSocketClient:
         self._protocol_client: Optional[ProtocolClient] = None
 
         self._friends_cache = friends_cache
+        self._games_cache = games_cache
 
     async def run(self):
         loop = asyncio.get_running_loop()
@@ -94,7 +97,7 @@ class WebSocketClient:
 
     async def get_friends(self):
         await self._friends_cache.wait_ready()
-        return [str(user_id) for user_id in self._friends_cache.user_ids()]
+        return [str(user_id) for user_id in self._friends_cache.get_keys()]
 
     async def get_friends_info(self, users):
         await self._friends_cache.wait_ready()
@@ -108,14 +111,14 @@ class WebSocketClient:
 
     async def _ensure_connected(self):
         if self._protocol_client is not None:
-            return # already connected
+            return  # already connected
 
         while True:
             servers = await self._servers_cache.get()
             for server in servers:
                 try:
                     self._websocket = await asyncio.wait_for(websockets.connect(server, ssl=self._ssl_context), 5)
-                    self._protocol_client = ProtocolClient(self._websocket, self._friends_cache)
+                    self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache)
                     return
                 except (asyncio.TimeoutError, OSError, websockets.InvalidURI, websockets.InvalidHandshake):
                     continue

@@ -25,10 +25,13 @@ def protobuf_client(mocker):
 def friends_cache():
     return MagicMock()
 
+@pytest.fixture()
+def games_cache():
+    return MagicMock()
 
 @pytest.fixture
-async def client(protobuf_client, friends_cache):
-    return ProtocolClient(MagicMock(), friends_cache)
+async def client(protobuf_client, friends_cache, games_cache):
+    return ProtocolClient(MagicMock(), friends_cache, games_cache)
 
 
 @pytest.mark.asyncio
@@ -105,4 +108,4 @@ async def test_user_info(client, protobuf_client, friends_cache):
     user_id = 15
     user_info = UserInfo("Ola")
     await protobuf_client.user_info_handler(user_id, user_info)
-    friends_cache.update_info.assert_called_once_with(user_id, user_info)
+    friends_cache.update.assert_called_once_with(user_id, user_info)

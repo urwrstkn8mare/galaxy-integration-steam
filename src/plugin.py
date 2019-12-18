@@ -8,13 +8,15 @@ import subprocess
 import ssl
 import sys
 import webbrowser
+import time
 from http.cookies import SimpleCookie, Morsel
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, NewType
 
 import certifi
 from galaxy.api.plugin import Plugin, create_and_run_plugin
 from galaxy.api.types import (
-    Achievement, Authentication, Cookie, Game, GameTime, LicenseInfo, NextStep, LocalGame, GameLibrarySettings, UserPresence
+    Achievement, Authentication, Cookie, Game, GameTime, LicenseInfo, NextStep,
+    LocalGame, LocalGameState, GameLibrarySettings, UserPresence
 )
 from galaxy.api.errors import (
     AuthenticationRequired, UnknownBackendResponse, AccessDenied, InvalidCredentials, UnknownError
@@ -23,12 +25,13 @@ from galaxy.api.consts import Platform, LicenseType
 from galaxy.api.jsonrpc import InvalidParams
 
 import achievements_cache
-from backend import SteamHttpClient, AuthenticatedHttpClient
+from backend import SteamHttpClient, AuthenticatedHttpClient, UnfinishedAccountSetup
 from cache import Cache
 from client import local_games_list, get_state_changes, get_client_executable
 from servers_cache import ServersCache
 from presence import from_user_info
 from friends_cache import FriendsCache
+from games_cache import GamesCache
 from persistent_cache_state import PersistentCacheState
 from protocol.websocket_client import WebSocketClient
 from protocol.types import UserInfo
@@ -40,6 +43,8 @@ from leveldb_parser import LevelDbParser
 
 logger = logging.getLogger(__name__)
 
+Timestamp = NewType('Timestamp', int)
+
 
 def is_windows():
     return platform.system().lower() == "windows"
@@ -49,6 +54,7 @@ LOGIN_URI = r"https://steamcommunity.com/login/home/?goto="
 JS_PERSISTENT_LOGIN = r"document.getElementById('remember_login').checked = true;"
 END_URI_REGEX = r"^https://steamcommunity.com/(profiles|id)/.*"
 
+
 AUTH_PARAMS = {
     "window_title": "Login to Steam",
     "window_width": 640,
@@ -56,6 +62,7 @@ AUTH_PARAMS = {
     "start_uri": LOGIN_URI,
     "end_uri_regex": END_URI_REGEX
 }
+
 
 def morsels_to_dicts(morsels):
     cookies = []
@@ -69,6 +76,7 @@ def morsels_to_dicts(morsels):
         cookies.append(cookie)
     return cookies
 
+
 def dicts_to_morsels(cookies):
     morsels = []
     for cookie in cookies:
@@ -81,10 +89,12 @@ def dicts_to_morsels(cookies):
         morsels.append(m)
     return morsels
 
+
 def parse_stored_cookies(cookies):
     if isinstance(cookies, dict):
         cookies = [{"name": key, "value": value} for key, value in cookies.items()]
     return dicts_to_morsels(cookies)
+
 
 class SteamPlugin(Plugin):
     def __init__(self, reader, writer, token):
@@ -103,7 +113,8 @@ class SteamPlugin(Plugin):
             self._client, self._ssl_context, self.persistent_cache, self._persistent_storage_state
         )
         self._friends_cache = FriendsCache()
-        self._steam_client = WebSocketClient(self._client, self._ssl_context, self._servers_cache, self._friends_cache)
+        self._games_cache = GamesCache()
+        self._steam_client = WebSocketClient(self._client, self._ssl_context, self._servers_cache, self._friends_cache, self._games_cache)
         self._achievements_cache = Cache()
         self._achievements_cache_updated = False
 
@@ -111,9 +122,10 @@ class SteamPlugin(Plugin):
         self._tags_semaphore = asyncio.Semaphore(5)
 
         self._library_settings_import_iterator = 0
-        self._game_tags_cache = {}
+        self._last_launch: Timestamp = 0
 
-        self._update_task = None
+        self._update_local_games_task = None
+        self._update_owned_games_task = None
 
         def user_presence_update_handler(user_id: str, user_info: UserInfo):
             self.update_user_presence(user_id, from_user_info(user_info))
@@ -163,18 +175,26 @@ class SteamPlugin(Plugin):
         except UnknownBackendResponse:
             raise InvalidCredentials()
 
+        async def set_profile_data(profile_url):
+            try:
+                self._steam_id, self._miniprofile_id, login = await self._client.get_profile_data(profile_url)
+                self.create_task(self._steam_client.run(), "Run WebSocketClient")
+                return login
+            except AccessDenied:
+                raise InvalidCredentials()
+
         try:
-            self._steam_id, self._miniprofile_id, login = await self._client.get_profile_data(profile_url)
-            self.create_task(self._steam_client.run(), "Run WebSocketClient")
-        except AccessDenied:
-            raise InvalidCredentials()
+            login = await set_profile_data(profile_url)
+        except UnfinishedAccountSetup:
+            await self._client.setup_steam_profile(profile_url)
+            login = await set_profile_data(profile_url)
 
         self._http_client.set_auth_lost_callback(self.lost_authentication)
 
         if "steamRememberLogin" in (cookie[0] for cookie in cookies):
-            logger.debug("Remember login cookie present")
+            logging.debug("Remember login cookie present")
         else:
-            logger.debug("Remember login cookie not present")
+            logging.debug("Remember login cookie not present")
 
         return Authentication(self._steam_id, login)
 
@@ -189,6 +209,8 @@ class SteamPlugin(Plugin):
 
     async def authenticate(self, stored_credentials=None):
         if not stored_credentials:
+            if await self._client.get_steamcommunity_response_status() != 200:
+                logger.error("Steamcommunity website not accessible")
             return NextStep(
                 "web_session",
                 AUTH_PARAMS,
@@ -214,20 +236,20 @@ class SteamPlugin(Plugin):
         if self._steam_id is None:
             raise AuthenticationRequired()
 
-        games = await self._client.get_games(self._steam_id)
-
+        owned_ids = await self._client.get_owned_ids(self._miniprofile_id)
+        await self._games_cache.wait_ready()
         owned_games = []
-
         try:
-            for game in games:
-                owned_games.append(
-                    Game(
-                        str(game["appid"]),
-                        game["name"],
-                        [],
-                        LicenseInfo(LicenseType.SinglePurchase, None)
+            for game_id, game_title in self._games_cache:
+                if game_id in owned_ids:
+                    owned_games.append(
+                        Game(
+                            str(game_id),
+                            game_title,
+                            [],
+                            LicenseInfo(LicenseType.SinglePurchase, None)
+                        )
                     )
-                )
         except (KeyError, ValueError):
             logger.exception("Can not parse backend response")
             raise UnknownBackendResponse()
@@ -301,7 +323,6 @@ class SteamPlugin(Plugin):
                 game_tags.remove('hidden')
             return GameLibrarySettings(game_id, game_tags, hidden)
 
-
     async def prepare_achievements_context(self, game_ids: List[str]) -> Any:
         if self._steam_id is None:
             raise AuthenticationRequired()
@@ -352,11 +373,18 @@ class SteamPlugin(Plugin):
 
         return from_user_info(user_info)
 
+    async def _update_owned_games(self):
+        new_games = self._games_cache.get_added_games()
+        for game in new_games:
+            self.add_game(Game(game, new_games[game], [], license_info=LicenseInfo(LicenseType.SinglePurchase)))
+
     def tick(self):
         if self._local_games_cache is not None and \
-                (self._update_task is None or self._update_task.done()) and \
+                (self._update_local_games_task is None or self._update_local_games_task.done()) and \
                 self._regmon.is_updated():
-            self._update_task = self.create_task(self._update_local_games(), "Update local games")
+            self._update_local_games_task = self.create_task(self._update_local_games(), "Update local games")
+        if self._update_owned_games_task is None or self._update_owned_games_task.done():
+            self._update_owned_games_task = self.create_task(self._update_owned_games(), "Update owned games")
 
         if self._persistent_storage_state.modified:
             # serialize
@@ -369,8 +397,10 @@ class SteamPlugin(Plugin):
         new_list = await loop.run_in_executor(None, local_games_list)
         notify_list = get_state_changes(self._local_games_cache, new_list)
         self._local_games_cache = new_list
-        for local_game_notify in notify_list:
-            self.update_local_game_status(local_game_notify)
+        for game in notify_list:
+            if LocalGameState.Running in game.local_game_state:
+                self._last_launch = time.time()
+            self.update_local_game_status(game)
 
     async def get_local_games(self):
         loop = asyncio.get_running_loop()
@@ -394,6 +424,11 @@ class SteamPlugin(Plugin):
         SteamPlugin._steam_command("uninstall", game_id)
 
     async def shutdown_platform_client(self) -> None:
+        launch_debounce_time = 3
+        if time.time() < self._last_launch + launch_debounce_time:
+            # workaround for quickly closed game (Steam sometimes dumps false positive just after a launch)
+            logging.info('Ignoring shutdown request because game was launched a moment ago')
+            return
         if is_windows():
             exe = get_client_executable()
             if exe is None:

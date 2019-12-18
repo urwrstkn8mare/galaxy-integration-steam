@@ -18,6 +18,8 @@ def backend_client():
     mock.set_auth_lost_callback = MagicMock()
     mock.set_cookies_updated_callback = MagicMock()
     mock.get_servers = AsyncMock()
+    mock.get_owned_ids = AsyncMock()
+    mock.get_steamcommunity_response_status = AsyncMock()
     return mock
 
 
@@ -80,7 +82,7 @@ async def create_authenticated_plugin(create_plugin, backend_client, mocker):
         mocker.patch.object(SteamPlugin, "persistent_cache", new_callable=mocker.PropertyMock, return_value=cache)
         plugin = create_plugin()
         backend_client.get_profile.return_value = "http://url"
-        backend_client.get_profile_data.return_value = steam_id, login, miniprofile
+        backend_client.get_profile_data.return_value = steam_id, miniprofile, login
         credentials = {
             "cookies": [
                 {

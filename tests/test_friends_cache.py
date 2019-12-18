@@ -51,7 +51,7 @@ def test_update_user_not_ready(cache, added_handler, updated_handler):
     user_id = 1423
     user_info = UserInfo("Jan")
     cache.add(user_id)
-    cache.update_info(user_id, user_info)
+    cache.update(user_id, user_info)
     assert not cache.ready
     assert list(cache) == [(user_id, user_info)]
     added_handler.assert_not_called()
@@ -62,8 +62,8 @@ def test_update_user_ready(cache, added_handler, updated_handler):
     user_id = 1423
     expected_user_info = UserInfo(name="Jan", state=EPersonaState.Offline)
     cache.add(user_id)
-    cache.update_info(user_id, UserInfo(name="Jan"))
-    cache.update_info(user_id, UserInfo(state=EPersonaState.Offline))
+    cache.update(user_id, UserInfo(name="Jan"))
+    cache.update(user_id, UserInfo(state=EPersonaState.Offline))
     assert cache.ready
     assert list(cache) == [(user_id, expected_user_info)]
     added_handler.assert_called_with(user_id, expected_user_info)
@@ -74,7 +74,7 @@ def test_update_user_all_data(cache, added_handler, updated_handler):
     user_id = 1423
     user_info = UserInfo(name="Jan", state=EPersonaState.Offline)
     cache.add(user_id)
-    cache.update_info(user_id, user_info)
+    cache.update(user_id, user_info)
     assert cache.ready
     assert list(cache) == [(user_id, user_info)]
     added_handler.assert_called_with(user_id, user_info)
@@ -94,7 +94,7 @@ def test_remove_ready_user(cache, removed_handler):
     user_id = 1423
     user_info = UserInfo(name="Jan", state=EPersonaState.Offline)
     cache.add(user_id)
-    cache.update_info(user_id, user_info)
+    cache.update(user_id, user_info)
     cache.remove(user_id)
     assert list(cache) == []
     removed_handler.assert_called_once_with(user_id)
@@ -108,10 +108,10 @@ def test_reset_empty(cache):
 
 def test_reset_mixed(cache, removed_handler):
     cache.add(15)
-    cache.update_info(15, UserInfo(name="Jan", state=EPersonaState.Offline))
+    cache.update(15, UserInfo(name="Jan", state=EPersonaState.Offline))
 
     cache.add(17)
-    cache.update_info(17, UserInfo(name="Ula", state=EPersonaState.Offline))
+    cache.update(17, UserInfo(name="Ula", state=EPersonaState.Offline))
 
     cache.reset([17, 29])
     removed_handler.assert_called_once_with(15)

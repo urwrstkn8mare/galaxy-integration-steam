@@ -6,6 +6,7 @@ import galaxy.api.errors
 from protocol.protobuf_client import ProtobufClient
 from protocol.consts import EResult, EFriendRelationship, EPersonaState
 from friends_cache import FriendsCache
+from games_cache import GamesCache
 
 
 logger = logging.getLogger(__name__)
@@ -77,13 +78,17 @@ def translate_error(result: EResult):
 class ProtocolClient:
     _STATUS_FLAG = 1106
 
-    def __init__(self, socket, friends_cache: FriendsCache):
+    def __init__(self, socket, friends_cache: FriendsCache, games_cache: GamesCache):
         self._protobuf_client = ProtobufClient(socket)
         self._protobuf_client.log_on_handler = self._log_on_handler
         self._protobuf_client.log_off_handler = self._log_off_handler
         self._protobuf_client.relationship_handler = self._relationship_handler
         self._protobuf_client.user_info_handler = self._user_info_handler
+        self._protobuf_client.app_info_handler = self._app_info_handler
+        self._protobuf_client.license_import_handler = self._license_import_handler
+        self._protobuf_client.package_info_handler = self._package_info_handler
         self._friends_cache = friends_cache
+        self._games_cache = games_cache
         self._auth_lost_handler = None
         self._login_future = None
 
@@ -135,4 +140,21 @@ class ProtocolClient:
             await self._protobuf_client.get_user_infos(initial_friends, self._STATUS_FLAG)
 
     async def _user_info_handler(self, user_id, user_info):
-        self._friends_cache.update_info(user_id, user_info)
+        self._friends_cache.update(user_id, user_info)
+
+    async def _license_import_handler(self, licenses):
+        logger.info(f"Starting license import for {licenses}")
+        package_ids = []
+
+        for license in licenses:
+            package_ids.append(int(license.package_id))
+
+        self._games_cache.start_packages_import(package_ids)
+
+        await self._protobuf_client.get_packages_info(package_ids)
+
+    async def _app_info_handler(self, appid, title=None, game=None):
+        self._games_cache.update(appid, title, game)
+
+    async def _package_info_handler(self, package_id):
+        self._games_cache.update_packages(package_id)

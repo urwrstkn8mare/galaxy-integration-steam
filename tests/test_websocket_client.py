@@ -10,6 +10,7 @@ from protocol.websocket_client import WebSocketClient, RECONNECT_INTERVAL_SECOND
 from protocol.types import UserInfo
 from servers_cache import ServersCache
 from friends_cache import FriendsCache
+from games_cache import GamesCache
 
 STEAM_ID = 71231321
 ACCOUNT_NAME = "john"
@@ -46,19 +47,22 @@ def websocket(mocker):
 def friends_cache(mocker):
     return MagicMock(FriendsCache)
 
+@pytest.fixture
+def games_cache(mocker):
+    return MagicMock(GamesCache)
 
 @pytest.fixture
-async def client(backend_client, servers_cache, protocol_client, friends_cache):
-    return WebSocketClient(backend_client, MagicMock(), servers_cache, friends_cache)
+async def client(backend_client, servers_cache, protocol_client, friends_cache, games_cache):
+    return WebSocketClient(backend_client, MagicMock(), servers_cache, friends_cache, games_cache)
 
 
 @pytest.mark.asyncio
 async def test_get_friends(client, friends_cache):
     friends_cache.wait_ready.return_value = async_return_value(None)
-    friends_cache.user_ids.return_value = [1, 5, 7]
+    friends_cache.get_keys.return_value = [1, 5, 7]
     assert await client.get_friends() == ["1", "5", "7"]
     friends_cache.wait_ready.assert_called_once_with()
-    friends_cache.user_ids.assert_called_once_with()
+    friends_cache.get_keys.assert_called_once_with()
 
 
 @pytest.mark.asyncio

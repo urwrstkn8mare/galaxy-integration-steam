@@ -17,6 +17,10 @@ from yarl import URL
 logger = logging.getLogger(__name__)
 
 
+class UnfinishedAccountSetup(Exception):
+    pass
+
+
 def is_absolute(url):
     return bool(urlparse(url).netloc)
 
@@ -77,6 +81,12 @@ class SteamHttpClient:
     def __init__(self, http_client):
         self._http_client = http_client
 
+    async def get_steamcommunity_response_status(self):
+        url = "https://steamcommunity.com"
+        response = await self._http_client.request("GET", url, allow_redirects=True)
+        return response.status
+
+
     async def get_profile(self):
         url = "https://steamcommunity.com/"
         text = await get_text(await self._http_client.get(url, allow_redirects=True))
@@ -104,6 +114,10 @@ class SteamHttpClient:
             # find persona_name
             div = html.find("div.profile_header_centered_persona", first=True)
             if not div:
+                fallback_div = html.find("div.welcome_header_ctn")
+                if fallback_div:
+                    logger.info("Fresh account without set up steam profile.")
+                    raise UnfinishedAccountSetup()
                 logger.error("Can not parse backend response - no div.profile_header_centered_persona")
                 raise UnknownBackendResponse()
             span = div.find("span.actual_persona_name", first=True)
@@ -157,6 +171,11 @@ class SteamHttpClient:
             raise UnknownBackendResponse()
 
         return games
+
+    async def setup_steam_profile(self, profile_url):
+        url = profile_url.split('/home')[0]
+        url += '/edit?welcomed=1'
+        await self._http_client.get(url, allow_redirects=True)
 
     @staticmethod
     def parse_date(text_time):
@@ -322,6 +341,13 @@ class SteamHttpClient:
         if str(appid) in game_info and 'data' in game_info[str(appid)] and 'categories' in game_info[str(appid)]['data']:
             return game_info[str(appid)]['data']['categories']
         return []
+
+    async def get_owned_ids(self, miniprofile_id):
+        url = f"https://store.steampowered.com/dynamicstore/userdata/?id={miniprofile_id}"
+        response = await self._http_client.get(url)
+        response = await response.json()
+        logger.info(f"userdata response {response}")
+        return response['rgOwnedApps']
 
     async def get_authentication_data(self) -> Tuple[int, str, str]:
         url = "https://steamcommunity.com/chat/clientjstoken"

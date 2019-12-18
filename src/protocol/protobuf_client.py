@@ -6,10 +6,12 @@ from itertools import count
 from typing import Awaitable, Callable,Dict, Optional
 
 from protocol.messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, \
-    steammessages_clientserver_friends_pb2
+    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2
 from protocol.messages.steammessages_chat import steamclient_pb2
 from protocol.consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
 from protocol.types import SteamId, UserInfo
+
+import vdf
 
 
 logger = logging.getLogger(__name__)
@@ -24,6 +26,9 @@ class ProtobufClient:
         self.log_off_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
         self.relationship_handler: Optional[Callable[[bool, Dict[int, EFriendRelationship]], Awaitable[None]]] = None
         self.user_info_handler: Optional[Callable[[int, UserInfo], Awaitable[None]]] = None
+        self.license_import_handler: Optional[Callable[[int], Awaitable[None]]] = None
+        self.app_info_handler: Optional[Callable[[int, str], Awaitable[None]]] = None
+        self.package_info_handler: Optional[Callable[[int], Awaitable[None]]] = None
         self._steam_id: Optional[int] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._session_id: Optional[int] = None
@@ -75,6 +80,26 @@ class ProtobufClient:
         message.friends.extend(users)
         message.persona_state_requested = flags
         await self._send(EMsg.ClientRequestFriendData, message)
+
+    async def get_packages_info(self, package_ids):
+        logger.info(f"Sending call {EMsg.PICSProductInfoRequest} with {package_ids}")
+        message = steammessages_clientserver_pb2.CMsgClientPICSProductInfoRequest()
+
+        for package_id in package_ids:
+            info = message.packages.add()
+            info.packageid = package_id
+
+        await self._send(EMsg.PICSProductInfoRequest, message)
+
+    async def get_apps_info(self, app_ids):
+        logger.info(f"Sending call {EMsg.PICSProductInfoRequest} with {app_ids}")
+        message = steammessages_clientserver_pb2.CMsgClientPICSProductInfoRequest()
+
+        for app_id in app_ids:
+            info = message.apps.add()
+            info.appid = app_id
+
+        await self._send(EMsg.PICSProductInfoRequest, message)
 
     async def _send(
             self,
@@ -139,6 +164,10 @@ class ProtobufClient:
             await self._process_client_friend_list(body)
         elif emsg == EMsg.ClientPersonaState:
             await self._process_client_persona_state(body)
+        elif emsg == EMsg.ClientLicenseList:
+            await self._process_license_list(body)
+        elif emsg == EMsg.PICSProductInfoResponse:
+            await self._process_package_info_response(body)
         elif emsg == EMsg.ServiceMethodResponse:
             await self._process_service_method_response(header.target_job_name, body)
         else:
@@ -215,6 +244,8 @@ class ProtobufClient:
 
         for user in message.friends:
             user_id = user.friendid
+            if user_id == self._steam_id and int(user.game_played_app_id) != 0:
+                await self.get_apps_info([int(user.game_played_app_id)])
             user_info = UserInfo()
             if user.HasField("player_name"):
                 user_info.name = user.player_name
@@ -233,5 +264,50 @@ class ProtobufClient:
 
             await self.user_info_handler(user_id, user_info)
 
+    async def _process_license_list(self, body):
+        logger.debug("Processing message ClientLicenseList")
+        if self.license_import_handler is None:
+            return
+
+        message = steammessages_clientserver_pb2.CMsgClientLicenseList()
+        message.ParseFromString(body)
+
+        await self.license_import_handler(message.licenses)
+
+    async def _process_package_info_response(self, body):
+        logger.debug("Processing message PICSProductInfoResponse")
+        message = steammessages_clientserver_pb2.CMsgClientPICSProductInfoResponse()
+        message.ParseFromString(body)
+        apps_to_parse = []
+
+        for info in message.packages:
+            await self.package_info_handler(int(info.packageid))
+            if info.packageid == 0:
+                # Packageid 0 contains trash entries for every user
+                logger.info("Skipping packageid 0")
+                continue
+            package_content = vdf.binary_loads(info.buffer[4:])
+            for app in package_content[str(info.packageid)]['appids']:
+                await self.app_info_handler(int(package_content[str(info.packageid)]['appids'][app]))
+                apps_to_parse.append(package_content[str(info.packageid)]['appids'][app])
+
+        for info in message.apps:
+            app_content = vdf.loads(info.buffer[:-1].decode('utf-8', 'replace'))
+            try:
+                if app_content['appinfo']['common']['type'].lower() == 'game':
+                    await self.app_info_handler(appid=int(app_content['appinfo']['appid']), title=app_content['appinfo']['common']['name'], game=True)
+                else:
+                    await self.app_info_handler(appid=int(app_content['appinfo']['appid']), game=False)
+
+            except KeyError:
+                # Unrecognized app type
+                await self.app_info_handler(appid=int(app_content['appinfo']['appid']), game=False)
+
+        if len(apps_to_parse) > 0:
+            logger.info(f"Apps to parse {apps_to_parse}, {len(apps_to_parse)} entries")
+            await self.get_apps_info(apps_to_parse)
+
     async def _process_service_method_response(self, target_job_name, body):
         logger.debug("Processing message ServiceMethodResponse %s", target_job_name)
+
+

@@ -4,6 +4,9 @@ from galaxy.api.types import UserPresence
 from protocol.consts import EPersonaState
 from protocol.types import UserInfo
 
+import logging
+logger = logging.getLogger(__name__)
+
 def from_user_info(user_info: UserInfo) -> UserPresence:
     if user_info.state == EPersonaState.Online:
         state = PresenceState.Online
@@ -23,6 +26,10 @@ def from_user_info(user_info: UserInfo) -> UserPresence:
     status = None
     if user_info.rich_presence is not None:
         status = user_info.rich_presence.get("status")
+        if status and status[0] == "#":
+            # TODO: handle it
+            logger.info(f"Skipping not simple rich presence status {status}")
+            status = None
 
     return UserPresence(
         presence_state=state,

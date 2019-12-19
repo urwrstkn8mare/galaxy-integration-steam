@@ -30,8 +30,17 @@ class GamesCache(ProtoCache):
         return games
 
     def update_packages(self, package_id):
-        self._packages_to_parse.pop(package_id)
+        try:
+            self._packages_to_parse.pop(package_id)
+        except KeyError:
+            logger.error(f"Unexpected package_id {package_id}")
         self._update_ready_state()
+
+    def __iter__(self):
+        # If we perform an iteration in the middle of parsing response then
+        # all the rest of the response will be parsed as add_game
+        self._apps_to_parse = {}
+        yield from self._info_map.items()
 
     def update(self, appid, title, game):
         if not title and game is None and appid not in self._apps_to_parse:

@@ -46,8 +46,8 @@ class ProtoCache:
     def ready(self):
         return self._ready_event.is_set()
 
-    async def wait_ready(self):
-        await self._ready_event.wait()
+    async def wait_ready(self, timeout=None):
+        await asyncio.wait_for(self._ready_event.wait(), timeout)
 
     def get(self, key):
         result = self._info_map.get(key)

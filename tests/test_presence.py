@@ -42,7 +42,9 @@ def test_from_user_info(user_info, user_presence):
 
 CONTEXT = {
     "76561198040630463": UserInfo(name="John", state=EPersonaState.Offline),
-    "76561198053830887": UserInfo(name="Jan", state=EPersonaState.Online, game_id=124523113)
+    "76561198053830887": UserInfo(name="Jan", state=EPersonaState.Online, game_id=124523113),
+    "76561198053830888": UserInfo(name="Carol", state=EPersonaState.Online, game_id=123321, game_name="abc", rich_presence={'status': '#menuVariable'}),
+    "76561198053830889": UserInfo(name="Carol", state=EPersonaState.Online, game_id=123321, game_name="abc", rich_presence={'status': 'menuSimple'})
 }
 
 @pytest.mark.asyncio
@@ -67,6 +69,12 @@ async def test_get_user_presence_success(authenticated_plugin, steam_client):
 
     presence = await authenticated_plugin.get_user_presence("76561198053830887", CONTEXT)
     assert presence == UserPresence(presence_state=PresenceState.Online, game_id="124523113")
+
+    presence = await authenticated_plugin.get_user_presence("76561198053830888", CONTEXT)
+    assert presence == UserPresence(presence_state=PresenceState.Online, game_id="123321", game_title="abc", in_game_status=None)
+
+    presence = await authenticated_plugin.get_user_presence("76561198053830889", CONTEXT)
+    assert presence == UserPresence(presence_state=PresenceState.Online, game_id="123321", game_title="abc", in_game_status='menuSimple')
 
 
 @pytest.mark.asyncio

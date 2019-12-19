@@ -237,7 +237,7 @@ class SteamPlugin(Plugin):
             raise AuthenticationRequired()
 
         owned_ids = await self._client.get_owned_ids(self._miniprofile_id)
-        await self._games_cache.wait_ready()
+        await self._games_cache.wait_ready(60)
         owned_games = []
         try:
             for game_id, game_title in self._games_cache:

@@ -97,10 +97,13 @@ async def test_relationship_update(client, protobuf_client, friends_cache):
         15: EFriendRelationship.Friend,
         56: EFriendRelationship.None_
     }
-
+    protobuf_client.get_friends_statuses.return_value = async_return_value(None)
+    protobuf_client.get_user_infos.return_value = async_return_value(None)
     await protobuf_client.relationship_handler(True, friends)
     friends_cache.add.assert_called_once_with(15)
     friends_cache.remove.assert_called_once_with(56)
+    protobuf_client.get_friends_statuses.assert_called_once_with()
+    protobuf_client.get_user_infos.assert_called_once_with([15], ANY)
 
 
 @pytest.mark.asyncio

@@ -122,10 +122,12 @@ class ProtocolClient:
 
     async def _relationship_handler(self, incremental, friends):
         initial_friends = []
+        new_friends = []
         for user_id, relationship in friends.items():
             if relationship == EFriendRelationship.Friend:
                 if incremental:
                     self._friends_cache.add(user_id)
+                    new_friends.append(user_id)
                 else:
                     initial_friends.append(user_id)
             elif relationship == EFriendRelationship.None_:
@@ -138,6 +140,10 @@ class ProtocolClient:
             await self._protobuf_client.set_persona_state(EPersonaState.Invisible)
             await self._protobuf_client.get_friends_statuses()
             await self._protobuf_client.get_user_infos(initial_friends, self._STATUS_FLAG)
+
+        if new_friends:
+            await self._protobuf_client.get_friends_statuses()
+            await self._protobuf_client.get_user_infos(new_friends, self._STATUS_FLAG)
 
     async def _user_info_handler(self, user_id, user_info):
         self._friends_cache.update(user_id, user_info)

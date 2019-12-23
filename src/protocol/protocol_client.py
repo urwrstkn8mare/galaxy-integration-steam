@@ -101,10 +101,10 @@ class ProtocolClient:
     async def run(self):
         await self._protobuf_client.run()
 
-    async def authenticate(self, steam_id, account_name, token, auth_lost_handler):
+    async def authenticate(self, steam_id, miniprofile_id, account_name, token, auth_lost_handler):
         loop = asyncio.get_running_loop()
         self._login_future = loop.create_future()
-        await self._protobuf_client.log_on(steam_id, account_name, token)
+        await self._protobuf_client.log_on(steam_id, miniprofile_id, account_name, token)
         result = await self._login_future
         if result == EResult.OK:
             self._auth_lost_handler = auth_lost_handler

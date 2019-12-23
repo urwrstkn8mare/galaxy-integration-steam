@@ -11,6 +11,7 @@ from protocol.types import UserInfo
 
 
 STEAM_ID = 71231321
+MINIPROFILE_ID = 123
 ACCOUNT_NAME = "john"
 TOKEN = "TOKEN"
 
@@ -44,18 +45,18 @@ async def test_close(client, protobuf_client):
 @pytest.mark.asyncio
 async def test_authenticate_success(client, protobuf_client):
     protobuf_client.log_on.return_value = async_return_value(None)
-    auth_task = asyncio.create_task(client.authenticate(STEAM_ID, ACCOUNT_NAME, TOKEN, None))
+    auth_task = asyncio.create_task(client.authenticate(STEAM_ID,MINIPROFILE_ID, ACCOUNT_NAME, TOKEN, None))
     await skip_loop()
     await protobuf_client.log_on_handler(EResult.OK)
     await auth_task
-    protobuf_client.log_on.assert_called_once_with(STEAM_ID, ACCOUNT_NAME, TOKEN)
+    protobuf_client.log_on.assert_called_once_with(STEAM_ID,MINIPROFILE_ID, ACCOUNT_NAME, TOKEN)
 
 
 @pytest.mark.asyncio
 async def test_authenticate_failure(client, protobuf_client):
     auth_lost_handler = MagicMock()
     protobuf_client.log_on.return_value = async_return_value(None)
-    auth_task = asyncio.create_task(client.authenticate(STEAM_ID, ACCOUNT_NAME, TOKEN, auth_lost_handler))
+    auth_task = asyncio.create_task(client.authenticate(STEAM_ID,MINIPROFILE_ID, ACCOUNT_NAME, TOKEN, auth_lost_handler))
     await skip_loop()
     await protobuf_client.log_on_handler(EResult.AccessDenied)
     with pytest.raises(AccessDenied):
@@ -67,7 +68,7 @@ async def test_authenticate_failure(client, protobuf_client):
 async def test_log_out(client, protobuf_client):
     auth_lost_handler = MagicMock(return_value=async_return_value(None))
     protobuf_client.log_on.return_value = async_return_value(None)
-    auth_task = asyncio.create_task(client.authenticate(STEAM_ID, ACCOUNT_NAME, TOKEN, auth_lost_handler))
+    auth_task = asyncio.create_task(client.authenticate(STEAM_ID, MINIPROFILE_ID, ACCOUNT_NAME, TOKEN, auth_lost_handler))
     await skip_loop()
     await protobuf_client.log_on_handler(EResult.OK)
     await auth_task

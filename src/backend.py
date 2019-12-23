@@ -349,12 +349,12 @@ class SteamHttpClient:
         logger.info(f"userdata response {response}")
         return response['rgOwnedApps']
 
-    async def get_authentication_data(self) -> Tuple[int, str, str]:
+    async def get_authentication_data(self) -> Tuple[int, int, str, str]:
         url = "https://steamcommunity.com/chat/clientjstoken"
         response = await self._http_client.get(url)
         try:
             data = await response.json()
-            return int(data["steamid"]), data["account_name"], data["token"]
+            return int(data["steamid"]), int(data["accountid"]), data["account_name"], data["token"]
         except (ValueError, KeyError) :
             logger.exception("Can not parse backend response")
             raise UnknownBackendResponse()

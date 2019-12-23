@@ -236,20 +236,18 @@ class SteamPlugin(Plugin):
         if self._steam_id is None:
             raise AuthenticationRequired()
 
-        owned_ids = await self._client.get_owned_ids(self._miniprofile_id)
-        await self._games_cache.wait_ready(60)
+        await self._games_cache.wait_ready(10)
         owned_games = []
         try:
             for game_id, game_title in self._games_cache:
-                if game_id in owned_ids:
-                    owned_games.append(
-                        Game(
-                            str(game_id),
-                            game_title,
-                            [],
-                            LicenseInfo(LicenseType.SinglePurchase, None)
-                        )
+                owned_games.append(
+                    Game(
+                        str(game_id),
+                        game_title,
+                        [],
+                        LicenseInfo(LicenseType.SinglePurchase, None)
                     )
+                )
         except (KeyError, ValueError):
             logger.exception("Can not parse backend response")
             raise UnknownBackendResponse()

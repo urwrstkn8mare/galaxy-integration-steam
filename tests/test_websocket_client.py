@@ -13,6 +13,7 @@ from friends_cache import FriendsCache
 from games_cache import GamesCache
 
 STEAM_ID = 71231321
+MINIPROFILE_ID = 123
 ACCOUNT_NAME = "john"
 TOKEN = "TOKEN"
 
@@ -84,12 +85,12 @@ async def test_get_friends_info(client, friends_cache):
 @pytest.mark.asyncio
 async def test_connect_authenticate(client, protocol_client, backend_client, servers_cache, websocket):
     servers_cache.get.return_value = async_return_value(["wss://abc.com/websocket"])
-    backend_client.get_authentication_data.return_value = STEAM_ID, ACCOUNT_NAME, TOKEN
+    backend_client.get_authentication_data.return_value = STEAM_ID,MINIPROFILE_ID, ACCOUNT_NAME, TOKEN
     protocol_client.authenticate.return_value = async_return_value(None)
     protocol_client.run.return_value = async_raise(websockets.ConnectionClosedOK(1000, ""), 10)
     await client.run()
     servers_cache.get.assert_called_once_with()
-    protocol_client.authenticate.assert_called_once_with(STEAM_ID, ACCOUNT_NAME, TOKEN, ANY)
+    protocol_client.authenticate.assert_called_once_with(STEAM_ID, MINIPROFILE_ID, ACCOUNT_NAME, TOKEN, ANY)
     protocol_client.run.assert_called_once_with()
 
 
@@ -99,7 +100,7 @@ async def test_websocket_close_reconnect(client, protocol_client, backend_client
         async_return_value(["wss://abc.com/websocket"]),
         async_return_value(["wss://abc.com/websocket"])
     ]
-    backend_client.get_authentication_data.return_value = STEAM_ID, ACCOUNT_NAME, TOKEN
+    backend_client.get_authentication_data.return_value = STEAM_ID, MINIPROFILE_ID, ACCOUNT_NAME, TOKEN
     protocol_client.authenticate.return_value = async_return_value(None)
     protocol_client.run.side_effect = [
         async_raise(websockets.ConnectionClosedError(1002, ""), 10),
@@ -127,7 +128,7 @@ async def test_servers_cache_retry(
         async_return_value(["wss://abc.com/websocket"])
     ]
     sleep = mocker.patch("protocol.websocket_client.asyncio.sleep", side_effect=lambda x: async_return_value(None))
-    backend_client.get_authentication_data.return_value = STEAM_ID, ACCOUNT_NAME, TOKEN
+    backend_client.get_authentication_data.return_value = STEAM_ID, MINIPROFILE_ID, ACCOUNT_NAME, TOKEN
     protocol_client.authenticate.return_value = async_return_value(None)
     protocol_client.run.return_value = async_raise(websockets.ConnectionClosedOK(1000, ""), 10)
     await client.run()

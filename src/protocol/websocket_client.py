@@ -144,5 +144,5 @@ class WebSocketClient:
             logger.warning("WebSocket client authentication lost")
             auth_lost_future.set_exception(error)
 
-        steam_id, account_name, token = await self._backend_client.get_authentication_data()
-        await self._protocol_client.authenticate(steam_id, account_name, token, auth_lost_handler)
+        steam_id, miniprofile_id, account_name, token = await self._backend_client.get_authentication_data()
+        await self._protocol_client.authenticate(steam_id, miniprofile_id, account_name, token, auth_lost_handler)

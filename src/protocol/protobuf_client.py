@@ -30,6 +30,7 @@ class ProtobufClient:
         self.app_info_handler: Optional[Callable[[int, str], Awaitable[None]]] = None
         self.package_info_handler: Optional[Callable[[int], Awaitable[None]]] = None
         self._steam_id: Optional[int] = None
+        self._miniprofile_id: Optional[int] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._session_id: Optional[int] = None
         self._job_id_iterator = count(1)
@@ -46,7 +47,7 @@ class ProtobufClient:
             packet = await self._socket.recv()
             await self._process_packet(packet)
 
-    async def log_on(self, steam_id, account_name, token):
+    async def log_on(self, steam_id, miniprofile_id, account_name, token):
         # magic numbers taken from JavaScript Steam client
         message = steammessages_clientserver_login_pb2.CMsgClientLogon()
         message.account_name = account_name
@@ -60,6 +61,7 @@ class ProtobufClient:
 
         try:
             self._steam_id = steam_id
+            self._miniprofile_id = miniprofile_id
             await self._send(EMsg.ClientLogon, message)
         except Exception:
             self._steam_id = None
@@ -272,7 +274,15 @@ class ProtobufClient:
         message = steammessages_clientserver_pb2.CMsgClientLicenseList()
         message.ParseFromString(body)
 
-        await self.license_import_handler(message.licenses)
+        licenses_to_check = []
+        for license in message.licenses:
+            # license.type 1024 = free games
+            # license.flags 520 = unidentified trash entries (games which are not owned nor are free)
+            if int(license.owner_id) == int(self._miniprofile_id) and int(license.flags) != 520:
+                logger.info(f"Parsing license {license.package_id}")
+                licenses_to_check.append(license)
+
+        await self.license_import_handler(licenses_to_check)
 
     async def _process_package_info_response(self, body):
         logger.debug("Processing message PICSProductInfoResponse")
@@ -284,7 +294,7 @@ class ProtobufClient:
             await self.package_info_handler(int(info.packageid))
             if info.packageid == 0:
                 # Packageid 0 contains trash entries for every user
-                logger.info("Skipping packageid 0")
+                logger.info("Skipping packageid 0 ")
                 continue
             package_content = vdf.binary_loads(info.buffer[4:])
             for app in package_content[str(info.packageid)]['appids']:

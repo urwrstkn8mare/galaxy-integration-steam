@@ -2,6 +2,9 @@ import asyncio
 from typing import Dict
 
 from abc import abstractmethod
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ProtoCache:
@@ -47,7 +50,11 @@ class ProtoCache:
         return self._ready_event.is_set()
 
     async def wait_ready(self, timeout=None):
-        await asyncio.wait_for(self._ready_event.wait(), timeout)
+        try:
+            await asyncio.wait_for(self._ready_event.wait(), timeout)
+        except asyncio.TimeoutError:
+            logger.info("Timed out waiting for games cache to get ready")
+            pass
 
     def get(self, key):
         result = self._info_map.get(key)

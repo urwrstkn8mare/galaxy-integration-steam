@@ -40,6 +40,12 @@ class GamesCache(ProtoCache):
         # If we perform an iteration in the middle of parsing response then
         # all the rest of the response will be parsed as add_game
         self._apps_to_parse = {}
+
+        games_added = self._games_added.copy()
+        for game in games_added:
+            if game in self._info_map:
+                self._games_added.pop(game)
+
         yield from self._info_map.items()
 
     def update(self, appid, title, game):
@@ -51,13 +57,15 @@ class GamesCache(ProtoCache):
         if (game is False or (title and game)) and appid in self._apps_to_parse:
             self._apps_to_parse.pop(appid)
         elif title and game:
-            logger.info(f"New game has been played {title} {game} {appid}")
+            logger.info(f"New game has been played or a game which we didnt expect arrived from previous calls {title} {game} {appid}")
             self._games_added[appid] = title
 
         self._update_ready_state()
 
     def _update_ready_state(self):
         if self._packages_to_parse is not None and len(self._packages_to_parse) == 0 and len(self._apps_to_parse) == 0:
+            if self._ready_event.is_set():
+                return
             logger.info("Setting state to ready")
             self._ready_event.set()
         else:

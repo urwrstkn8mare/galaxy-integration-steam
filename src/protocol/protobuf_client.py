@@ -279,7 +279,6 @@ class ProtobufClient:
             # license.type 1024 = free games
             # license.flags 520 = unidentified trash entries (games which are not owned nor are free)
             if int(license.owner_id) == int(self._miniprofile_id) and int(license.flags) != 520:
-                logger.info(f"Parsing license {license.package_id}")
                 licenses_to_check.append(license)
 
         await self.license_import_handler(licenses_to_check)

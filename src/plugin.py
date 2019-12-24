@@ -126,6 +126,7 @@ class SteamPlugin(Plugin):
 
         self._update_local_games_task = None
         self._update_owned_games_task = None
+        self._owned_games_parsed = None
 
         def user_presence_update_handler(user_id: str, user_info: UserInfo):
             self.update_user_presence(user_id, from_user_info(user_info))
@@ -251,6 +252,8 @@ class SteamPlugin(Plugin):
         except (KeyError, ValueError):
             logger.exception("Can not parse backend response")
             raise UnknownBackendResponse()
+        finally:
+            self._owned_games_parsed = True
 
         return owned_games
 
@@ -381,7 +384,7 @@ class SteamPlugin(Plugin):
                 (self._update_local_games_task is None or self._update_local_games_task.done()) and \
                 self._regmon.is_updated():
             self._update_local_games_task = self.create_task(self._update_local_games(), "Update local games")
-        if self._update_owned_games_task is None or self._update_owned_games_task.done():
+        if self._update_owned_games_task is None or self._update_owned_games_task.done() and self._owned_games_parsed:
             self._update_owned_games_task = self.create_task(self._update_owned_games(), "Update owned games")
 
         if self._persistent_storage_state.modified:

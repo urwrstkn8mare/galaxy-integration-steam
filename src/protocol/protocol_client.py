@@ -78,7 +78,7 @@ def translate_error(result: EResult):
 class ProtocolClient:
     _STATUS_FLAG = 1106
 
-    def __init__(self, socket, friends_cache: FriendsCache, games_cache: GamesCache):
+    def __init__(self, socket, friends_cache: FriendsCache, games_cache: GamesCache, translations_cache: dict):
         self._protobuf_client = ProtobufClient(socket)
         self._protobuf_client.log_on_handler = self._log_on_handler
         self._protobuf_client.log_off_handler = self._log_off_handler
@@ -87,8 +87,10 @@ class ProtocolClient:
         self._protobuf_client.app_info_handler = self._app_info_handler
         self._protobuf_client.license_import_handler = self._license_import_handler
         self._protobuf_client.package_info_handler = self._package_info_handler
+        self._protobuf_client.translations_handler = self._translations_handler
         self._friends_cache = friends_cache
         self._games_cache = games_cache
+        self._translations_cache = translations_cache
         self._auth_lost_handler = None
         self._login_future = None
 
@@ -164,3 +166,9 @@ class ProtocolClient:
 
     async def _package_info_handler(self, package_id):
         self._games_cache.update_packages(package_id)
+
+    async def _translations_handler(self, appid, translations=None):
+        if appid and translations:
+            self._translations_cache[appid] = translations[0]
+        elif appid not in self._translations_cache:
+            await self._protobuf_client.get_presence_localization(appid)

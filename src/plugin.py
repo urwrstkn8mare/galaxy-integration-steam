@@ -114,7 +114,8 @@ class SteamPlugin(Plugin):
         )
         self._friends_cache = FriendsCache()
         self._games_cache = GamesCache()
-        self._steam_client = WebSocketClient(self._client, self._ssl_context, self._servers_cache, self._friends_cache, self._games_cache)
+        self._translations_cache = dict()
+        self._steam_client = WebSocketClient(self._client, self._ssl_context, self._servers_cache, self._friends_cache, self._games_cache, self._translations_cache)
         self._achievements_cache = Cache()
         self._achievements_cache_updated = False
 
@@ -129,7 +130,7 @@ class SteamPlugin(Plugin):
         self._owned_games_parsed = None
 
         def user_presence_update_handler(user_id: str, user_info: UserInfo):
-            self.update_user_presence(user_id, from_user_info(user_info))
+            self.update_user_presence(user_id, from_user_info(user_info, self._translations_cache))
 
         self._friends_cache.updated_handler = user_presence_update_handler
 
@@ -239,6 +240,7 @@ class SteamPlugin(Plugin):
 
         await self._games_cache.wait_ready(10)
         owned_games = []
+        self._games_cache.add_game_lever = True
         try:
             for game_id, game_title in self._games_cache:
                 owned_games.append(
@@ -372,12 +374,17 @@ class SteamPlugin(Plugin):
                 "User {} not in friend list (plugin only supports fetching presence for friends)".format(user_id)
             )
 
-        return from_user_info(user_info)
+        return from_user_info(user_info, self._translations_cache)
 
     async def _update_owned_games(self):
         new_games = self._games_cache.get_added_games()
+        iter = 0
         for game in new_games:
+            iter += 1
             self.add_game(Game(game, new_games[game], [], license_info=LicenseInfo(LicenseType.SinglePurchase)))
+            if iter >= 5:
+                iter = 0
+                await asyncio.sleep(1)
 
     def tick(self):
         if self._local_games_cache is not None and \

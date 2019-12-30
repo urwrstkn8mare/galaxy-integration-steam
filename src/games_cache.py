@@ -11,6 +11,7 @@ class GamesCache(ProtoCache):
         self._packages_to_parse = None
         self._apps_to_parse = {}
         self._games_added = {}
+        self.add_game_lever: bool = False
 
     def start_packages_import(self, licenses):
         self._packages_to_parse = dict.fromkeys(licenses, None)
@@ -37,28 +38,20 @@ class GamesCache(ProtoCache):
         self._update_ready_state()
 
     def __iter__(self):
-        # If we perform an iteration in the middle of parsing response then
-        # all the rest of the response will be parsed as add_game
-        self._apps_to_parse = {}
-
-        games_added = self._games_added.copy()
-        for game in games_added:
-            if game in self._info_map:
-                self._games_added.pop(game)
-
         yield from self._info_map.items()
 
     def update(self, appid, title, game):
         if not title and game is None and appid not in self._apps_to_parse:
             self._apps_to_parse[appid] = None
-        elif title and game:
-            self._info_map[appid] = title
 
         if (game is False or (title and game)) and appid in self._apps_to_parse:
             self._apps_to_parse.pop(appid)
-        elif title and game:
-            logger.info(f"New game has been played or a game which we didnt expect arrived from previous calls {title} {game} {appid}")
-            self._games_added[appid] = title
+
+        if title and game:
+            if self.add_game_lever:
+                self._games_added[appid] = title
+            else:
+                self._info_map[appid] = title
 
         self._update_ready_state()
 

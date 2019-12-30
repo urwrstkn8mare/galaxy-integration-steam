@@ -3,11 +3,11 @@ import struct
 import gzip
 import logging
 from itertools import count
-from typing import Awaitable, Callable,Dict, Optional
+from typing import Awaitable, Callable,Dict, Optional, Any
+
 
 from protocol.messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, \
-    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2
-from protocol.messages.steammessages_chat import steamclient_pb2
+    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, steammessages_webui_friends_pb2, steammessages_chat_pb2
 from protocol.consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
 from protocol.types import SteamId, UserInfo
 
@@ -29,6 +29,7 @@ class ProtobufClient:
         self.license_import_handler: Optional[Callable[[int], Awaitable[None]]] = None
         self.app_info_handler: Optional[Callable[[int, str], Awaitable[None]]] = None
         self.package_info_handler: Optional[Callable[[int], Awaitable[None]]] = None
+        self.translations_handler: Optional[Callable[[int, Any], Awaitable[None]]] = None
         self._steam_id: Optional[int] = None
         self._miniprofile_id: Optional[int] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
@@ -74,7 +75,7 @@ class ProtobufClient:
 
     async def get_friends_statuses(self):
         job_id = next(self._job_id_iterator)
-        message = steamclient_pb2.CChat_RequestFriendPersonaStates_Request()
+        message = steammessages_chat_pb2.CChat_RequestFriendPersonaStates_Request()
         await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, "Chat.RequestFriendPersonaStates#1")
 
     async def get_user_infos(self, users, flags):
@@ -102,6 +103,16 @@ class ProtobufClient:
             info.appid = app_id
 
         await self._send(EMsg.PICSProductInfoRequest, message)
+
+    async def get_presence_localization(self, appid, language='english'):
+        logger.info(f"Sending call for rich presence localization with {appid}, {language}")
+        message = steammessages_webui_friends_pb2.CCommunity_GetAppRichPresenceLocalization_Request()
+
+        message.appid = appid
+        message.language = language
+
+        job_id = next(self._job_id_iterator)
+        await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None,  target_job_name='Community.GetAppRichPresenceLocalization#1')
 
     async def _send(
             self,
@@ -260,6 +271,9 @@ class ProtobufClient:
                 rich_presence: Dict[str, str] = {}
                 for element in user.rich_presence:
                     rich_presence[element.key] = element.value
+                    if element.key == 'status' and element.value:
+                        if element.value[0] == "#":
+                            await self.translations_handler(user.gameid)
                 user_info.rich_presence = rich_presence
             if user.HasField("game_name"):
                 user_info.game_name = user.game_name
@@ -316,7 +330,16 @@ class ProtobufClient:
             logger.info(f"Apps to parse {apps_to_parse}, {len(apps_to_parse)} entries")
             await self.get_apps_info(apps_to_parse)
 
+    async def _process_rich_presence_translations(self, body):
+        message = steammessages_webui_friends_pb2.CCommunity_GetAppRichPresenceLocalization_Response()
+        message.ParseFromString(body)
+
+        logger.info(f"Received information about rich presence translations for {message.appid}")
+        await self.translations_handler(message.appid, message.token_lists)
+
     async def _process_service_method_response(self, target_job_name, body):
         logger.debug("Processing message ServiceMethodResponse %s", target_job_name)
+        if target_job_name == 'Community.GetAppRichPresenceLocalization#1':
+            await self._process_rich_presence_translations(body)
 
 

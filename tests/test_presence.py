@@ -8,6 +8,30 @@ from galaxy.api.errors import AuthenticationRequired, UnknownError
 from galaxy.api.consts import PresenceState
 from galaxy.api.types import UserPresence
 
+from dataclasses import dataclass
+
+@dataclass
+class token_translations_mock_dataclass:
+    name = "#hero"
+    value = "translated_hero"
+
+@dataclass
+class translations_cache_mock_dataclass:
+    tokens = [token_translations_mock_dataclass()]
+
+@dataclass
+class token_translations_parametrized_mock_dataclass_menu:
+    name = "#menu"
+    value = "translated_menu{%param0%}"
+
+@dataclass
+class token_translations_parametrized_mock_dataclass_EN:
+    name = "#EN"
+    value = "_english"
+
+@dataclass
+class translations_cache_parametrized_mock_dataclass:
+    tokens = [token_translations_parametrized_mock_dataclass_menu(), token_translations_parametrized_mock_dataclass_EN()]
 
 @pytest.mark.parametrize(
     "user_info,user_presence",
@@ -33,11 +57,25 @@ from galaxy.api.types import UserPresence
                 UserPresence(
                     presence_state=PresenceState.Online, game_id="1512", game_title="abc", in_game_status="menu"
                 )
+        ),
+        # User playing a game with translatable rich presence
+        (
+            UserInfo(state=EPersonaState.Online, game_id=1512, game_name="abc", rich_presence={"status": "#hero"}),
+            UserPresence(
+                presence_state=PresenceState.Online, game_id="1512", game_title="abc", in_game_status="translated_hero"
+            )
+        ),
+        # User playing a game with translatable rich presence which is parametrized
+        (
+            UserInfo(state=EPersonaState.Online, game_id=1513, game_name="abc", rich_presence={"status": "#menu", "num_params": 1, "param0": "#EN"}),
+            UserPresence(
+                presence_state=PresenceState.Online, game_id="1513", game_title="abc", in_game_status="translated_menu_english"
+            )
         )
     ]
 )
 def test_from_user_info(user_info, user_presence):
-    assert from_user_info(user_info) == user_presence
+    assert from_user_info(user_info, {1512: translations_cache_mock_dataclass(), 1513: translations_cache_parametrized_mock_dataclass()}) == user_presence
 
 
 CONTEXT = {

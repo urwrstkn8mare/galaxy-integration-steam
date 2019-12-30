@@ -7,7 +7,13 @@ from protocol.types import UserInfo
 import logging
 logger = logging.getLogger(__name__)
 
-def from_user_info(user_info: UserInfo) -> UserPresence:
+def _translate_string(game_id, string, translations_cache):
+    token_list = translations_cache[int(game_id)]
+    for token in token_list.tokens:
+        if token.name == string:
+            return token.value
+
+def from_user_info(user_info: UserInfo, translations_cache: dict) -> UserPresence:
     if user_info.state == EPersonaState.Online:
         state = PresenceState.Online
     elif user_info.state == EPersonaState.Offline:
@@ -27,9 +33,21 @@ def from_user_info(user_info: UserInfo) -> UserPresence:
     if user_info.rich_presence is not None:
         status = user_info.rich_presence.get("status")
         if status and status[0] == "#":
-            # TODO: handle it
-            logger.info(f"Skipping not simple rich presence status {status}")
-            status = None
+            if int(game_id) in translations_cache:
+                status = _translate_string(game_id, status, translations_cache)
+                num_params = user_info.rich_presence.get("num_params")
+                if num_params and int(num_params) > 0:
+                    for param in range(0, int(num_params)):
+                        param_string = user_info.rich_presence.get(f"param{param}")
+                        if param_string and param_string[0] == "#":
+                            param_string = _translate_string(game_id, param_string, translations_cache)
+                        presence_substring = f"%param{param}%"
+                        status = status.replace("{"+presence_substring+"}", param_string)
+                        status = status.replace(presence_substring, param_string)
+
+            else:
+                logger.info(f"Skipping not simple rich presence status {status}")
+                status = None
 
     return UserPresence(
         presence_state=state,

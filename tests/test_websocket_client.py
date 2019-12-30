@@ -53,8 +53,12 @@ def games_cache(mocker):
     return MagicMock(GamesCache)
 
 @pytest.fixture
-async def client(backend_client, servers_cache, protocol_client, friends_cache, games_cache):
-    return WebSocketClient(backend_client, MagicMock(), servers_cache, friends_cache, games_cache)
+def translations_cache():
+    return dict()
+
+@pytest.fixture
+async def client(backend_client, servers_cache, protocol_client, friends_cache, games_cache, translations_cache):
+    return WebSocketClient(backend_client, MagicMock(), servers_cache, friends_cache, games_cache, translations_cache)
 
 
 @pytest.mark.asyncio

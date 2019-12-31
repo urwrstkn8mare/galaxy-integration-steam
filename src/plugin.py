@@ -238,7 +238,7 @@ class SteamPlugin(Plugin):
         if self._steam_id is None:
             raise AuthenticationRequired()
 
-        await self._games_cache.wait_ready(10)
+        await self._games_cache.wait_ready(90)
         owned_games = []
         self._games_cache.add_game_lever = True
         try:

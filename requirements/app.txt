@@ -1,7 +1,6 @@
 galaxy.plugin.api==0.62
 requests-html==0.10.0
 protobuf==3.10.0
-vdf==3.0
+vdf==3.2
 pyobjc-framework-CoreServices==5.1.2; sys_platform == 'darwin'
 websockets==8.1
-multidict<4.7; sys_platform == 'darwin'

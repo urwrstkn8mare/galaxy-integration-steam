@@ -11,6 +11,7 @@ from protocol.types import UserInfo
 from servers_cache import ServersCache
 from friends_cache import FriendsCache
 from games_cache import GamesCache
+from stats_cache import StatsCache
 
 STEAM_ID = 71231321
 MINIPROFILE_ID = 123
@@ -53,12 +54,16 @@ def games_cache(mocker):
     return MagicMock(GamesCache)
 
 @pytest.fixture
+def stats_cache(mocker):
+    return MagicMock(StatsCache)
+
+@pytest.fixture
 def translations_cache():
     return dict()
 
 @pytest.fixture
-async def client(backend_client, servers_cache, protocol_client, friends_cache, games_cache, translations_cache):
-    return WebSocketClient(backend_client, MagicMock(), servers_cache, friends_cache, games_cache, translations_cache)
+async def client(backend_client, servers_cache, protocol_client, friends_cache, games_cache, translations_cache, stats_cache):
+    return WebSocketClient(backend_client, MagicMock(), servers_cache, friends_cache, games_cache, translations_cache, stats_cache)
 
 
 @pytest.mark.asyncio
@@ -193,4 +198,3 @@ async def test_connect_error_all_servers(client, backend_client, protocol_client
     await client.run()
     connect.assert_has_calls([call("wss://websocket_1", ssl=ANY), call("wss://websocket_1", ssl=ANY)])
     sleep.assert_any_call(RECONNECT_INTERVAL_SECONDS)
-

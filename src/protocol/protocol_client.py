@@ -7,6 +7,7 @@ from protocol.protobuf_client import ProtobufClient
 from protocol.consts import EResult, EFriendRelationship, EPersonaState
 from friends_cache import FriendsCache
 from games_cache import GamesCache
+from stats_cache import StatsCache
 
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,7 @@ def translate_error(result: EResult):
 class ProtocolClient:
     _STATUS_FLAG = 1106
 
-    def __init__(self, socket, friends_cache: FriendsCache, games_cache: GamesCache, translations_cache: dict):
+    def __init__(self, socket, friends_cache: FriendsCache, games_cache: GamesCache, translations_cache: dict, stats_cache: StatsCache):
         self._protobuf_client = ProtobufClient(socket)
         self._protobuf_client.log_on_handler = self._log_on_handler
         self._protobuf_client.log_off_handler = self._log_off_handler
@@ -88,9 +89,12 @@ class ProtocolClient:
         self._protobuf_client.license_import_handler = self._license_import_handler
         self._protobuf_client.package_info_handler = self._package_info_handler
         self._protobuf_client.translations_handler = self._translations_handler
+        self._protobuf_client.stats_handler = self._stats_handler
+        self._protobuf_client.times_handler = self._times_handler
         self._friends_cache = friends_cache
         self._games_cache = games_cache
         self._translations_cache = translations_cache
+        self._stats_cache = stats_cache
         self._auth_lost_handler = None
         self._login_future = None
 
@@ -112,6 +116,19 @@ class ProtocolClient:
             self._auth_lost_handler = auth_lost_handler
         else:
             raise translate_error(result)
+
+    async def import_game_stats(self, game_ids):
+        for game_id in game_ids:
+            self._protobuf_client.job_list.append({"job_name": "import_game_stats",
+                                                   "game_id": game_id})
+
+    async def retrieve_collections(self):
+        self._protobuf_client.job_list.append({"job_name": "import_collections"})
+        await self._protobuf_client.collections['event'].wait()
+        collections = self._protobuf_client.collections['collections'].copy()
+        self._protobuf_client.collections['event'].clear()
+        self._protobuf_client.collections['collections'] = dict()
+        return collections
 
     async def _log_on_handler(self, result: EResult):
         assert self._login_future is not None
@@ -172,3 +189,9 @@ class ProtocolClient:
             self._translations_cache[appid] = translations[0]
         elif appid not in self._translations_cache:
             await self._protobuf_client.get_presence_localization(appid)
+
+    async def _stats_handler(self, game_id, stats, achievements):
+        self._stats_cache.update_stats(str(game_id), stats, achievements)
+
+    async def _times_handler(self, game_id, time):
+        self._stats_cache.update_time(str(game_id), time)

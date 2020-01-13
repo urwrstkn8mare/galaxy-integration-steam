@@ -1,13 +1,14 @@
 import asyncio
 import struct
 import gzip
+import json
 import logging
 from itertools import count
 from typing import Awaitable, Callable,Dict, Optional, Any
-
+from galaxy.api.errors import UnknownBackendResponse
 
 from protocol.messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, \
-    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, steammessages_webui_friends_pb2, steammessages_chat_pb2
+    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, steamui_libraryroot_pb2
 from protocol.consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
 from protocol.types import SteamId, UserInfo
 
@@ -20,8 +21,8 @@ logger = logging.getLogger(__name__)
 class ProtobufClient:
     _PROTO_MASK = 0x80000000
 
-    def __init__(self, socket):
-        self._socket = socket
+    def __init__(self, set_socket):
+        self._socket = set_socket
         self.log_on_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
         self.log_off_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
         self.relationship_handler: Optional[Callable[[bool, Dict[int, EFriendRelationship]], Awaitable[None]]] = None
@@ -30,11 +31,17 @@ class ProtobufClient:
         self.app_info_handler: Optional[Callable[[int, str], Awaitable[None]]] = None
         self.package_info_handler: Optional[Callable[[int], Awaitable[None]]] = None
         self.translations_handler: Optional[Callable[[int, Any], Awaitable[None]]] = None
+        self.stats_handler: Optional[Callable[[int, Any, Any], Awaitable[None]]] = None
+        self.times_handler: Optional[Callable[[int, int], Awaitable[None]]] = None
         self._steam_id: Optional[int] = None
         self._miniprofile_id: Optional[int] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._session_id: Optional[int] = None
         self._job_id_iterator = count(1)
+        self.job_list = []
+
+        self.collections = {'event': asyncio.Event(),
+                            'collections': dict()}
 
     async def close(self):
         if self._heartbeat_task is not None:
@@ -43,10 +50,25 @@ class ProtobufClient:
     async def wait_closed(self):
         pass
 
+    async def _process_packets(self):
+        pass
+
     async def run(self):
         while True:
-            packet = await self._socket.recv()
-            await self._process_packet(packet)
+            for job in self.job_list.copy():
+                logger.info(f"New job on list {job}")
+                if job['job_name'] == "import_game_stats":
+                    await self._import_game_stats(job['game_id'])
+                    await self._import_game_time(job['game_id'])
+                    self.job_list.remove(job)
+                if job['job_name'] == "import_collections":
+                    await self._import_collections()
+                    self.job_list.remove(job)
+            try:
+                packet = await asyncio.wait_for(self._socket.recv(), 0.1)
+                await self._process_packet(packet)
+            except asyncio.TimeoutError:
+                pass
 
     async def log_on(self, steam_id, miniprofile_id, account_name, token):
         # magic numbers taken from JavaScript Steam client
@@ -68,6 +90,18 @@ class ProtobufClient:
             self._steam_id = None
             raise
 
+    async def _import_game_stats(self, game_id):
+        logger.info(f"Importing game stats for {game_id}")
+        message = steammessages_clientserver_pb2.CMsgClientGetUserStats()
+        message.game_id = int(game_id)
+        await self._send(EMsg.ClientGetUserStats, message)
+
+    async def _import_game_time(self, game_id):
+        logger.info(f"Importing game time for {game_id}")
+        message = steamui_libraryroot_pb2.CPlayer_GetFriendsGameplayInfo_Request()
+        message.appid = int(game_id)
+        await self._send(EMsg.ServiceMethodCallFromClient, message, int(game_id), int(game_id), "Player.GetFriendsGameplayInfo#1")
+
     async def set_persona_state(self, state):
         message = steammessages_clientserver_friends_pb2.CMsgClientChangeStatus()
         message.persona_state = state
@@ -75,7 +109,7 @@ class ProtobufClient:
 
     async def get_friends_statuses(self):
         job_id = next(self._job_id_iterator)
-        message = steammessages_chat_pb2.CChat_RequestFriendPersonaStates_Request()
+        message = steamui_libraryroot_pb2.CChat_RequestFriendPersonaStates_Request()
         await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, "Chat.RequestFriendPersonaStates#1")
 
     async def get_user_infos(self, users, flags):
@@ -83,6 +117,14 @@ class ProtobufClient:
         message.friends.extend(users)
         message.persona_state_requested = flags
         await self._send(EMsg.ClientRequestFriendData, message)
+
+    async def _import_collections(self):
+        job_id = next(self._job_id_iterator)
+        message = steamui_libraryroot_pb2.CCloudConfigStore_Download_Request()
+        message_inside = steamui_libraryroot_pb2.CCloudConfigStore_NamespaceVersion()
+        message_inside.enamespace = 1
+        message.versions.append(message_inside)
+        await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, "CloudConfigStore.Download#1")
 
     async def get_packages_info(self, package_ids):
         logger.info(f"Sending call {EMsg.PICSProductInfoRequest} with {package_ids}")
@@ -106,7 +148,7 @@ class ProtobufClient:
 
     async def get_presence_localization(self, appid, language='english'):
         logger.info(f"Sending call for rich presence localization with {appid}, {language}")
-        message = steammessages_webui_friends_pb2.CCommunity_GetAppRichPresenceLocalization_Request()
+        message = steamui_libraryroot_pb2.CCommunity_GetAppRichPresenceLocalization_Request()
 
         message.appid = appid
         message.language = language
@@ -129,6 +171,8 @@ class ProtobufClient:
             proto_header.client_sessionid = self._session_id
         if source_job_id is not None:
             proto_header.jobid_source = source_job_id
+        if target_job_id is not None:
+            proto_header.jobid_target = target_job_id
         if target_job_name is not None:
             proto_header.target_job_name = target_job_name
 
@@ -146,6 +190,7 @@ class ProtobufClient:
         while True:
             await asyncio.sleep(interval)
             await self._send(EMsg.ClientHeartBeat, message)
+
 
     async def _process_packet(self, packet):
         package_size = len(packet)
@@ -181,8 +226,12 @@ class ProtobufClient:
             await self._process_license_list(body)
         elif emsg == EMsg.PICSProductInfoResponse:
             await self._process_package_info_response(body)
+        elif emsg == EMsg.ClientGetUserStatsResponse:
+            await self._process_user_stats_response(body)
+        elif emsg == EMsg.ServiceMethod:
+            await self._process_service_method_response(header.target_job_name, header.jobid_target, body)
         elif emsg == EMsg.ServiceMethodResponse:
-            await self._process_service_method_response(header.target_job_name, body)
+            await self._process_service_method_response(header.target_job_name, header.jobid_target, body)
         else:
             logger.warning("Ignored message %d", emsg)
 
@@ -321,7 +370,6 @@ class ProtobufClient:
                     await self.app_info_handler(appid=int(app_content['appinfo']['appid']), title=app_content['appinfo']['common']['name'], game=True)
                 else:
                     await self.app_info_handler(appid=int(app_content['appinfo']['appid']), game=False)
-
             except KeyError:
                 # Unrecognized app type
                 await self.app_info_handler(appid=int(app_content['appinfo']['appid']), game=False)
@@ -331,15 +379,75 @@ class ProtobufClient:
             await self.get_apps_info(apps_to_parse)
 
     async def _process_rich_presence_translations(self, body):
-        message = steammessages_webui_friends_pb2.CCommunity_GetAppRichPresenceLocalization_Response()
+        message = steamui_libraryroot_pb2.CCommunity_GetAppRichPresenceLocalization_Response()
         message.ParseFromString(body)
 
         logger.info(f"Received information about rich presence translations for {message.appid}")
         await self.translations_handler(message.appid, message.token_lists)
 
-    async def _process_service_method_response(self, target_job_name, body):
+    async def _process_user_stats_response(self, body):
+        logger.debug("Processing message ClientGetUserStatsResponse")
+        message = steammessages_clientserver_pb2.CMsgClientGetUserStatsResponse()
+        message.ParseFromString(body)
+        game_id = message.game_id
+        stats = message.stats
+        achievs = message.achievement_blocks
+
+        logger.info(f"Processing user stats response for {message.game_id}")
+        achievements_schema = vdf.binary_loads(message.schema,merge_duplicate_keys=False)
+        achievements_unlocked = []
+
+        for achievement_block in achievs:
+            achi_block_enum = 32 * (achievement_block.achievement_id - 1)
+            for index, unlock_time in enumerate(achievement_block.unlock_time):
+                if unlock_time > 0:
+                    if str(index) not in achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits']:
+                        logger.info(f"Non existent achievement unlocked")
+                        continue
+                    try:
+                        if 'english' in achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits'][str(index)]['display']['name']:
+                            name = achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits'][str(index)]['display']['name']['english']
+                        else:
+                            name = achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits'][str(index)]['display']['name']
+                        achievements_unlocked.append({'id': achi_block_enum+index,
+                                                      'unlock_time': unlock_time,
+                                                     'name': name})
+                    except:
+                        logger.info(f"Unable to parse achievement {index} from block {achievement_block.achievement_id}")
+                        logger.info(achievs)
+                        logger.info(achievements_schema)
+                        logger.info(message.schema)
+                        raise UnknownBackendResponse()
+
+        await self.stats_handler(game_id, stats, achievements_unlocked)
+
+    async def _process_user_time_response(self, body, target_job_id):
+        logger.debug(f"Received information about game time for {target_job_id}")
+        message = steamui_libraryroot_pb2.CPlayer_GetFriendsGameplayInfo_Response()
+        message.ParseFromString(body)
+        await self.times_handler(target_job_id, message.your_info.minutes_played_forever)
+
+    async def _process_collections_response(self, body):
+        message = steamui_libraryroot_pb2.CCloudConfigStore_Download_Response()
+        message.ParseFromString(body)
+
+        for data in message.data:
+            for entry in data.entries:
+                try:
+                    loaded_val = json.loads(entry.value)
+                    self.collections['collections'][loaded_val['name']] = loaded_val['added']
+                except:
+                    pass
+        self.collections['event'].set()
+
+    async def _process_service_method_response(self, target_job_name, target_job_id, body):
         logger.debug("Processing message ServiceMethodResponse %s", target_job_name)
         if target_job_name == 'Community.GetAppRichPresenceLocalization#1':
             await self._process_rich_presence_translations(body)
+        if target_job_name == 'Player.GetFriendsGameplayInfo#1':
+            await self._process_user_time_response(body, target_job_id)
+        if target_job_name == 'CloudConfigStore.Download#1':
+            await self._process_collections_response(body)
+
 
 

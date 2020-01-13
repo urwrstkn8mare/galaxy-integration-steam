@@ -31,12 +31,16 @@ def games_cache():
     return MagicMock()
 
 @pytest.fixture()
+def stats_cache():
+    return MagicMock()
+
+@pytest.fixture()
 def translations_cache():
     return dict()
 
 @pytest.fixture
-async def client(protobuf_client, friends_cache, games_cache, translations_cache):
-    return ProtocolClient(MagicMock(), friends_cache, games_cache, translations_cache)
+async def client(protobuf_client, friends_cache, games_cache, translations_cache, stats_cache):
+    return ProtocolClient(MagicMock(), friends_cache, games_cache, translations_cache, stats_cache)
 
 
 @pytest.mark.asyncio

@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import platform
 import random
@@ -10,7 +9,7 @@ import sys
 import webbrowser
 import time
 from http.cookies import SimpleCookie, Morsel
-from typing import Any, Dict, List, Optional, NewType
+from typing import Any, List, Optional, NewType
 
 import certifi
 from galaxy.api.plugin import Plugin, create_and_run_plugin
@@ -24,21 +23,19 @@ from galaxy.api.errors import (
 from galaxy.api.consts import Platform, LicenseType
 from galaxy.api.jsonrpc import InvalidParams
 
-import achievements_cache
 from backend import SteamHttpClient, AuthenticatedHttpClient, UnfinishedAccountSetup
-from cache import Cache
 from client import local_games_list, get_state_changes, get_client_executable
 from servers_cache import ServersCache
 from presence import from_user_info
 from friends_cache import FriendsCache
 from games_cache import GamesCache
+from stats_cache import StatsCache
 from persistent_cache_state import PersistentCacheState
 from protocol.websocket_client import WebSocketClient
 from protocol.types import UserInfo
 from registry_monitor import get_steam_registry_monitor
 from uri_scheme_handler import is_uri_handler_installed
 from version import __version__
-from leveldb_parser import LevelDbParser
 
 
 logger = logging.getLogger(__name__)
@@ -115,11 +112,9 @@ class SteamPlugin(Plugin):
         self._friends_cache = FriendsCache()
         self._games_cache = GamesCache()
         self._translations_cache = dict()
-        self._steam_client = WebSocketClient(self._client, self._ssl_context, self._servers_cache, self._friends_cache, self._games_cache, self._translations_cache)
-        self._achievements_cache = Cache()
-        self._achievements_cache_updated = False
+        self._stats_cache = StatsCache()
+        self._steam_client = WebSocketClient(self._client, self._ssl_context, self._servers_cache, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache)
 
-        self._achievements_semaphore = asyncio.Semaphore(20)
         self._tags_semaphore = asyncio.Semaphore(5)
 
         self._library_settings_import_iterator = 0
@@ -156,15 +151,6 @@ class SteamPlugin(Plugin):
         await self._http_client.close()
         await self._steam_client.wait_closed()
 
-    def handshake_complete(self):
-        achievements_cache_ = self.persistent_cache.get("achievements")
-        if achievements_cache_ is not None:
-            try:
-                achievements_cache_ = json.loads(achievements_cache_)
-                self._achievements_cache = achievements_cache.from_dict(achievements_cache_)
-            except Exception:
-                logger.exception("Can not deserialize achievements cache")
-
     async def _do_auth(self, morsels):
         cookies = [(morsel.key, morsel) for morsel in morsels]
 
@@ -177,8 +163,9 @@ class SteamPlugin(Plugin):
         except UnknownBackendResponse:
             raise InvalidCredentials()
 
-        async def set_profile_data(profile_url):
+        async def set_profile_data():
             try:
+                await self._client.get_authentication_data()
                 self._steam_id, self._miniprofile_id, login = await self._client.get_profile_data(profile_url)
                 self.create_task(self._steam_client.run(), "Run WebSocketClient")
                 return login
@@ -186,10 +173,10 @@ class SteamPlugin(Plugin):
                 raise InvalidCredentials()
 
         try:
-            login = await set_profile_data(profile_url)
+            login = await set_profile_data()
         except UnfinishedAccountSetup:
             await self._client.setup_steam_profile(profile_url)
-            login = await set_profile_data(profile_url)
+            login = await set_profile_data()
 
         self._http_client.set_auth_lost_callback(self.lost_authentication)
 
@@ -259,104 +246,65 @@ class SteamPlugin(Plugin):
 
         return owned_games
 
+    async def prepare_achievements_context(self, game_ids: List[str]) -> Any:
+        if self._steam_id is None:
+            raise AuthenticationRequired()
+
+        if not self._stats_cache.import_in_progress:
+            await self._steam_client.refresh_game_stats(game_ids.copy())
+        else:
+            logger.info("Game stats import already in progress")
+        await self._stats_cache.wait_ready(10 * 60) # Don't block future imports in case we somehow don't receive one of the responses
+        logger.info("Finished achievemnts context prepare ")
+        return
+
+    async def get_unlocked_achievements(self, game_id: str, context: Any) -> List[Achievement]:
+        logger.info(f"Asked for achievs for {game_id}")
+        game_stats = self._stats_cache.get(game_id)
+        achievements = []
+        if game_stats:
+            for achievement in game_stats['achievements']:
+                achievements.append(Achievement(achievement['unlock_time'],achievement_id=None,achievement_name=achievement['name']))
+        return achievements
+
     async def prepare_game_times_context(self, game_ids: List[str]) -> Any:
         if self._steam_id is None:
             raise AuthenticationRequired()
 
-        return await self._get_game_times_dict()
+        if not self._stats_cache.import_in_progress:
+            await self._steam_client.refresh_game_stats(game_ids.copy())
+        else:
+            logger.info("Game stats import already in progress")
+        await self._stats_cache.wait_ready(10 * 60) # Don't block future imports in case we somehow don't receive one of the responses
+        logger.info("Finished game_times context prepare ")
+        return
 
     async def get_game_time(self, game_id: str, context: Any) -> GameTime:
-        game_time = context.get(game_id)
-        if game_time is None:
-            raise UnknownError("Game {} not owned".format(game_id))
-        return game_time
-
-    async def _get_game_times_dict(self) -> Dict[str, GameTime]:
-        games = await self._client.get_games(self._steam_id)
-
-        game_times = {}
-
-        try:
-            for game in games:
-                game_id = str(game["appid"])
-                last_played = game.get("last_played")
-                if last_played == 86400:
-                    # 86400 is used as sentinel value for games no supporting last_played
-                    last_played = None
-                game_times[game_id] = GameTime(
-                    game_id,
-                    int(float(game.get("hours_forever", "0").replace(",", "")) * 60),
-                    last_played
-                )
-        except (KeyError, ValueError):
-            logger.exception("Can not parse backend response")
-            raise UnknownBackendResponse()
-
-        return game_times
+        game_stats = self._stats_cache.get(game_id)
+        if game_stats:
+            return GameTime(game_id, game_stats['time'], None)
+        return GameTime(game_id, None, None)
 
     async def prepare_game_library_settings_context(self, game_ids: List[str]) -> Any:
         if self._steam_id is None:
             raise AuthenticationRequired()
 
-        if not self._level_db_parser:
-            self._level_db_parser = LevelDbParser(self._miniprofile_id)
-
-        self._level_db_parser.parse_leveldb()
-
-        if not self._level_db_parser.lvl_db_is_present:
-            return None
-        else:
-            leveldb_static_games_collections_dict = self._level_db_parser.get_static_collections_tags()
-            logger.info(f"Leveldb static settings dict {leveldb_static_games_collections_dict}")
-            return leveldb_static_games_collections_dict
+        return await self._steam_client.retrieve_collections()
 
     async def get_game_library_settings(self, game_id: str, context: Any) -> GameLibrarySettings:
         if not context:
             return GameLibrarySettings(game_id, None, None)
         else:
-            game_tags = context.get(game_id)
-            if not game_tags:
-                return GameLibrarySettings(game_id, [], False)
-
+            game_in_collections = []
             hidden = False
-            for tag in game_tags:
-                if tag.lower() == 'hidden':
-                    hidden = True
-            if hidden:
-                game_tags.remove('hidden')
-            return GameLibrarySettings(game_id, game_tags, hidden)
+            for collection_name in context:
+                if int(game_id) in context[collection_name]:
+                    if collection_name.lower() == 'hidden':
+                        hidden = True
+                    else:
+                        game_in_collections.append(collection_name)
 
-    async def prepare_achievements_context(self, game_ids: List[str]) -> Any:
-        if self._steam_id is None:
-            raise AuthenticationRequired()
-
-        return await self._get_game_times_dict()
-
-    async def get_unlocked_achievements(self, game_id: str, context: Any) -> List[Achievement]:
-        game_time = await self.get_game_time(game_id, context)
-
-        fingerprint = achievements_cache.Fingerprint(game_time.last_played_time, game_time.time_played)
-        achievements = self._achievements_cache.get(game_id, fingerprint)
-
-        if achievements is not None:
-            # return from cache
-            return achievements
-
-        # fetch from backend and update cache
-        achievements = await self._get_achievements(game_id)
-        self._achievements_cache.update(game_id, achievements, fingerprint)
-        self._achievements_cache_updated = True
-        return achievements
-
-    def achievements_import_complete(self) -> None:
-        if self._achievements_cache_updated:
-            self._persistent_storage_state.modified = True
-            self._achievements_cache_updated = False
-
-    async def _get_achievements(self, game_id):
-        async with self._achievements_semaphore:
-            achievements = await self._client.get_achievements(self._steam_id, game_id)
-            return [Achievement(unlock_time, None, name) for unlock_time, name in achievements]
+            return GameLibrarySettings(game_id, game_in_collections, hidden)
 
     async def get_friends(self):
         if self._steam_id is None:
@@ -395,8 +343,6 @@ class SteamPlugin(Plugin):
             self._update_owned_games_task = self.create_task(self._update_owned_games(), "Update owned games")
 
         if self._persistent_storage_state.modified:
-            # serialize
-            self.persistent_cache["achievements"] = achievements_cache.as_dict(self._achievements_cache)
             self.push_cache()
             self._persistent_storage_state.modified = False
 

@@ -1653,7 +1653,7 @@ class EMsg(enum.IntEnum):
     TestWorkerProcessLoadUnloadModuleResponse = 9201
     TestWorkerProcessServiceModuleCallRequest = 9202
     TestWorkerProcessServiceModuleCallResponse = 9203
-    ClientConcurrentSessionsBase = 9600
+    ClientConcurrentSessionsBase = 96009600
 
 
 class EResult(enum.IntEnum):

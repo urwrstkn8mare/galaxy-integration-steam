@@ -31,6 +31,7 @@ def steam_client():
     mock.wait_closed = AsyncMock()
     mock.run = AsyncMock()
     mock.get_friends_info = AsyncMock()
+    mock.refresh_game_stats = AsyncMock()
     return mock
 
 

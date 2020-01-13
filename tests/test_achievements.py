@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 
 import pytest
-from galaxy.api.types import Achievement, GameTime
-from galaxy.api.errors import AuthenticationRequired, BackendError, UnknownError
+from galaxy.api.types import Achievement
+from galaxy.api.errors import AuthenticationRequired
 
 from backend import SteamHttpClient
 
@@ -17,187 +17,30 @@ async def test_not_authenticated(plugin):
     with pytest.raises(AuthenticationRequired):
         await plugin.prepare_achievements_context(["12", "13"])
 
-
-@pytest.mark.asyncio
-async def test_prepare_achievements_context(authenticated_plugin, backend_client):
-    backend_client.get_games.return_value = [
-        {
-            "appid": 281990,
-            "hours_forever": "1.3",
-            "last_played": 1549385500
-        },
-        {
-            "appid": 236850,
-            "hours_forever": "1,447",
-            "last_played": 1549385500
-        }
-    ]
-    context = await authenticated_plugin.prepare_achievements_context(["281990", "236850"])
-    assert context == {
-        "236850": GameTime(game_id="236850", time_played=86820, last_played_time=1549385500),
-        "281990": GameTime(game_id="281990", time_played=78, last_played_time=1549385500)
-    }
-
-
 @pytest.mark.asyncio
 async def test_get_achievements_success(authenticated_plugin, backend_client, steam_id):
-    context = {
-        "236850": GameTime(game_id="236850", time_played=86820, last_played_time=1549385500),
-        "281990": GameTime(game_id="281990", time_played=78, last_played_time=1549385500)
-    }
-    backend_client.get_achievements.return_value = [
-        (1551887210, "name 1"),
-        (1551887134, "name 2")
-    ]
-    achievements = await authenticated_plugin.get_unlocked_achievements("236850", context)
+    authenticated_plugin._stats_cache = {"236850": {'achievements': [{'unlock_time': 1551887210, 'name': 'name 1'},
+                                                                     {'unlock_time': 1551887134, 'name': 'name 2'}]}}
+    achievements = await authenticated_plugin.get_unlocked_achievements("236850", None)
     assert achievements == [
             Achievement(1551887210, None, "name 1"),
             Achievement(1551887134, None, "name 2")
         ]
-    backend_client.get_achievements.assert_called_once_with(steam_id, "236850")
-
-
-@pytest.mark.asyncio
-async def test_get_achievements_error(authenticated_plugin, backend_client):
-    context = {
-        "236850": GameTime(game_id="236850", time_played=86820, last_played_time=1549385500),
-        "281990": GameTime(game_id="281990", time_played=78, last_played_time=1549385500)
-    }
-    backend_client.get_achievements.side_effect = BackendError()
-    with pytest.raises(BackendError):
-        await authenticated_plugin.get_unlocked_achievements("281990", context)
-
-
-@pytest.mark.asyncio
-async def test_push_cache(authenticated_plugin, backend_client, push_cache):
-    context = {
-        "17923": GameTime(game_id="17923", time_played=180, last_played_time=1549385501)
-    }
-    backend_client.get_achievements.return_value = [(1549383000, "name")]
-    await authenticated_plugin.get_unlocked_achievements("17923", context)
-    authenticated_plugin.achievements_import_complete()
-    authenticated_plugin.tick()
-    push_cache.assert_called_once_with()
-    assert "achievements" in authenticated_plugin.persistent_cache
-    assert authenticated_plugin.persistent_cache["achievements"] == {
-        "17923": {
-            "achievements": [
-                {
-                    "unlock_time": 1549383000,
-                    "achievement_id": None,
-                    "achievement_name": "name"
-                }
-            ],
-            "fingerprint": {
-                "time_played": 1549385501,
-                "last_played_time": 180
-            }
-        }
-    }
-
-
-@pytest.mark.asyncio
-async def test_valid_cache(authenticated_plugin, backend_client, push_cache):
-    context = {
-        "17923": GameTime(game_id="17923", time_played=180, last_played_time=1549385501)
-    }
-    backend_client.get_achievements.return_value = [(1549383000, "name")]
-    await authenticated_plugin.get_unlocked_achievements("17923", context)
-    authenticated_plugin.achievements_import_complete()
-    authenticated_plugin.tick()
-    assert backend_client.get_achievements.call_count == 1
-    assert push_cache.call_count == 1
-
-    await authenticated_plugin.get_unlocked_achievements("17923", context)
-    authenticated_plugin.achievements_import_complete()
-    authenticated_plugin.tick()
-    assert backend_client.get_achievements.call_count == 1 # no new calls to backend
-    assert push_cache.call_count == 1
-
-
-@pytest.mark.asyncio
-async def test_invalid_cache(authenticated_plugin, backend_client, push_cache):
-    context = {
-        "17923": GameTime(game_id="17923", time_played=180, last_played_time=1549385501)
-    }
-    backend_client.get_achievements.return_value = [(1549383000, "name")]
-    await authenticated_plugin.get_unlocked_achievements("17923", context)
-    authenticated_plugin.achievements_import_complete()
-    authenticated_plugin.tick()
-    assert backend_client.get_achievements.call_count == 1
-    assert push_cache.call_count == 1
-
-    context = {
-        "17923": GameTime(game_id="17923", time_played=180, last_played_time=1549385600)
-    }
-    backend_client.get_achievements.return_value = [
-        (1549383000, "name"),
-        (1549385599, "namee")
-    ]
-    await authenticated_plugin.get_unlocked_achievements("17923", context)
-    authenticated_plugin.achievements_import_complete()
-    authenticated_plugin.tick()
-    assert backend_client.get_achievements.call_count == 2
-    assert push_cache.call_count == 2
-    assert "achievements" in authenticated_plugin.persistent_cache
-    assert authenticated_plugin.persistent_cache["achievements"] == {
-        "17923": {
-            "achievements": [
-                {
-                    "unlock_time": 1549383000,
-                    "achievement_id": None,
-                    "achievement_name": "name"
-                },
-                {
-                    "unlock_time": 1549385599,
-                    "achievement_id": None,
-                    "achievement_name": "namee"
-                }
-            ],
-            "fingerprint": {
-                "time_played": 1549385600,
-                "last_played_time": 180
-            }
-        }
-    }
-
 
 @pytest.mark.asyncio
 async def test_initialize_cache(create_authenticated_plugin, backend_client, steam_id, miniprofile, login):
-    cache = {
-        "achievements": """{
-            "17923": {
-                "achievements": [
-                    {
-                        "unlock_time": 1549383000,
-                        "achievement_id": null,
-                        "achievement_name": "name"
-                    }
-                ],
-                "fingerprint": {
-                    "time_played": 1549385501,
-                    "last_played_time": 180
-                }
-            }
-        }"""
-    }
-    plugin = await create_authenticated_plugin(steam_id, login,miniprofile, cache)
 
-    context = {
-        "17923": GameTime(game_id="17923", time_played=180, last_played_time=1549385501)
-    }
-    achievements = await plugin.get_unlocked_achievements("17923", context)
+    plugin = await create_authenticated_plugin(steam_id, login,miniprofile,{})
+    plugin._stats_cache = {"17923": {'achievements': [{'unlock_time': 123,'name':'name'}]}}
+    achievements = await plugin.get_unlocked_achievements("17923", None)
     assert achievements == [
-        Achievement(1549383000, None, "name")
+        Achievement(123, None , "name")
     ]
     backend_client.get_achievements.assert_not_called()
 
-
 @pytest.mark.asyncio
 async def test_no_game_time(authenticated_plugin):
-    context = {}
-    with pytest.raises(UnknownError):
-        await authenticated_plugin.get_unlocked_achievements("17923", context)
+    assert await authenticated_plugin.get_unlocked_achievements("17923", None) == []
 
 
 @pytest.mark.parametrize("input_time, parsed_date", [

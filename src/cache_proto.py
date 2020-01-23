@@ -54,10 +54,9 @@ class ProtoCache:
             await asyncio.wait_for(self._ready_event.wait(), timeout)
         except asyncio.TimeoutError:
             logger.info("Timed out waiting for games cache to get ready")
-            pass
 
-    def get(self, key):
-        result = self._info_map.get(key)
+    def get(self, key, default=None):
+        result = self._info_map.get(key, default)
         return result
 
     def __getitem__(self, key):

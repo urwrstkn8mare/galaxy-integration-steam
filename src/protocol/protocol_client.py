@@ -140,6 +140,7 @@ class ProtocolClient:
             await self._auth_lost_handler(translate_error(result))
 
     async def _relationship_handler(self, incremental, friends):
+        logger.info(f"Received relationships: incremental={incremental}, friends={friends}")
         initial_friends = []
         new_friends = []
         for user_id, relationship in friends.items():
@@ -165,6 +166,7 @@ class ProtocolClient:
             await self._protobuf_client.get_user_infos(new_friends, self._STATUS_FLAG)
 
     async def _user_info_handler(self, user_id, user_info):
+        logger.info(f"Received user info: user_id={user_id}, user_info={user_info}")
         self._friends_cache.update(user_id, user_info)
 
     async def _license_import_handler(self, licenses):

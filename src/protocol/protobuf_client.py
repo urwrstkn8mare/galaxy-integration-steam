@@ -7,7 +7,7 @@ from itertools import count
 from typing import Awaitable, Callable,Dict, Optional, Any
 from galaxy.api.errors import UnknownBackendResponse
 
-from protocol.messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, \
+from protocol.messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, steammessages_player_pb2, \
     steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, steamui_libraryroot_pb2
 from protocol.consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
 from protocol.types import SteamId, UserInfo
@@ -33,7 +33,8 @@ class ProtobufClient:
         self.package_info_handler: Optional[Callable[[int], Awaitable[None]]] = None
         self.translations_handler: Optional[Callable[[int, Any], Awaitable[None]]] = None
         self.stats_handler: Optional[Callable[[int, Any, Any], Awaitable[None]]] = None
-        self.times_handler: Optional[Callable[[int, int], Awaitable[None]]] = None
+        self.times_handler: Optional[Callable[[int, int, int], Awaitable[None]]] = None
+        self.times_import_finished_handler: Optional[Callable[[bool], Awaitable[None]]] = None
         self._steam_id: Optional[int] = None
         self._miniprofile_id: Optional[int] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
@@ -60,10 +61,12 @@ class ProtobufClient:
                 logger.info(f"New job on list {job}")
                 if job['job_name'] == "import_game_stats":
                     await self._import_game_stats(job['game_id'])
-                    await self._import_game_time(job['game_id'])
                     self.job_list.remove(job)
                 if job['job_name'] == "import_collections":
                     await self._import_collections()
+                    self.job_list.remove(job)
+                if job['job_name'] == "import_game_times":
+                    await self._import_game_time()
                     self.job_list.remove(job)
             try:
                 packet = await asyncio.wait_for(self._socket.recv(), 0.1)
@@ -97,11 +100,12 @@ class ProtobufClient:
         message.game_id = int(game_id)
         await self._send(EMsg.ClientGetUserStats, message)
 
-    async def _import_game_time(self, game_id):
-        logger.info(f"Importing game time for {game_id}")
-        message = steamui_libraryroot_pb2.CPlayer_GetFriendsGameplayInfo_Request()
-        message.appid = int(game_id)
-        await self._send(EMsg.ServiceMethodCallFromClient, message, int(game_id), int(game_id), "Player.GetFriendsGameplayInfo#1")
+    async def _import_game_time(self):
+        logger.info(f"Importing game times")
+        job_id = next(self._job_id_iterator)
+        message = steammessages_player_pb2.CPlayer_CustomGetLastPlayedTimes_Request()
+        message.min_last_played = 0
+        await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, "Player.ClientGetLastPlayedTimes#1")
 
     async def set_persona_state(self, state):
         message = steammessages_clientserver_friends_pb2.CMsgClientChangeStatus()
@@ -422,11 +426,14 @@ class ProtobufClient:
 
         await self.stats_handler(game_id, stats, achievements_unlocked)
 
-    async def _process_user_time_response(self, body, target_job_id):
-        logger.debug(f"Received information about game time for {target_job_id}")
-        message = steamui_libraryroot_pb2.CPlayer_GetFriendsGameplayInfo_Response()
+    async def _process_user_time_response(self, body):
+        logger.debug(f"Received information about game times")
+        message = steammessages_player_pb2.CPlayer_CustomGetLastPlayedTimes_Response()
         message.ParseFromString(body)
-        await self.times_handler(target_job_id, message.your_info.minutes_played_forever)
+        for game in message.games:
+            logger.info(f"Processing game times for game {game.appid}, playtime: {game.playtime_forever} last time played: {game.last_playtime}")
+            await self.times_handler(game.appid, game.playtime_forever, game.last_playtime)
+        await self.times_import_finished_handler(True)
 
     async def _process_collections_response(self, body):
         message = steamui_libraryroot_pb2.CCloudConfigStore_Download_Response()
@@ -445,8 +452,8 @@ class ProtobufClient:
         logger.debug("Processing message ServiceMethodResponse %s", target_job_name)
         if target_job_name == 'Community.GetAppRichPresenceLocalization#1':
             await self._process_rich_presence_translations(body)
-        if target_job_name == 'Player.GetFriendsGameplayInfo#1':
-            await self._process_user_time_response(body, target_job_id)
+        if target_job_name == 'Player.ClientGetLastPlayedTimes#1':
+            await self._process_user_time_response(body)
         if target_job_name == 'CloudConfigStore.Download#1':
             await self._process_collections_response(body)
 

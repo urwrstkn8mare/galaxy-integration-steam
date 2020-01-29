@@ -30,6 +30,7 @@ from presence import from_user_info
 from friends_cache import FriendsCache
 from games_cache import GamesCache
 from stats_cache import StatsCache
+from times_cache import TimesCache
 from persistent_cache_state import PersistentCacheState
 from protocol.websocket_client import WebSocketClient
 from protocol.types import UserInfo
@@ -113,7 +114,8 @@ class SteamPlugin(Plugin):
         self._games_cache = GamesCache()
         self._translations_cache = dict()
         self._stats_cache = StatsCache()
-        self._steam_client = WebSocketClient(self._client, self._ssl_context, self._servers_cache, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache)
+        self._times_cache = TimesCache()
+        self._steam_client = WebSocketClient(self._client, self._ssl_context, self._servers_cache, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache)
 
         self._tags_semaphore = asyncio.Semaphore(5)
 
@@ -256,65 +258,35 @@ class SteamPlugin(Plugin):
             logger.info("Game stats import already in progress")
         await self._stats_cache.wait_ready(10 * 60) # Don't block future imports in case we somehow don't receive one of the responses
         logger.info("Finished achievements context prepare")
-        return
 
     async def get_unlocked_achievements(self, game_id: str, context: Any) -> List[Achievement]:
         logger.info(f"Asked for achievs for {game_id}")
         game_stats = self._stats_cache.get(game_id)
         achievements = []
         if game_stats:
-            try:
-                for achievement in game_stats['achievements']:
-                    achievements.append(Achievement(achievement['unlock_time'],achievement_id=None,achievement_name=achievement['name']))
-            except KeyError:   # temporal workaround
-                raise UnknownError()
+            if 'achievements' not in game_stats:
+                return []
+            for achievement in game_stats['achievements']:
+                achievements.append(Achievement(achievement['unlock_time'], achievement_id=None, achievement_name=achievement['name']))
         return achievements
-
-    async def _get_last_played_times(self, timeout: int) -> Dict[int, int]:
-        last_played_times = {}
-        LAST_PLAYED_NOT_SUPPORTED = 86400
-        request_coro = self._client.get_games(self._steam_id)
-        try:
-            games = await asyncio.wait_for(request_coro, timeout)
-        except UnknownBackendResponse as e:
-            logger.exception(repr(e) + 'Ignoring getting last played')
-        except asyncio.TimeoutError:
-            logger.error('Timeout while fetching last played times')
-        else:
-            for game in games:
-                try:
-                    game_id = str(game["appid"])
-                except KeyError:
-                    logger.error(f"No appid found in parsed game response: {game}")
-                else:
-                    last_played = game.get("last_played")
-                    if last_played == LAST_PLAYED_NOT_SUPPORTED:
-                        last_played = None
-                    last_played_times[game_id] = last_played
-        return last_played_times
 
     async def prepare_game_times_context(self, game_ids: List[str]) -> Any:
         if self._steam_id is None:
             raise AuthenticationRequired()
 
-        if not self._stats_cache.import_in_progress:
-            await self._steam_client.refresh_game_stats(game_ids.copy())
+        if not self._times_cache.import_in_progress:
+            await self._steam_client.refresh_game_times()
         else:
             logger.info("Game stats import already in progress")
-
-        # Don't block future imports in case we somehow don't receive one of the responses
-        _, last_played_context = await asyncio.gather(
-            self._stats_cache.wait_ready(10 * 60),
-            self._get_last_played_times(6 * 60)
-        )
-
-        logger.info("Finished preparing game time context")
-        return last_played_context
+        await self._times_cache.wait_ready(10 * 60) # Don't block future imports in case we somehow don't receive one of the responses
+        logger.info("Finished game times context prepare")
 
     async def get_game_time(self, game_id: str, context: Dict[int, int]) -> GameTime:
-        last_played = context.get(game_id)
-        game_time = self._stats_cache.get(game_id, {}).get('time')
-        return GameTime(game_id, game_time, last_played)
+        time_played = self._times_cache.get(game_id, {}).get('time_played')
+        last_played = self._times_cache.get(game_id, {}).get('last_played')
+        if last_played == 86400:
+            last_played = None
+        return GameTime(game_id, time_played, last_played)
 
     async def prepare_game_library_settings_context(self, game_ids: List[str]) -> Any:
         if self._steam_id is None:

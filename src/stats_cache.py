@@ -11,7 +11,8 @@ class StatsCache(ProtoCache):
         self._games_to_import = []
 
     def start_game_stats_import(self, game_ids):
-        self._info_map = dict()
+        for game_id in game_ids:
+            self._info_map[game_id] = dict()
         self._games_to_import = game_ids
         self._update_ready_state()
 
@@ -24,16 +25,9 @@ class StatsCache(ProtoCache):
         yield from self._info_map.items()
 
     def _check_remove(self, game_id):
-        if 'time' in self._info_map[game_id] and 'stats' in self._info_map[game_id] and 'achievements' in self._info_map[game_id]:
+        if 'stats' in self._info_map[game_id] \
+                and 'achievements' in self._info_map[game_id]:
             self._games_to_import.remove(game_id)
-
-    def update_time(self, game_id, time):
-        if game_id not in self._info_map:
-            self._info_map[game_id] = dict()
-        self._info_map[game_id]['time'] = time
-
-        self._check_remove(game_id)
-        self._update_ready_state()
 
     def update_stats(self, game_id, stats, achievements):
         if game_id not in self._info_map:

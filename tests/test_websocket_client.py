@@ -12,6 +12,7 @@ from servers_cache import ServersCache
 from friends_cache import FriendsCache
 from games_cache import GamesCache
 from stats_cache import StatsCache
+from times_cache import TimesCache
 
 STEAM_ID = 71231321
 MINIPROFILE_ID = 123
@@ -58,12 +59,16 @@ def stats_cache(mocker):
     return MagicMock(StatsCache)
 
 @pytest.fixture
+def times_cache(mocker):
+    return MagicMock(TimesCache)
+
+@pytest.fixture
 def translations_cache():
     return dict()
 
 @pytest.fixture
-async def client(backend_client, servers_cache, protocol_client, friends_cache, games_cache, translations_cache, stats_cache):
-    return WebSocketClient(backend_client, MagicMock(), servers_cache, friends_cache, games_cache, translations_cache, stats_cache)
+async def client(backend_client, servers_cache, protocol_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache):
+    return WebSocketClient(backend_client, MagicMock(), servers_cache, friends_cache, games_cache, translations_cache, stats_cache, times_cache)
 
 
 @pytest.mark.asyncio

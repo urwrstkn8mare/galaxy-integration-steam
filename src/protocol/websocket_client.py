@@ -12,6 +12,7 @@ from servers_cache import ServersCache
 from friends_cache import FriendsCache
 from games_cache import GamesCache
 from stats_cache import StatsCache
+from times_cache import TimesCache
 
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,8 @@ class WebSocketClient:
         friends_cache: FriendsCache,
         games_cache: GamesCache,
         translations_cache: dict,
-        stats_cache: StatsCache
+        stats_cache: StatsCache,
+        times_cache: TimesCache
     ):
         self._backend_client = backend_client
         self._ssl_context = ssl_context
@@ -42,6 +44,7 @@ class WebSocketClient:
         self._games_cache = games_cache
         self._translations_cache = translations_cache
         self._stats_cache = stats_cache
+        self._times_cache = times_cache
 
     async def run(self):
         loop = asyncio.get_running_loop()
@@ -118,6 +121,10 @@ class WebSocketClient:
         self._stats_cache.start_game_stats_import(game_ids)
         await self._protocol_client.import_game_stats(game_ids)
 
+    async def refresh_game_times(self):
+        self._times_cache.start_game_times_import()
+        await self._protocol_client.import_game_times()
+
     async def retrieve_collections(self):
         return await self._protocol_client.retrieve_collections()
 
@@ -130,7 +137,7 @@ class WebSocketClient:
             for server in servers:
                 try:
                     self._websocket = await asyncio.wait_for(websockets.connect(server, ssl=self._ssl_context), 5)
-                    self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache)
+                    self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache)
                     return
                 except (asyncio.TimeoutError, OSError, websockets.InvalidURI, websockets.InvalidHandshake):
                     continue

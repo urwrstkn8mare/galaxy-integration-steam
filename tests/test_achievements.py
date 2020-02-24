@@ -51,3 +51,13 @@ async def test_no_game_time(authenticated_plugin):
 ])
 def test_unlock_time_parsing(input_time, parsed_date):
     assert parsed_date == SteamHttpClient.parse_date(input_time)
+
+@pytest.mark.asyncio
+async def test_trailing_whitespace(authenticated_plugin):
+    authenticated_plugin._stats_cache = {"236850": {'achievements': [{'unlock_time': 1551887210, 'name': 'name 1 '},
+                                                                     {'unlock_time': 1551887134, 'name': 'name 2    '}]}}
+    achievements = await authenticated_plugin.get_unlocked_achievements("236850", None)
+    assert achievements == [
+        Achievement(1551887210, None, "name 1"),
+        Achievement(1551887134, None, "name 2")
+    ]

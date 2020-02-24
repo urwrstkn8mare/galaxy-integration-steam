@@ -267,7 +267,14 @@ class SteamPlugin(Plugin):
             if 'achievements' not in game_stats:
                 return []
             for achievement in game_stats['achievements']:
-                achievements.append(Achievement(achievement['unlock_time'], achievement_id=None, achievement_name=achievement['name']))
+
+                # Fix for trailing whitespace in some achievement names which resulted in achievements not matching with website data
+                achi_name = achievement['name']
+                achi_name = achi_name.strip()
+                if not achi_name:
+                    achi_name = achievement['name']
+
+                achievements.append(Achievement(achievement['unlock_time'], achievement_id=None, achievement_name=achi_name))
         return achievements
 
     async def prepare_game_times_context(self, game_ids: List[str]) -> Any:

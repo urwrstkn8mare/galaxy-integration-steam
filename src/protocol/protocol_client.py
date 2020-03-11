@@ -1,6 +1,6 @@
 import asyncio
 import logging
-
+import enum
 import galaxy.api.errors
 
 from protocol.protobuf_client import ProtobufClient
@@ -8,11 +8,11 @@ from protocol.consts import EResult, EFriendRelationship, EPersonaState
 from friends_cache import FriendsCache
 from games_cache import GamesCache
 from stats_cache import StatsCache
+from user_info_cache import UserInfoCache
 from times_cache import TimesCache
 
 
 logger = logging.getLogger(__name__)
-
 
 def translate_error(result: EResult):
     assert result != EResult.OK
@@ -61,8 +61,7 @@ def translate_error(result: EResult):
         EResult.Blocked,
         EResult.Ignored,
         EResult.AccountDisabled,
-        EResult.AccountNotFeatured,
-        EResult.AccountLogonDenied
+        EResult.AccountNotFeatured
     ):
         return galaxy.api.errors.AccessDenied(data)
     if result in (
@@ -72,31 +71,49 @@ def translate_error(result: EResult):
         EResult.RemoteFileConflict,
         EResult.BadResponse
     ):
-        return galaxy.api.errors.BackendError
+        return galaxy.api.errors.BackendError()
+
+    if result in (
+        EResult.InvalidPassword,
+    ):
+        return galaxy.api.errors.InvalidCredentials()
 
     return galaxy.api.errors.UnknownError(data)
+
+
+class UserActionRequired(enum.IntEnum):
+    NoActionRequired = 0
+    EmailTwoFactorInputRequired = 1
+    PhoneTwoFactorInputRequired = 2
+    PasswordRequired = 3
+    InvalidAuthData = 4
 
 
 class ProtocolClient:
     _STATUS_FLAG = 1106
 
-    def __init__(self, socket, friends_cache: FriendsCache, games_cache: GamesCache, translations_cache: dict, stats_cache: StatsCache, times_cache: TimesCache):
+    def __init__(self, socket, friends_cache: FriendsCache, games_cache: GamesCache, translations_cache: dict, stats_cache: StatsCache, times_cache: TimesCache, user_info_cache: UserInfoCache):
+
         self._protobuf_client = ProtobufClient(socket)
         self._protobuf_client.log_on_handler = self._log_on_handler
         self._protobuf_client.log_off_handler = self._log_off_handler
         self._protobuf_client.relationship_handler = self._relationship_handler
         self._protobuf_client.user_info_handler = self._user_info_handler
+        self._protobuf_client.user_nicknames_handler = self._user_nicknames_handler
         self._protobuf_client.app_info_handler = self._app_info_handler
         self._protobuf_client.license_import_handler = self._license_import_handler
         self._protobuf_client.package_info_handler = self._package_info_handler
         self._protobuf_client.translations_handler = self._translations_handler
         self._protobuf_client.stats_handler = self._stats_handler
         self._protobuf_client.times_handler = self._times_handler
+        self._protobuf_client.user_authentication_handler = self._user_authentication_handler
+        self._protobuf_client.sentry = self._get_sentry
         self._protobuf_client.times_import_finished_handler = self._times_import_finished_handler
         self._friends_cache = friends_cache
         self._games_cache = games_cache
         self._translations_cache = translations_cache
         self._stats_cache = stats_cache
+        self._user_info_cache = user_info_cache
         self._times_cache = times_cache
         self._auth_lost_handler = None
         self._login_future = None
@@ -110,15 +127,55 @@ class ProtocolClient:
     async def run(self):
         await self._protobuf_client.run()
 
-    async def authenticate(self, steam_id, miniprofile_id, account_name, token, auth_lost_handler):
+    # TODO: Remove - Steamcommunity auth element
+    async def authenticate_web_auth(self, steam_id, miniprofile_id, account_name, token, auth_lost_handler):
         loop = asyncio.get_running_loop()
         self._login_future = loop.create_future()
-        await self._protobuf_client.log_on(steam_id, miniprofile_id, account_name, token)
+        await self._protobuf_client.log_on_web_auth(steam_id, miniprofile_id, account_name, token)
         result = await self._login_future
         if result == EResult.OK:
             self._auth_lost_handler = auth_lost_handler
         else:
             raise translate_error(result)
+
+    async def authenticate_password(self, account_name, password, two_factor, two_factor_type, auth_lost_handler):
+        loop = asyncio.get_running_loop()
+        self._login_future = loop.create_future()
+        await self._protobuf_client.log_on_password(account_name, password, two_factor, two_factor_type)
+        result = await self._login_future
+        logger.info(result)
+        if result == EResult.OK:
+            self._auth_lost_handler = auth_lost_handler
+        elif result == EResult.AccountLogonDenied:
+            self._auth_lost_handler = auth_lost_handler
+            return UserActionRequired.EmailTwoFactorInputRequired
+        elif result == EResult.AccountLoginDeniedNeedTwoFactor:
+            self._auth_lost_handler = auth_lost_handler
+            return UserActionRequired.PhoneTwoFactorInputRequired
+        elif result in (EResult.InvalidPassword, EResult.InvalidSteamID, EResult.AccountNotFound, EResult.InvalidLoginAuthCode):
+            self._auth_lost_handler = auth_lost_handler
+            return UserActionRequired.InvalidAuthData
+        else:
+            logger.warning(f"Received unknown error, code: {result}")
+            raise translate_error(result)
+
+        await self._protobuf_client.account_info_retrieved.wait()
+        await self._protobuf_client.login_key_retrieved.wait()
+        return UserActionRequired.NoActionRequired
+
+    async def authenticate_token(self, steam_id, account_name, token, auth_lost_handler):
+        loop = asyncio.get_running_loop()
+        self._login_future = loop.create_future()
+        await self._protobuf_client.log_on_token(steam_id, account_name, token)
+        result = await self._login_future
+        if result == EResult.OK:
+            self._auth_lost_handler = auth_lost_handler
+        else:
+            logger.warning(f"Received unknown error, code: {result}")
+            raise translate_error(result)
+
+        await self._protobuf_client.account_info_retrieved.wait()
+        return UserActionRequired.NoActionRequired
 
     async def import_game_stats(self, game_ids):
         for game_id in game_ids:
@@ -175,6 +232,10 @@ class ProtocolClient:
         logger.info(f"Received user info: user_id={user_id}, user_info={user_info}")
         self._friends_cache.update(user_id, user_info)
 
+    async def _user_nicknames_handler(self, nicknames):
+        logger.info(f"Received user nicknames {nicknames}")
+        self._friends_cache.update_nicknames(nicknames)
+
     async def _license_import_handler(self, licenses):
         logger.info(f"Starting license import for {[license.package_id for license in licenses]}")
         package_ids = []
@@ -200,6 +261,26 @@ class ProtocolClient:
 
     async def _stats_handler(self, game_id, stats, achievements):
         self._stats_cache.update_stats(str(game_id), stats, achievements)
+
+    async def _user_authentication_handler(self, key, value):
+        logger.info(f"Updating user info cache with new {key}")
+        if key == 'token':
+            self._user_info_cache.token = value
+        if key == 'steam_id':
+            self._user_info_cache.steam_id = value
+        if key == 'account_id':
+            self._user_info_cache.account_id = value
+        if key == 'account_username':
+            self._user_info_cache.account_username = value
+        if key == 'persona_name':
+            self._user_info_cache.persona_name = value
+        if key == 'two_step':
+            self._user_info_cache.two_step = value
+        if key == 'sentry':
+            self._user_info_cache.sentry = value
+
+    async def _get_sentry(self):
+        return self._user_info_cache.sentry
 
     async def _times_handler(self, game_id, time_played, last_played):
         self._times_cache.update_time(str(game_id), time_played, last_played)

@@ -8,12 +8,12 @@ from typing import Awaitable, Callable,Dict, Optional, Any
 from galaxy.api.errors import UnknownBackendResponse
 
 from protocol.messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, steammessages_player_pb2, \
-    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, steamui_libraryroot_pb2
+    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, steamui_libraryroot_pb2, steammessages_clientserver_2_pb2
 from protocol.consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
-from protocol.types import SteamId, UserInfo
+from protocol.types import SteamId, ProtoUserInfo
 
 import vdf
-
+import hashlib
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -21,27 +21,32 @@ logger.setLevel(logging.INFO)
 
 class ProtobufClient:
     _PROTO_MASK = 0x80000000
+    _ACCOUNT_ID_MASK = 0x0110000100000000
 
     def __init__(self, set_socket):
         self._socket = set_socket
         self.log_on_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
         self.log_off_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
         self.relationship_handler: Optional[Callable[[bool, Dict[int, EFriendRelationship]], Awaitable[None]]] = None
-        self.user_info_handler: Optional[Callable[[int, UserInfo], Awaitable[None]]] = None
+        self.user_info_handler: Optional[Callable[[int, ProtoUserInfo], Awaitable[None]]] = None
+        self.user_nicknames_handler: Optional[Callable[[dict], Awaitable[None]]] = None
         self.license_import_handler: Optional[Callable[[int], Awaitable[None]]] = None
         self.app_info_handler: Optional[Callable[[int, str], Awaitable[None]]] = None
         self.package_info_handler: Optional[Callable[[int], Awaitable[None]]] = None
         self.translations_handler: Optional[Callable[[int, Any], Awaitable[None]]] = None
         self.stats_handler: Optional[Callable[[int, Any, Any], Awaitable[None]]] = None
+        self.user_authentication_handler: Optional[Callable[[str, Any], Awaitable[None]]] = None
+        self.sentry: Optional[Callable[[], Awaitable[None]]] = None
+        self.steam_id: Optional[int] = None
         self.times_handler: Optional[Callable[[int, int, int], Awaitable[None]]] = None
         self.times_import_finished_handler: Optional[Callable[[bool], Awaitable[None]]] = None
-        self._steam_id: Optional[int] = None
-        self._miniprofile_id: Optional[int] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._session_id: Optional[int] = None
         self._job_id_iterator = count(1)
         self.job_list = []
 
+        self.account_info_retrieved = asyncio.Event()
+        self.login_key_retrieved = asyncio.Event()
         self.collections = {'event': asyncio.Event(),
                             'collections': dict()}
 
@@ -74,7 +79,7 @@ class ProtobufClient:
             except asyncio.TimeoutError:
                 pass
 
-    async def log_on(self, steam_id, miniprofile_id, account_name, token):
+    async def log_on_web_auth(self, steam_id, miniprofile_id, account_name, token):
         # magic numbers taken from JavaScript Steam client
         message = steammessages_clientserver_login_pb2.CMsgClientLogon()
         message.account_name = account_name
@@ -87,12 +92,47 @@ class ProtobufClient:
         message.client_instance_id = 0
 
         try:
-            self._steam_id = steam_id
-            self._miniprofile_id = miniprofile_id
+            self.steam_id = steam_id
+            await self.user_authentication_handler('steam_id', self.steam_id)
+            await self.user_authentication_handler('account_id', miniprofile_id)
             await self._send(EMsg.ClientLogon, message)
         except Exception:
-            self._steam_id = None
+            self.steam_id = None
             raise
+
+    async def log_on_password(self, account_name, password, two_factor, two_factor_type):
+        message = steammessages_clientserver_login_pb2.CMsgClientLogon()
+        message.account_name = account_name
+        message.protocol_version = 65579
+        message.password = password
+        message.should_remember_password = True
+        message.supports_rate_limit_response = True
+
+        if two_factor:
+            if two_factor_type == 'email':
+                message.auth_code = two_factor
+            elif two_factor_type == 'mobile':
+                message.two_factor_code = two_factor
+        logger.info("Sending log on message using credentials")
+        await self._send(EMsg.ClientLogon, message)
+
+    async def log_on_token(self, steam_id, account_name, token):
+        message = steammessages_clientserver_login_pb2.CMsgClientLogon()
+        message.account_name = account_name
+        message.protocol_version = 65579
+        message.should_remember_password = True
+        message.supports_rate_limit_response = True
+        message.login_key = token
+
+        sentry = await self.sentry()
+        if sentry:
+            logger.info("Sentry present")
+            message.eresult_sentryfile = EResult.OK
+            message.sha_sentryfile = sentry
+
+        self.steam_id = steam_id
+        logger.info("Sending log on message using token")
+        await self._send(EMsg.ClientLogon, message)
 
     async def _import_game_stats(self, game_id):
         logger.info(f"Importing game stats for {game_id}")
@@ -161,6 +201,18 @@ class ProtobufClient:
         job_id = next(self._job_id_iterator)
         await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None,  target_job_name='Community.GetAppRichPresenceLocalization#1')
 
+    async def accept_update_machine_auth(self,jobid_target, sha_hash, offset, filename, cubtowrite):
+        logger.info("Accepting update machine auth")
+        message = steammessages_clientserver_2_pb2.CMsgClientUpdateMachineAuthResponse()
+        message.filename = filename
+        message.eresult = EResult.OK
+        message.sha_file = sha_hash
+        message.getlasterror = 0
+        message.offset = offset
+        message.cubwrote = cubtowrite
+
+        await self._send(EMsg.ClientUpdateMachineAuthResponse, message, None, jobid_target, None)
+
     async def _send(
             self,
             emsg,
@@ -170,8 +222,10 @@ class ProtobufClient:
             target_job_name=None
     ):
         proto_header = steammessages_base_pb2.CMsgProtoBufHeader()
-        if self._steam_id is not None:
-            proto_header.steamid = self._steam_id
+        if self.steam_id is not None:
+            proto_header.steamid = self.steam_id
+        else:
+            proto_header.steamid = 0 + self._ACCOUNT_ID_MASK
         if self._session_id is not None:
             proto_header.client_sessionid = self._session_id
         if source_job_id is not None:
@@ -195,7 +249,6 @@ class ProtobufClient:
         while True:
             await asyncio.sleep(interval)
             await self._send(EMsg.ClientHeartBeat, message)
-
 
     async def _process_packet(self, packet):
         package_size = len(packet)
@@ -233,6 +286,14 @@ class ProtobufClient:
             await self._process_package_info_response(body)
         elif emsg == EMsg.ClientGetUserStatsResponse:
             await self._process_user_stats_response(body)
+        elif emsg == EMsg.ClientAccountInfo:
+            await self._process_account_info(body)
+        elif emsg == EMsg.ClientNewLoginKey:
+            await self._process_client_new_login_key(body)
+        elif emsg == EMsg.ClientUpdateMachineAuth:
+            await self._process_client_update_machine_auth(body, header.jobid_source)
+        elif emsg == EMsg.ClientPlayerNicknameList:
+            await self._process_user_nicknames(body)
         elif emsg == EMsg.ServiceMethod:
             await self._process_service_method_response(header.target_job_name, header.jobid_target, body)
         elif emsg == EMsg.ServiceMethodResponse:
@@ -265,12 +326,44 @@ class ProtobufClient:
         message.ParseFromString(body)
         result = message.eresult
 
+        if result == EResult.AccountLogonDenied:
+            if message.email_domain:
+                await self.user_authentication_handler('two_step', 'email')
+        if result == EResult.AccountLoginDeniedNeedTwoFactor:
+            await self.user_authentication_handler('two_step', 'mobile')
+
         if result == EResult.OK:
             interval = message.out_of_game_heartbeat_seconds
+            self.steam_id = message.client_supplied_steamid
+            await self.user_authentication_handler('steam_id', self.steam_id)
+            await self.user_authentication_handler('account_id', message.client_supplied_steamid - self._ACCOUNT_ID_MASK)
             self._heartbeat_task = asyncio.create_task(self._heartbeat(interval))
 
         if self.log_on_handler is not None:
             await self.log_on_handler(result)
+
+    async def _process_client_update_machine_auth(self, body, jobid_source):
+        logger.debug("Processing message ClientUpdateMachineAuth")
+        message = steammessages_clientserver_2_pb2.CMsgClientUpdateMachineAuth()
+        message.ParseFromString(body)
+
+        sentry_sha = hashlib.sha1(message.bytes).digest()
+        await self.user_authentication_handler('sentry', sentry_sha)
+        await self.accept_update_machine_auth(jobid_source, sentry_sha, message.offset, message.filename, message.cubtowrite)
+
+    async def _process_account_info(self, body):
+        logger.debug("Processing message ClientAccountInfo")
+        message = steammessages_clientserver_login_pb2.CMsgClientAccountInfo()
+        message.ParseFromString(body)
+        await self.user_authentication_handler('persona_name', message.persona_name)
+        self.account_info_retrieved.set()
+
+    async def _process_client_new_login_key(self, body):
+        logger.debug("Processing message ClientNewLoginKey")
+        message = steammessages_clientserver_login_pb2.CMsgClientNewLoginKey()
+        message.ParseFromString(body)
+        await self.user_authentication_handler('token', message.login_key)
+        self.login_key_retrieved.set()
 
     async def _process_client_log_off(self, body):
         logger.debug("Processing message ClientLoggedOff")
@@ -284,6 +377,16 @@ class ProtobufClient:
         if self.log_off_handler is not None:
             await self.log_off_handler(result)
 
+    async def _process_user_nicknames(self, body):
+        logger.debug("Processing message ClientPlayerNicknameList")
+        message = steammessages_clientserver_friends_pb2.CMsgClientPlayerNicknameList()
+        message.ParseFromString(body)
+        nicknames = {}
+        for player_nickname in message.nicknames:
+            nicknames[str(player_nickname.steamid)] = player_nickname.nickname
+
+        await self.user_nicknames_handler(nicknames)
+
     async def _process_client_friend_list(self, body):
         logger.debug("Processing message ClientFriendsList")
         if self.relationship_handler is None:
@@ -291,7 +394,6 @@ class ProtobufClient:
 
         message = steammessages_clientserver_friends_pb2.CMsgClientFriendsList()
         message.ParseFromString(body)
-
         friends = {}
         for relationship in message.friends:
             steam_id = relationship.ulfriendid
@@ -311,9 +413,9 @@ class ProtobufClient:
 
         for user in message.friends:
             user_id = user.friendid
-            if user_id == self._steam_id and int(user.game_played_app_id) != 0:
+            if user_id == self.steam_id and int(user.game_played_app_id) != 0:
                 await self.get_apps_info([int(user.game_played_app_id)])
-            user_info = UserInfo()
+            user_info = ProtoUserInfo()
             if user.HasField("player_name"):
                 user_info.name = user.player_name
             if user.HasField("avatar_hash"):
@@ -346,7 +448,7 @@ class ProtobufClient:
         for license in message.licenses:
             # license.type 1024 = free games
             # license.flags 520 = unidentified trash entries (games which are not owned nor are free)
-            if int(license.owner_id) == int(self._miniprofile_id) and int(license.flags) != 520:
+            if int(license.owner_id) == int(self.steam_id - self._ACCOUNT_ID_MASK) and int(license.flags) != 520:
                 licenses_to_check.append(license)
 
         await self.license_import_handler(licenses_to_check)

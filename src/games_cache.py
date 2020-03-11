@@ -49,6 +49,7 @@ class GamesCache(ProtoCache):
 
         if title and game:
             if self.add_game_lever:
+                self._info_map[appid] = title
                 self._games_added[appid] = title
             else:
                 self._info_map[appid] = title

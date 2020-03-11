@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from protocol.consts import EPersonaState
-from protocol.types import UserInfo
+from protocol.types import ProtoUserInfo
 from friends_cache import FriendsCache
 
 
@@ -43,13 +43,13 @@ def test_add_user(cache, added_handler):
     cache.add(user_id)
     assert not cache.ready
     assert user_id in cache
-    assert list(cache) == [(user_id, UserInfo())]
+    assert list(cache) == [(user_id, ProtoUserInfo())]
     added_handler.assert_not_called()
 
 
 def test_update_user_not_ready(cache, added_handler, updated_handler):
     user_id = 1423
-    user_info = UserInfo("Jan")
+    user_info = ProtoUserInfo("Jan")
     cache.add(user_id)
     cache.update(user_id, user_info)
     assert not cache.ready
@@ -60,10 +60,10 @@ def test_update_user_not_ready(cache, added_handler, updated_handler):
 
 def test_update_user_ready(cache, added_handler, updated_handler):
     user_id = 1423
-    expected_user_info = UserInfo(name="Jan", state=EPersonaState.Offline)
+    expected_user_info = ProtoUserInfo(name="Jan", state=EPersonaState.Offline)
     cache.add(user_id)
-    cache.update(user_id, UserInfo(name="Jan"))
-    cache.update(user_id, UserInfo(state=EPersonaState.Offline))
+    cache.update(user_id, ProtoUserInfo(name="Jan"))
+    cache.update(user_id, ProtoUserInfo(state=EPersonaState.Offline))
     assert cache.ready
     assert list(cache) == [(user_id, expected_user_info)]
     added_handler.assert_called_with(user_id, expected_user_info)
@@ -72,7 +72,7 @@ def test_update_user_ready(cache, added_handler, updated_handler):
 
 def test_update_user_all_data(cache, added_handler, updated_handler):
     user_id = 1423
-    user_info = UserInfo(name="Jan", state=EPersonaState.Offline)
+    user_info = ProtoUserInfo(name="Jan", state=EPersonaState.Offline)
     cache.add(user_id)
     cache.update(user_id, user_info)
     assert cache.ready
@@ -92,7 +92,7 @@ def test_remove_not_ready_user(cache, removed_handler):
 
 def test_remove_ready_user(cache, removed_handler):
     user_id = 1423
-    user_info = UserInfo(name="Jan", state=EPersonaState.Offline)
+    user_info = ProtoUserInfo(name="Jan", state=EPersonaState.Offline)
     cache.add(user_id)
     cache.update(user_id, user_info)
     cache.remove(user_id)
@@ -108,10 +108,10 @@ def test_reset_empty(cache):
 
 def test_reset_mixed(cache, removed_handler):
     cache.add(15)
-    cache.update(15, UserInfo(name="Jan", state=EPersonaState.Offline))
+    cache.update(15, ProtoUserInfo(name="Jan", state=EPersonaState.Offline))
 
     cache.add(17)
-    cache.update(17, UserInfo(name="Ula", state=EPersonaState.Offline))
+    cache.update(17, ProtoUserInfo(name="Ula", state=EPersonaState.Offline))
 
     cache.reset([17, 29])
     removed_handler.assert_called_once_with(15)

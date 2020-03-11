@@ -28,7 +28,7 @@ class SteamId:
 
 
 @dataclass
-class UserInfo:
+class ProtoUserInfo:
     name: Optional[str] = None
     avatar_hash: Optional[str] = None
     state: Optional[EPersonaState] = None

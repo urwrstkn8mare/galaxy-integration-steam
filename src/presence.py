@@ -2,7 +2,7 @@ from galaxy.api.consts import PresenceState
 from galaxy.api.types import UserPresence
 
 from protocol.consts import EPersonaState
-from protocol.types import UserInfo
+from protocol.types import ProtoUserInfo
 
 import logging
 logger = logging.getLogger(__name__)
@@ -13,8 +13,11 @@ def _translate_string(game_id, string, translations_cache):
         if token.name == string:
             return token.value
 
-def from_user_info(user_info: UserInfo, translations_cache: dict) -> UserPresence:
+def presence_from_user_info(user_info: ProtoUserInfo, translations_cache: dict) -> UserPresence:
     if user_info.state == EPersonaState.Online:
+        state = PresenceState.Online
+    elif user_info.state == EPersonaState.Snooze:
+        # In game afk, sitting in the main menu etc. Steam chat and others show this as online/in-game
         state = PresenceState.Online
     elif user_info.state == EPersonaState.Offline:
         state = PresenceState.Offline

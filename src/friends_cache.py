@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from typing import Dict
 
-from protocol.types import UserInfo
+from protocol.types import ProtoUserInfo
 from cache_proto import ProtoCache
+import asyncio
+import logging as logger
 
 
 @dataclass
@@ -13,12 +15,27 @@ class AvailableInfo:
     def ready(self):
         return self.personal_info and self.state
 
-
 class FriendsCache(ProtoCache):
     def __init__(self):
         super(FriendsCache, self).__init__()
         self._pending_map: Dict[str, AvailableInfo] = {}
-        self._info_map: Dict[str, UserInfo] = {}
+        self._info_map: Dict[str, ProtoUserInfo] = {}
+
+        self._nicknames_parsed = asyncio.Event()
+        self._nicknames = {}
+
+    async def wait_nicknames_ready(self, timeout=None):
+        try:
+            await asyncio.wait_for(self._nicknames_parsed.wait(), timeout)
+        except asyncio.TimeoutError:
+            logger.info("Timed out waiting for nicknames to get ready")
+
+    def update_nicknames(self, nicknames):
+        self._nicknames = nicknames
+        self._nicknames_parsed.set()
+
+    def get_nicknames(self):
+        return self._nicknames
 
     def _reset(self, user_ids):
         new = set(user_ids)
@@ -34,7 +51,7 @@ class FriendsCache(ProtoCache):
         if user_id in self._info_map:
             return
         self._pending_map[user_id] = AvailableInfo()
-        self._info_map[user_id] = UserInfo()
+        self._info_map[user_id] = ProtoUserInfo()
 
     def _remove(self, user_id):
         pending = self._pending_map.pop(user_id, None)
@@ -46,7 +63,7 @@ class FriendsCache(ProtoCache):
             if self.removed_handler is not None:
                 self.removed_handler(user_id)
 
-    def update(self, user_id, user_info: UserInfo):
+    def update(self, user_id, user_info: ProtoUserInfo):
         current_info = self._info_map.get(user_id)
         if current_info is None:
             return  # not a friend, ignoring

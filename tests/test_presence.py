@@ -1,8 +1,8 @@
 import pytest
 
 from protocol.consts import EPersonaState
-from protocol.types import UserInfo
-from presence import from_user_info
+from protocol.types import ProtoUserInfo
+from presence import presence_from_user_info
 
 from galaxy.api.errors import AuthenticationRequired, UnknownError
 from galaxy.api.consts import PresenceState
@@ -38,36 +38,36 @@ class translations_cache_parametrized_mock_dataclass:
     [
         # Empty
         (
-                UserInfo(),
+                ProtoUserInfo(),
                 UserPresence(presence_state=PresenceState.Unknown)
         ),
         # Offline
         (
-                UserInfo(state=EPersonaState.Offline),
+                ProtoUserInfo(state=EPersonaState.Offline),
                 UserPresence(presence_state=PresenceState.Offline)
         ),
         # User online not playing a game
         (
-                UserInfo(state=EPersonaState.Online, game_id=0, game_name="", rich_presence={}),
+                ProtoUserInfo(state=EPersonaState.Online, game_id=0, game_name="", rich_presence={}),
                 UserPresence(presence_state=PresenceState.Online, game_id=None, game_title=None, in_game_status=None)
         ),
         # User online playing a game
         (
-                UserInfo(state=EPersonaState.Online, game_id=1512, game_name="abc", rich_presence={"status": "menu"}),
+                ProtoUserInfo(state=EPersonaState.Online, game_id=1512, game_name="abc", rich_presence={"status": "menu"}),
                 UserPresence(
                     presence_state=PresenceState.Online, game_id="1512", game_title="abc", in_game_status="menu"
                 )
         ),
         # User playing a game with translatable rich presence
         (
-            UserInfo(state=EPersonaState.Online, game_id=1512, game_name="abc", rich_presence={"status": "#hero"}),
+            ProtoUserInfo(state=EPersonaState.Online, game_id=1512, game_name="abc", rich_presence={"status": "#hero"}),
             UserPresence(
                 presence_state=PresenceState.Online, game_id="1512", game_title="abc", in_game_status="translated_hero"
             )
         ),
         # User playing a game with translatable rich presence which is parametrized
         (
-            UserInfo(state=EPersonaState.Online, game_id=1513, game_name="abc", rich_presence={"status": "#menu", "num_params": 1, "param0": "#EN"}),
+            ProtoUserInfo(state=EPersonaState.Online, game_id=1513, game_name="abc", rich_presence={"status": "#menu", "num_params": 1, "param0": "#EN"}),
             UserPresence(
                 presence_state=PresenceState.Online, game_id="1513", game_title="abc", in_game_status="translated_menu_english"
             )
@@ -75,14 +75,14 @@ class translations_cache_parametrized_mock_dataclass:
     ]
 )
 def test_from_user_info(user_info, user_presence):
-    assert from_user_info(user_info, {1512: translations_cache_mock_dataclass(), 1513: translations_cache_parametrized_mock_dataclass()}) == user_presence
+    assert presence_from_user_info(user_info, {1512: translations_cache_mock_dataclass(), 1513: translations_cache_parametrized_mock_dataclass()}) == user_presence
 
 
 CONTEXT = {
-    "76561198040630463": UserInfo(name="John", state=EPersonaState.Offline),
-    "76561198053830887": UserInfo(name="Jan", state=EPersonaState.Online, game_id=124523113),
-    "76561198053830888": UserInfo(name="Carol", state=EPersonaState.Online, game_id=123321, game_name="abc", rich_presence={'status': '#menuVariable'}),
-    "76561198053830889": UserInfo(name="Carol", state=EPersonaState.Online, game_id=123321, game_name="abc", rich_presence={'status': 'menuSimple'})
+    "76561198040630463": ProtoUserInfo(name="John", state=EPersonaState.Offline),
+    "76561198053830887": ProtoUserInfo(name="Jan", state=EPersonaState.Online, game_id=124523113),
+    "76561198053830888": ProtoUserInfo(name="Carol", state=EPersonaState.Online, game_id=123321, game_name="abc", rich_presence={'status': '#menuVariable'}),
+    "76561198053830889": ProtoUserInfo(name="Carol", state=EPersonaState.Online, game_id=123321, game_name="abc", rich_presence={'status': 'menuSimple'})
 }
 
 @pytest.mark.asyncio

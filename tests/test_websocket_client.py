@@ -4,21 +4,21 @@ import asyncio
 import pytest
 import websockets
 from galaxy.api.errors import AccessDenied, BackendNotAvailable, BackendTimeout, BackendError, NetworkError
-from galaxy.unittest.mock import async_return_value, skip_loop
+from galaxy.unittest.mock import async_return_value, skip_loop, AsyncMock
 
 from protocol.websocket_client import WebSocketClient, RECONNECT_INTERVAL_SECONDS
-from protocol.types import UserInfo
 from servers_cache import ServersCache
 from friends_cache import FriendsCache
 from games_cache import GamesCache
 from stats_cache import StatsCache
 from times_cache import TimesCache
+from user_info_cache import UserInfoCache
 
-STEAM_ID = 71231321
-MINIPROFILE_ID = 123
+from protocol.protocol_client import UserActionRequired
+
 ACCOUNT_NAME = "john"
-TOKEN = "TOKEN"
-
+PASSWORD = "testing123"
+TWO_FACTOR = "AbCdEf"
 
 async def async_raise(error, loop_iterations_delay=0):
     if loop_iterations_delay > 0:
@@ -41,7 +41,7 @@ def websocket(mocker):
     websocket_ = MagicMock()
     mocker.patch(
         "protocol.websocket_client.websockets.connect",
-        side_effect=lambda *args, **kwargs: async_return_value(websocket_)
+        side_effect=lambda *args, **kwargs: async_return_value(AsyncMock())
     )
     return websocket_
 
@@ -67,66 +67,78 @@ def translations_cache():
     return dict()
 
 @pytest.fixture
-async def client(backend_client, servers_cache, protocol_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache):
-    return WebSocketClient(backend_client, MagicMock(), servers_cache, friends_cache, games_cache, translations_cache, stats_cache, times_cache)
+def user_info_cache(mocker):
+    return MagicMock(UserInfoCache)
 
+@pytest.fixture
+def store_credentials():
+    return MagicMock()
 
-@pytest.mark.asyncio
-async def test_get_friends(client, friends_cache):
-    friends_cache.wait_ready.return_value = async_return_value(None)
-    friends_cache.get_keys.return_value = [1, 5, 7]
-    assert await client.get_friends() == ["1", "5", "7"]
-    friends_cache.wait_ready.assert_called_once_with()
-    friends_cache.get_keys.assert_called_once_with()
-
+@pytest.fixture
+async def client(backend_client, servers_cache, protocol_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, store_credentials):
+    return WebSocketClient(backend_client, MagicMock(), servers_cache, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, store_credentials)
 
 @pytest.mark.asyncio
-async def test_get_friends_info(client, friends_cache):
-    friends_cache.wait_ready.return_value = async_return_value(None)
-    friends_cache.get.side_effect = [
-        UserInfo("Franek"),
-        None,
-        UserInfo("Janek")
-    ]
-    assert await client.get_friends_info(["1", "5", "7"]) == {
-        "1": UserInfo("Franek"),
-        "7": UserInfo("Janek")
-    }
-    friends_cache.wait_ready.assert_called_once_with()
-    friends_cache.get.assert_has_calls([call(1), call(5), call(7)])
-
-
-@pytest.mark.asyncio
-async def test_connect_authenticate(client, protocol_client, backend_client, servers_cache, websocket):
+async def test_connect_authenticate(client, protocol_client, servers_cache, websocket):
     servers_cache.get.return_value = async_return_value(["wss://abc.com/websocket"])
-    backend_client.get_authentication_data.return_value = STEAM_ID,MINIPROFILE_ID, ACCOUNT_NAME, TOKEN
-    protocol_client.authenticate.return_value = async_return_value(None)
-    protocol_client.run.return_value = async_raise(websockets.ConnectionClosedOK(1000, ""), 10)
-    await client.run()
+    protocol_client.run.return_value = async_raise(AssertionError)
+    credentials_mock = {'password': PASSWORD, "two_factor": TWO_FACTOR}
+    plugin_queue_mock = AsyncMock()
+    websocket_queue_mock = AsyncMock()
+    websocket_queue_mock.get.return_value = credentials_mock
+    error_queue_mock = AsyncMock()
+    error_queue_mock.get.return_value = MagicMock()
+    client.communication_queues = {'plugin': plugin_queue_mock, 'websocket': websocket_queue_mock, 'errors': error_queue_mock}
+    client._user_info_cache = MagicMock()
+    client._user_info_cache.old_flow = False
+    client._user_info_cache.token = False
+    client._user_info_cache.account_username = ACCOUNT_NAME
+    client._user_info_cache.two_step = None
+
+    protocol_client.authenticate_password.return_value = async_return_value(UserActionRequired.NoActionRequired)
+    protocol_client.close.return_value = async_return_value(None)
+    protocol_client.wait_closed.return_value = async_return_value(None)
+    with pytest.raises(AssertionError):
+        await client.run()
+
     servers_cache.get.assert_called_once_with()
-    protocol_client.authenticate.assert_called_once_with(STEAM_ID, MINIPROFILE_ID, ACCOUNT_NAME, TOKEN, ANY)
     protocol_client.run.assert_called_once_with()
+    protocol_client.authenticate_password.assert_called_once_with(ACCOUNT_NAME, PASSWORD, TWO_FACTOR, ANY, ANY)
 
 
 @pytest.mark.asyncio
-async def test_websocket_close_reconnect(client, protocol_client, backend_client, servers_cache, websocket):
+async def test_websocket_close_reconnect(client, protocol_client, servers_cache, websocket):
     servers_cache.get.side_effect = [
         async_return_value(["wss://abc.com/websocket"]),
         async_return_value(["wss://abc.com/websocket"])
     ]
-    backend_client.get_authentication_data.return_value = STEAM_ID, MINIPROFILE_ID, ACCOUNT_NAME, TOKEN
-    protocol_client.authenticate.return_value = async_return_value(None)
     protocol_client.run.side_effect = [
         async_raise(websockets.ConnectionClosedError(1002, ""), 10),
-        async_raise(websockets.ConnectionClosedOK(1000, ""), 10)
+        async_raise(AssertionError)
     ]
+    credentials_mock = {'password': PASSWORD, "two_factor": TWO_FACTOR}
+    plugin_queue_mock = AsyncMock()
+    websocket_queue_mock = AsyncMock()
+    websocket_queue_mock.get.return_value = credentials_mock
+    error_queue_mock = AsyncMock()
+    error_queue_mock.get.return_value = MagicMock()
+    client.communication_queues = {'plugin': plugin_queue_mock, 'websocket': websocket_queue_mock, 'errors': error_queue_mock}
+
     protocol_client.close.return_value = async_return_value(None)
     protocol_client.wait_closed.return_value = async_return_value(None)
+    protocol_client.authenticate_token = AsyncMock()
+    protocol_client.authenticate_token.return_value = async_return_value(None)
+
     websocket.close.return_value = async_return_value(None)
     websocket.wait_closed.return_value = async_return_value(None)
-    await client.run()
+
+    client._user_info_cache = MagicMock()
+    client._user_info_cache.old_flow = False
+    with pytest.raises(AssertionError):
+        await client.run()
+
     assert servers_cache.get.call_count == 2
-    assert protocol_client.authenticate.call_count == 2
+    assert protocol_client.authenticate_token.call_count == 2
     assert protocol_client.run.call_count == 2
 
 
@@ -135,23 +147,26 @@ async def test_websocket_close_reconnect(client, protocol_client, backend_client
     BackendNotAvailable(), BackendTimeout(), BackendError(), NetworkError()
 ])
 async def test_servers_cache_retry(
-    client, protocol_client, backend_client, servers_cache, websocket, mocker, exception
+    client, protocol_client, servers_cache, mocker, exception, websocket
 ):
     servers_cache.get.side_effect = [
         async_raise(exception),
         async_return_value(["wss://abc.com/websocket"])
     ]
+    protocol_client.run.return_value = async_raise(AssertionError)
     sleep = mocker.patch("protocol.websocket_client.asyncio.sleep", side_effect=lambda x: async_return_value(None))
-    backend_client.get_authentication_data.return_value = STEAM_ID, MINIPROFILE_ID, ACCOUNT_NAME, TOKEN
-    protocol_client.authenticate.return_value = async_return_value(None)
-    protocol_client.run.return_value = async_raise(websockets.ConnectionClosedOK(1000, ""), 10)
-    await client.run()
+    client._authenticate = AsyncMock()
+
+    with pytest.raises(AssertionError):
+        await client.run()
+    assert servers_cache.get.call_count == 2
     sleep.assert_any_call(RECONNECT_INTERVAL_SECONDS)
 
 @pytest.mark.asyncio
 async def test_servers_cache_failure(client, protocol_client, backend_client, servers_cache):
     servers_cache.get.return_value = async_raise(AccessDenied())
-    await client.run()
+    with pytest.raises(AccessDenied):
+        await client.run()
     servers_cache.get.assert_called_once_with()
     backend_client.get_authentication_data.assert_not_called()
     protocol_client.authenticate.assert_not_called()
@@ -162,7 +177,7 @@ async def test_servers_cache_failure(client, protocol_client, backend_client, se
 @pytest.mark.parametrize("exception", [
     asyncio.TimeoutError(), IOError(), websockets.InvalidURI("wss://websocket_1"), websockets.InvalidHandshake()
 ])
-async def test_connect_error(client, backend_client, protocol_client, servers_cache, mocker, exception):
+async def test_connect_error(client, protocol_client, servers_cache, mocker, exception):
     servers_cache.get.side_effect = [
         async_return_value(["wss://websocket_1", "wss://websocket_2"]),
     ]
@@ -173,10 +188,10 @@ async def test_connect_error(client, backend_client, protocol_client, servers_ca
             async_return_value(MagicMock())
         ]
     )
-    backend_client.get_authentication_data.return_value = STEAM_ID, ACCOUNT_NAME, TOKEN
-    protocol_client.authenticate.return_value = async_return_value(None)
-    protocol_client.run.return_value = async_raise(websockets.ConnectionClosedOK(1000, ""), 10)
-    await client.run()
+    protocol_client.run.return_value = async_raise(AssertionError)
+    client._authenticate = AsyncMock()
+    with pytest.raises(AssertionError):
+        await client.run()
     connect.assert_has_calls([call("wss://websocket_1", ssl=ANY), call("wss://websocket_2", ssl=ANY)])
 
 
@@ -184,7 +199,7 @@ async def test_connect_error(client, backend_client, protocol_client, servers_ca
 @pytest.mark.parametrize("exception", [
     asyncio.TimeoutError(), IOError(), websockets.InvalidURI("wss://websocket_1"), websockets.InvalidHandshake()
 ])
-async def test_connect_error_all_servers(client, backend_client, protocol_client, servers_cache, mocker, exception):
+async def test_connect_error_all_servers(client, protocol_client, servers_cache, mocker, exception):
     servers_cache.get.side_effect = [
         async_return_value(["wss://websocket_1"]),
         async_return_value(["wss://websocket_1"])
@@ -193,13 +208,13 @@ async def test_connect_error_all_servers(client, backend_client, protocol_client
         "protocol.websocket_client.websockets.connect",
         side_effect=[
             async_raise(exception),
-            async_return_value(MagicMock())
+            async_return_value(AsyncMock())
         ]
     )
     sleep = mocker.patch("protocol.websocket_client.asyncio.sleep", side_effect=lambda x: async_return_value(None))
-    backend_client.get_authentication_data.return_value = STEAM_ID, ACCOUNT_NAME, TOKEN
-    protocol_client.authenticate.return_value = async_return_value(None)
-    protocol_client.run.return_value = async_raise(websockets.ConnectionClosedOK(1000, ""), 10)
-    await client.run()
+    protocol_client.run.return_value = async_raise(AssertionError)
+    client._authenticate = AsyncMock()
+    with pytest.raises(AssertionError):
+        await client.run()
     connect.assert_has_calls([call("wss://websocket_1", ssl=ANY), call("wss://websocket_1", ssl=ANY)])
     sleep.assert_any_call(RECONNECT_INTERVAL_SECONDS)

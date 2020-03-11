@@ -22,7 +22,6 @@ def backend_client():
     mock.get_steamcommunity_response_status = AsyncMock()
     return mock
 
-
 @pytest.fixture
 def steam_client():
     mock = MagicMock(spec=())
@@ -31,9 +30,11 @@ def steam_client():
     mock.wait_closed = AsyncMock()
     mock.run = AsyncMock()
     mock.get_friends_info = AsyncMock()
+    mock.get_friends = AsyncMock()
+    mock.get_friends_nicknames = AsyncMock()
     mock.refresh_game_stats = AsyncMock()
+    mock.communication_queues = {'plugin': AsyncMock(), 'websocket': AsyncMock()}
     return mock
-
 
 @pytest.fixture()
 async def create_plugin(backend_client, steam_client, mocker):
@@ -64,7 +65,7 @@ async def plugin(create_plugin):
 
 @pytest.fixture()
 def steam_id():
-    return "156"
+    return 123
 
 
 @pytest.fixture()
@@ -74,26 +75,22 @@ def login():
 
 @pytest.fixture()
 def miniprofile():
-    return "123"
+    return 123
 
 
 @pytest.fixture()
 async def create_authenticated_plugin(create_plugin, backend_client, mocker):
     async def function(steam_id, login, miniprofile, cache):
-        mocker.patch.object(SteamPlugin, "persistent_cache", new_callable=mocker.PropertyMock, return_value=cache)
         plugin = create_plugin()
+        plugin._user_info_cache.initialized.wait = AsyncMock()
         backend_client.get_profile.return_value = "http://url"
         backend_client.get_profile_data.return_value = steam_id, miniprofile, login
-        credentials = {
-            "cookies": [
-                {
-                    "name": "cookie",
-                    "value": "value",
-                    "domain": "steamcommunity.com",
-                    "path": "/"
-                }
-            ]
-        }
+        credentials = {"account_id":"MTIz",
+                       "account_username":"YWJj",
+                       "persona_name":"YWJj",
+                       "sentry":"Y2Jh",
+                       "steam_id":"MTIz",
+                       "token":"Y2Jh"}
         plugin.handshake_complete()
         await plugin.authenticate(credentials)
 
@@ -105,3 +102,6 @@ async def create_authenticated_plugin(create_plugin, backend_client, mocker):
 @pytest.fixture()
 async def authenticated_plugin(create_authenticated_plugin, steam_id, login, miniprofile):
     return await create_authenticated_plugin(steam_id, login, miniprofile, {})
+
+
+

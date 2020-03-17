@@ -1,5 +1,9 @@
-__version__ = "0.47"
+
+__version__ = "0.48"
 __changelog__ = {
+    "0.48": '''
+    - Cache the results of owned games so the import is possibly immediate in subsequent plugin runs
+    ''',
     "0.47": '''
     - Change the logic of sent friend nicknames to always display the username with optional given nickname instead of one of the two
     - Pull steam friends from protobuf communication instead of scrapping website

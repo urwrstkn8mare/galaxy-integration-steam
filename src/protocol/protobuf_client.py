@@ -177,7 +177,7 @@ class ProtobufClient:
 
         for package_id in package_ids:
             info = message.packages.add()
-            info.packageid = package_id
+            info.packageid = int(package_id)
 
         await self._send(EMsg.PICSProductInfoRequest, message)
 
@@ -460,26 +460,26 @@ class ProtobufClient:
         apps_to_parse = []
 
         for info in message.packages:
-            await self.package_info_handler(int(info.packageid))
+            await self.package_info_handler(str(info.packageid))
             if info.packageid == 0:
                 # Packageid 0 contains trash entries for every user
                 logger.info("Skipping packageid 0 ")
                 continue
             package_content = vdf.binary_loads(info.buffer[4:])
             for app in package_content[str(info.packageid)]['appids']:
-                await self.app_info_handler(int(package_content[str(info.packageid)]['appids'][app]))
+                await self.app_info_handler(mother_appid=str(info.packageid), appid=str(package_content[str(info.packageid)]['appids'][app]))
                 apps_to_parse.append(package_content[str(info.packageid)]['appids'][app])
 
         for info in message.apps:
             app_content = vdf.loads(info.buffer[:-1].decode('utf-8', 'replace'))
             try:
                 if app_content['appinfo']['common']['type'].lower() == 'game':
-                    await self.app_info_handler(appid=int(app_content['appinfo']['appid']), title=app_content['appinfo']['common']['name'], game=True)
+                    await self.app_info_handler(appid=str(app_content['appinfo']['appid']), title=app_content['appinfo']['common']['name'], game=True)
                 else:
-                    await self.app_info_handler(appid=int(app_content['appinfo']['appid']), game=False)
+                    await self.app_info_handler(appid=str(app_content['appinfo']['appid']), game=False)
             except KeyError:
                 # Unrecognized app type
-                await self.app_info_handler(appid=int(app_content['appinfo']['appid']), game=False)
+                await self.app_info_handler(appid=str(app_content['appinfo']['appid']), game=False)
 
         if len(apps_to_parse) > 0:
             logger.info(f"Apps to parse {apps_to_parse}, {len(apps_to_parse)} entries")

@@ -7,6 +7,7 @@ if platform.system().lower() == "windows":
     import os
 
     def is_uri_handler_installed(protocol):
+        key = None
         try:
             key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"{}\shell\open\command".format(protocol))
             executable_template = winreg.QueryValue(key, None)
@@ -19,8 +20,8 @@ if platform.system().lower() == "windows":
         except ValueError:
             return False
         finally:
-            winreg.CloseKey(key)
-        return True
+            if key:
+                winreg.CloseKey(key)
 
 elif platform.system().lower() == "darwin":
 

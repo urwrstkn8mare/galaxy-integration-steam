@@ -231,6 +231,9 @@ class SteamPlugin(Plugin):
             return await self._do_steamcommunity_auth(morsels)
 
         self._user_info_cache.from_dict(stored_credentials)
+        if 'games' in self.persistent_cache:
+            self._games_cache.loads(self.persistent_cache['games'])
+
         self.create_task(self._steam_client.run(), "Run WebSocketClient")
         try:
             await asyncio.wait_for(self._user_info_cache.initialized.wait(), 60)
@@ -299,7 +302,6 @@ class SteamPlugin(Plugin):
 
     async def _handle_two_step_email_finished(self, credentials):
         parsed_url = parse.urlsplit(credentials['end_uri'])
-
         params = parse.parse_qs(parsed_url.query)
 
         if 'resend' in params:
@@ -324,6 +326,7 @@ class SteamPlugin(Plugin):
         await self._games_cache.wait_ready(90)
         owned_games = []
         self._games_cache.add_game_lever = True
+
         try:
             for game_id, game_title in self._games_cache:
                 owned_games.append(
@@ -339,7 +342,8 @@ class SteamPlugin(Plugin):
             raise UnknownBackendResponse()
         finally:
             self._owned_games_parsed = True
-
+        self.persistent_cache['games'] = self._games_cache.dump()
+        self.push_cache()
         return owned_games
 
     async def prepare_achievements_context(self, game_ids: List[str]) -> Any:
@@ -444,6 +448,8 @@ class SteamPlugin(Plugin):
         for game in new_games:
             iter += 1
             self.add_game(Game(game, new_games[game], [], license_info=LicenseInfo(LicenseType.SinglePurchase)))
+            self.persistent_cache['games'] = self._games_cache.dump()
+            self.push_cache()
             if iter >= 5:
                 iter = 0
                 await asyncio.sleep(1)

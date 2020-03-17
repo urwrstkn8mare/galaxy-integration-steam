@@ -237,18 +237,24 @@ class ProtocolClient:
         self._friends_cache.update_nicknames(nicknames)
 
     async def _license_import_handler(self, licenses):
-        logger.info(f"Starting license import for {[license.package_id for license in licenses]}")
         package_ids = []
 
         for license in licenses:
-            package_ids.append(int(license.package_id))
+            package_ids.append(str(license.package_id))
+
+        if self._games_cache.get_package_ids() == package_ids:
+            logger.info("Owned packages from cache same as fresh ones, skipping")
+            self._games_cache._update_ready_state()
+            return
+
+        logger.info(f"Starting license import for {[license.package_id for license in licenses]}")
 
         self._games_cache.start_packages_import(package_ids)
 
         await self._protobuf_client.get_packages_info(package_ids)
 
-    async def _app_info_handler(self, appid, title=None, game=None):
-        self._games_cache.update(appid, title, game)
+    async def _app_info_handler(self, appid, mother_appid=None, title=None, game=None):
+        self._games_cache.update(mother_appid, appid, title, game)
 
     async def _package_info_handler(self, package_id):
         self._games_cache.update_packages(package_id)

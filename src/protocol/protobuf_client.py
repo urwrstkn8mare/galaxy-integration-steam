@@ -430,6 +430,9 @@ class ProtobufClient:
                     if element.key == 'status' and element.value:
                         if element.value[0] == "#":
                             await self.translations_handler(user.gameid)
+                    if element.key == 'steam_display' and element.value:
+                        if element.value[0] == "#":
+                            await self.translations_handler(user.gameid)
                 user_info.rich_presence = rich_presence
             if user.HasField("game_name"):
                 user_info.game_name = user.game_name

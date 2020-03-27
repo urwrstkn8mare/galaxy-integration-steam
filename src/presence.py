@@ -4,13 +4,14 @@ from galaxy.api.types import UserPresence
 from protocol.consts import EPersonaState
 from protocol.types import ProtoUserInfo
 
+import re
 import logging
 logger = logging.getLogger(__name__)
 
 def _translate_string(game_id, string, translations_cache):
     token_list = translations_cache[int(game_id)]
     for token in token_list.tokens:
-        if token.name == string:
+        if token.name.lower() == string.lower():
             return token.value
 
 def presence_from_user_info(user_info: ProtoUserInfo, translations_cache: dict) -> UserPresence:
@@ -34,21 +35,37 @@ def presence_from_user_info(user_info: ProtoUserInfo, translations_cache: dict) 
 
     status = None
     if user_info.rich_presence is not None:
-        status = user_info.rich_presence.get("status")
-        if status and status[0] == "#":
+        check_for_params = r"%.*%"
+        status = user_info.rich_presence.get("steam_display")
+        if not status:
+            status = user_info.rich_presence.get("status")
+        if status:
             if int(game_id) in translations_cache:
-                status = _translate_string(game_id, status, translations_cache)
-                num_params = user_info.rich_presence.get("num_params")
-                if num_params and int(num_params) > 0:
-                    for param in range(0, int(num_params)):
-                        param_string = user_info.rich_presence.get(f"param{param}")
-                        if param_string and param_string[0] == "#":
-                            param_string = _translate_string(game_id, param_string, translations_cache)
-                        presence_substring = f"%param{param}%"
-                        status = status.replace("{"+presence_substring+"}", param_string)
-                        status = status.replace(presence_substring, param_string)
 
-            else:
+                token_list =  translations_cache[int(game_id)]
+                replaced = True
+
+                while replaced:
+                    replaced = False
+
+                    params = user_info.rich_presence.keys()
+                    for param in params:
+                        if "%"+param+"%" in status:
+                            status = status.replace("%"+param+"%", user_info.rich_presence.get(param))
+                            replaced = True
+
+                    for token in token_list.tokens:
+                        if token.name.lower() in status.lower():
+
+                            token_replace = re.compile(re.escape(token.name), re.IGNORECASE)
+                            status = token_replace.sub(token.value, status)
+                            replaced = True
+                            break
+
+                    status = status.replace("{"," ")
+                    status = status.replace("}"," ")
+
+            elif "#" in status or re.findall(check_for_params, status):
                 logger.info(f"Skipping not simple rich presence status {status}")
                 status = None
 

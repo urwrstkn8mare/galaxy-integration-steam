@@ -1,6 +1,10 @@
-
-__version__ = "0.48"
+__version__ = "0.49"
 __changelog__ = {
+    "0.49": '''
+    - Better handle parsing rich presence from steam 
+    - Add a cooldown to parsing local files, should fix ssues with large cpu usage during game installation
+    - Better flow in case of clicking forgot password during auth ( focus should stay on proper window ) 
+    ''',
     "0.48": '''
     - Cache the results of owned games so the import is possibly immediate in subsequent plugin runs
     ''',

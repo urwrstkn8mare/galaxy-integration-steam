@@ -69,6 +69,8 @@ AVATAR_URL_SUFIX = '_full.jpg'
 DEFAULT_AVATAR = 'https://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/fe/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'
 STEAMCOMMUNITY_PROFILE_LINK = 'https://steamcommunity.com/profiles/'
 
+COOLDOWN_TIME = 5
+
 
 # TODO: Remove - Steamcommunity auth element
 def morsels_to_dicts(morsels):
@@ -136,6 +138,7 @@ class SteamPlugin(Plugin):
         self._owned_games_parsed = None
 
         self._auth_data = None
+        self._cooldown_timer = time.time()
 
         def user_presence_update_handler(user_id: str, proto_user_info: ProtoUserInfo):
             self.update_user_presence(user_id, presence_from_user_info(proto_user_info, self._translations_cache))
@@ -256,9 +259,6 @@ class SteamPlugin(Plugin):
         parsed_url = parse.urlsplit(credentials['end_uri'])
 
         params = parse.parse_qs(parsed_url.query)
-        if 'forgot' in params:
-            webbrowser.open('https://help.steampowered.com/en/wizard/HelpWithLogin')
-            return next_step_response(START_URI.LOGIN, END_URI.LOGIN_FINISHED)
         if 'username' not in params or 'password' not in params:
             return next_step_response(START_URI.LOGIN_FAILED, END_URI.LOGIN_FINISHED)
 
@@ -480,6 +480,8 @@ class SteamPlugin(Plugin):
             self.check_for_websocket_errors()
 
     async def _update_local_games(self):
+        if time.time() < self._cooldown_timer:
+            await asyncio.sleep(COOLDOWN_TIME)
         loop = asyncio.get_running_loop()
         new_list = await loop.run_in_executor(None, local_games_list)
         notify_list = get_state_changes(self._local_games_cache, new_list)
@@ -488,6 +490,7 @@ class SteamPlugin(Plugin):
             if LocalGameState.Running in game.local_game_state:
                 self._last_launch = time.time()
             self.update_local_game_status(game)
+        self._cooldown_timer = time.time() + COOLDOWN_TIME
 
     async def get_local_games(self):
         loop = asyncio.get_running_loop()

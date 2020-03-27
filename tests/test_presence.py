@@ -27,7 +27,7 @@ class token_translations_parametrized_mock_dataclass_menu:
 @dataclass
 class token_translations_parametrized_mock_dataclass_EN:
     name = "#EN"
-    value = "_english"
+    value = "english"
 
 @dataclass
 class translations_cache_parametrized_mock_dataclass:
@@ -69,7 +69,7 @@ class translations_cache_parametrized_mock_dataclass:
         (
             ProtoUserInfo(state=EPersonaState.Online, game_id=1513, game_name="abc", rich_presence={"status": "#menu", "num_params": 1, "param0": "#EN"}),
             UserPresence(
-                presence_state=PresenceState.Online, game_id="1513", game_title="abc", in_game_status="translated_menu_english"
+                presence_state=PresenceState.Online, game_id="1513", game_title="abc", in_game_status="translated_menu english "
             )
         )
     ]

@@ -128,5 +128,6 @@ async def test_relationship_update(client, protobuf_client, friends_cache):
 async def test_user_info(client, protobuf_client, friends_cache):
     user_id = 15
     user_info = ProtoUserInfo("Ola")
+    friends_cache.update = AsyncMock()
     await protobuf_client.user_info_handler(user_id, user_info)
     friends_cache.update.assert_called_once_with(user_id, user_info)

@@ -101,10 +101,13 @@ class ProtobufClient:
             raise
 
     async def log_on_password(self, account_name, password, two_factor, two_factor_type):
+        def sanitize_password(password):
+            return ''.join([i if ord(i) < 128 else '' for i in password])
+
         message = steammessages_clientserver_login_pb2.CMsgClientLogon()
         message.account_name = account_name
         message.protocol_version = 65579
-        message.password = password
+        message.password = sanitize_password(password)
         message.should_remember_password = True
         message.supports_rate_limit_response = True
 
@@ -428,10 +431,10 @@ class ProtobufClient:
                 for element in user.rich_presence:
                     rich_presence[element.key] = element.value
                     if element.key == 'status' and element.value:
-                        if element.value[0] == "#":
+                        if "#" in element.value:
                             await self.translations_handler(user.gameid)
                     if element.key == 'steam_display' and element.value:
-                        if element.value[0] == "#":
+                        if "#" in element.value:
                             await self.translations_handler(user.gameid)
                 user_info.rich_presence = rich_presence
             if user.HasField("game_name"):
@@ -451,13 +454,18 @@ class ProtobufClient:
         for license in message.licenses:
             # license.type 1024 = free games
             # license.flags 520 = unidentified trash entries (games which are not owned nor are free)
-            if int(license.owner_id) == int(self.steam_id - self._ACCOUNT_ID_MASK) and int(license.flags) != 520:
-                licenses_to_check.append(license)
+            if int(license.flags) == 520:
+                continue
+            if int(license.owner_id) == int(self.steam_id - self._ACCOUNT_ID_MASK):
+                licenses_to_check.append({'license':license, 'shared':False})
+            else:
+                logger.info(f"Shared license {license}")
+                licenses_to_check.append({'license':license, 'shared':True})
 
         await self.license_import_handler(licenses_to_check)
 
     async def _process_package_info_response(self, body):
-        logger.debug("Processing message PICSProductInfoResponse")
+        logger.info("Processing message PICSProductInfoResponse")
         message = steammessages_clientserver_pb2.CMsgClientPICSProductInfoResponse()
         message.ParseFromString(body)
         apps_to_parse = []
@@ -477,6 +485,7 @@ class ProtobufClient:
             app_content = vdf.loads(info.buffer[:-1].decode('utf-8', 'replace'))
             try:
                 if app_content['appinfo']['common']['type'].lower() == 'game':
+                    logger.info(f"Retrieved game {app_content['appinfo']['common']['name']}")
                     await self.app_info_handler(appid=str(app_content['appinfo']['appid']), title=app_content['appinfo']['common']['name'], game=True)
                 else:
                     await self.app_info_handler(appid=str(app_content['appinfo']['appid']), game=False)

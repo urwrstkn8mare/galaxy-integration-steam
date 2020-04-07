@@ -18,7 +18,9 @@ class GamesCache(ProtoCache):
         self._parsing_status = {'packages': 0, 'apps': 0}
 
     def start_packages_import(self, licenses):
-        self._storing_map = dict.fromkeys(licenses, None)
+        self._storing_map = {}
+        for license in licenses:
+            self._storing_map[license['package_id']] = {'shared':license['shared'], 'apps':{}}
         self._parsing_status['packages'] = len(self._storing_map)
         self._parsing_status['apps'] = 0
         self._update_ready_state()
@@ -45,31 +47,41 @@ class GamesCache(ProtoCache):
         return [package_id for package_id in self._storing_map]
 
     def update_packages(self, package_id):
-        self._storing_map[package_id] = {}
         self._parsing_status['packages'] -= 1
         self._update_ready_state()
 
     def __iter__(self):
         for package in self._storing_map:
-            for app in self._storing_map[package]:
-                if self._storing_map[package][app]:
+            for app in self._storing_map[package]['apps']:
+                if self._storing_map[package]['apps'][app]:
                     self._sent_games.append(app)
-                    yield app, self._storing_map[package][app]
+                    if not self._storing_map[package]['shared']:
+                        yield app, self._storing_map[package]['apps'][app]
+
+    def get_shared_games(self):
+        shared_games = []
+        for package in self._storing_map:
+            for app in self._storing_map[package]['apps']:
+                if self._storing_map[package]['apps'][app]:
+                    if self._storing_map[package]['shared']:
+                        shared_games.append({'id': app, 'title': self._storing_map[package]['apps'][app]})
+        return shared_games
 
     def update(self, mother_appid, appid, title, game):
 
         if mother_appid:
             self._parsing_status['apps'] += 1
             self._appid_package_map[appid] = mother_appid
-            self._storing_map[mother_appid] = {appid: None}
+            self._storing_map[mother_appid]['apps'][appid] = None
         else:
             self._parsing_status['apps'] -= 1
 
         if title and game:
-            self._storing_map[self._appid_package_map[appid]][appid] = title
+            self._storing_map[self._appid_package_map[appid]]['apps'][appid] = title
 
             if self.add_game_lever and appid not in self._sent_games:
-                self._games_added[appid] = title
+                if not self._storing_map[self._appid_package_map[appid]]['shared']:
+                    self._games_added[appid] = title
 
             self._update_ready_state()
 

@@ -1,5 +1,10 @@
-__version__ = "0.49"
+__version__ = "0.50"
 __changelog__ = {
+    "0.50": '''
+    - Handle potential infinite rich presence translation
+    - Return Family sharing games as a subscriptions
+    - Dont crash on unknown presence format
+    ''',
     "0.49": '''
     - Better handle parsing rich presence from steam 
     - Add a cooldown to parsing local files, should fix ssues with large cpu usage during game installation

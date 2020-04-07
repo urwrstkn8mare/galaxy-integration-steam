@@ -74,8 +74,9 @@ class translations_cache_parametrized_mock_dataclass:
         )
     ]
 )
-def test_from_user_info(user_info, user_presence):
-    assert presence_from_user_info(user_info, {1512: translations_cache_mock_dataclass(), 1513: translations_cache_parametrized_mock_dataclass()}) == user_presence
+@pytest.mark.asyncio
+async def test_from_user_info(user_info, user_presence):
+    assert await presence_from_user_info(user_info, {1512: translations_cache_mock_dataclass(), 1513: translations_cache_parametrized_mock_dataclass()}) == user_presence
 
 
 CONTEXT = {
@@ -84,6 +85,7 @@ CONTEXT = {
     "76561198053830888": ProtoUserInfo(name="Carol", state=EPersonaState.Online, game_id=123321, game_name="abc", rich_presence={'status': '#menuVariable'}),
     "76561198053830889": ProtoUserInfo(name="Carol", state=EPersonaState.Online, game_id=123321, game_name="abc", rich_presence={'status': 'menuSimple'})
 }
+
 
 @pytest.mark.asyncio
 async def test_not_authenticated(plugin):

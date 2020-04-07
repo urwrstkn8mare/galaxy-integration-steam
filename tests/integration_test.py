@@ -61,7 +61,9 @@ def test_integration():
         "ShutdownPlatformClient",
         "ImportFriends",
         "ImportGameTime",
-        "ImportUserPresence"
+        "ImportUserPresence",
+        "ImportSubscriptionGames",
+        "ImportSubscriptions"
     }
 
     plugin_socket.close()

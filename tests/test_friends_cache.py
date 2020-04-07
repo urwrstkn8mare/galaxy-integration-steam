@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+from async_mock import AsyncMock
 
 import pytest
 
@@ -29,7 +30,7 @@ def removed_handler(cache):
 @pytest.fixture
 def updated_handler(cache):
     mock = MagicMock()
-    cache.updated_handler = mock
+    cache.updated_handler = AsyncMock
     return mock
 
 
@@ -47,34 +48,37 @@ def test_add_user(cache, added_handler):
     added_handler.assert_not_called()
 
 
-def test_update_user_not_ready(cache, added_handler, updated_handler):
+@pytest.mark.asyncio
+async def test_update_user_not_ready(cache, added_handler, updated_handler):
     user_id = 1423
     user_info = ProtoUserInfo("Jan")
     cache.add(user_id)
-    cache.update(user_id, user_info)
+    await cache.update(user_id, user_info)
     assert not cache.ready
     assert list(cache) == [(user_id, user_info)]
     added_handler.assert_not_called()
     updated_handler.assert_not_called()
 
 
-def test_update_user_ready(cache, added_handler, updated_handler):
+@pytest.mark.asyncio
+async def test_update_user_ready(cache, added_handler, updated_handler):
     user_id = 1423
     expected_user_info = ProtoUserInfo(name="Jan", state=EPersonaState.Offline)
     cache.add(user_id)
-    cache.update(user_id, ProtoUserInfo(name="Jan"))
-    cache.update(user_id, ProtoUserInfo(state=EPersonaState.Offline))
+    await cache.update(user_id, ProtoUserInfo(name="Jan"))
+    await cache.update(user_id, ProtoUserInfo(state=EPersonaState.Offline))
     assert cache.ready
     assert list(cache) == [(user_id, expected_user_info)]
     added_handler.assert_called_with(user_id, expected_user_info)
     updated_handler.assert_not_called()
 
 
-def test_update_user_all_data(cache, added_handler, updated_handler):
+@pytest.mark.asyncio
+async def test_update_user_all_data(cache, added_handler, updated_handler):
     user_id = 1423
     user_info = ProtoUserInfo(name="Jan", state=EPersonaState.Offline)
     cache.add(user_id)
-    cache.update(user_id, user_info)
+    await cache.update(user_id, user_info)
     assert cache.ready
     assert list(cache) == [(user_id, user_info)]
     added_handler.assert_called_with(user_id, user_info)
@@ -90,11 +94,12 @@ def test_remove_not_ready_user(cache, removed_handler):
     removed_handler.assert_not_called()
 
 
-def test_remove_ready_user(cache, removed_handler):
+@pytest.mark.asyncio
+async def test_remove_ready_user(cache, removed_handler):
     user_id = 1423
     user_info = ProtoUserInfo(name="Jan", state=EPersonaState.Offline)
     cache.add(user_id)
-    cache.update(user_id, user_info)
+    await cache.update(user_id, user_info)
     cache.remove(user_id)
     assert list(cache) == []
     removed_handler.assert_called_once_with(user_id)
@@ -106,12 +111,13 @@ def test_reset_empty(cache):
     assert list(cache) == []
 
 
-def test_reset_mixed(cache, removed_handler):
+@pytest.mark.asyncio
+async def test_reset_mixed(cache, removed_handler):
     cache.add(15)
-    cache.update(15, ProtoUserInfo(name="Jan", state=EPersonaState.Offline))
+    await cache.update(15, ProtoUserInfo(name="Jan", state=EPersonaState.Offline))
 
     cache.add(17)
-    cache.update(17, ProtoUserInfo(name="Ula", state=EPersonaState.Offline))
+    await cache.update(17, ProtoUserInfo(name="Ula", state=EPersonaState.Offline))
 
     cache.reset([17, 29])
     removed_handler.assert_called_once_with(15)

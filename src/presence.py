@@ -6,7 +6,9 @@ from protocol.types import ProtoUserInfo
 
 import re
 import logging
+import asyncio
 logger = logging.getLogger(__name__)
+
 
 def _translate_string(game_id, string, translations_cache):
     token_list = translations_cache[int(game_id)]
@@ -14,7 +16,8 @@ def _translate_string(game_id, string, translations_cache):
         if token.name.lower() == string.lower():
             return token.value
 
-def presence_from_user_info(user_info: ProtoUserInfo, translations_cache: dict) -> UserPresence:
+
+async def presence_from_user_info(user_info: ProtoUserInfo, translations_cache: dict) -> UserPresence:
     if user_info.state == EPersonaState.Online:
         state = PresenceState.Online
     elif user_info.state == EPersonaState.Snooze:
@@ -40,33 +43,44 @@ def presence_from_user_info(user_info: ProtoUserInfo, translations_cache: dict) 
         if not status:
             status = user_info.rich_presence.get("status")
         if status:
-            if int(game_id) in translations_cache:
+            try:
+                if int(game_id) in translations_cache and translations_cache[int(game_id)]:
 
-                token_list =  translations_cache[int(game_id)]
-                replaced = True
+                    async def translate_presence(user_info, status):
+                        token_list = translations_cache[int(game_id)]
+                        replaced = True
+                        while replaced:
+                            replaced = False
 
-                while replaced:
-                    replaced = False
+                            params = user_info.rich_presence.keys()
+                            for param in params:
+                                if "%"+param+"%" in status:
+                                    status = status.replace("%"+param+"%", user_info.rich_presence.get(param))
+                                    replaced = True
 
-                    params = user_info.rich_presence.keys()
-                    for param in params:
-                        if "%"+param+"%" in status:
-                            status = status.replace("%"+param+"%", user_info.rich_presence.get(param))
-                            replaced = True
+                            for token in token_list.tokens:
+                                if token.name.lower() in status.lower():
 
-                    for token in token_list.tokens:
-                        if token.name.lower() in status.lower():
+                                    token_replace = re.compile(re.escape(token.name), re.IGNORECASE)
+                                    status = token_replace.sub(token.value, status)
+                                    replaced = True
+                                    break
 
-                            token_replace = re.compile(re.escape(token.name), re.IGNORECASE)
-                            status = token_replace.sub(token.value, status)
-                            replaced = True
-                            break
+                            status = status.replace("{"," ")
+                            status = status.replace("}"," ")
 
-                    status = status.replace("{"," ")
-                    status = status.replace("}"," ")
+                        return status
 
-            elif "#" in status or re.findall(check_for_params, status):
-                logger.info(f"Skipping not simple rich presence status {status}")
+                    try:
+                        status = await asyncio.wait_for(translate_presence(user_info,status), 1)
+                    except asyncio.TimeoutError:
+                        logger.info(f"Timed out translating presence {user_info.rich_presence} using {translations_cache[int(game_id)]}")
+                        status = None
+                elif "#" in status or re.findall(check_for_params, status):
+                    logger.info(f"Skipping not simple rich presence status {status}")
+                    status = None
+            except Exception as e:
+                logger.info(f"Unable to translate rich presence {status} due to  {repr(e)}")
                 status = None
 
     return UserPresence(

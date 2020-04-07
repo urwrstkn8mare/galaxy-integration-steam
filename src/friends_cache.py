@@ -63,7 +63,7 @@ class FriendsCache(ProtoCache):
             if self.removed_handler is not None:
                 self.removed_handler(user_id)
 
-    def update(self, user_id, user_info: ProtoUserInfo):
+    async def update(self, user_id, user_info: ProtoUserInfo):
         current_info = self._info_map.get(user_id)
         if current_info is None:
             return  # not a friend, ignoring
@@ -73,7 +73,7 @@ class FriendsCache(ProtoCache):
 
         if available_info is None:
             if changed and self.updated_handler is not None:
-                self.updated_handler(user_id, current_info)
+                await self.updated_handler(user_id, current_info)
         else:
             if user_info.name is not None:
                 available_info.personal_info = True

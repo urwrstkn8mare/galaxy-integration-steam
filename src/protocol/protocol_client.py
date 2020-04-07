@@ -230,26 +230,30 @@ class ProtocolClient:
 
     async def _user_info_handler(self, user_id, user_info):
         logger.info(f"Received user info: user_id={user_id}, user_info={user_info}")
-        self._friends_cache.update(user_id, user_info)
+        await self._friends_cache.update(user_id, user_info)
 
     async def _user_nicknames_handler(self, nicknames):
         logger.info(f"Received user nicknames {nicknames}")
         self._friends_cache.update_nicknames(nicknames)
 
     async def _license_import_handler(self, licenses):
+        packages = []
         package_ids = []
 
         for license in licenses:
-            package_ids.append(str(license.package_id))
+            package_id = str(license['license'].package_id)
+            packages.append({'package_id': package_id,
+                                'shared':license['shared']})
+            package_ids.append(package_id)
 
         if self._games_cache.get_package_ids() == package_ids:
             logger.info("Owned packages from cache same as fresh ones, skipping")
             self._games_cache._update_ready_state()
             return
 
-        logger.info(f"Starting license import for {[license.package_id for license in licenses]}")
+        logger.info(f"Starting license import for {package_ids}")
 
-        self._games_cache.start_packages_import(package_ids)
+        self._games_cache.start_packages_import(packages)
 
         await self._protobuf_client.get_packages_info(package_ids)
 
@@ -263,6 +267,7 @@ class ProtocolClient:
         if appid and translations:
             self._translations_cache[appid] = translations[0]
         elif appid not in self._translations_cache:
+            self._translations_cache[appid] = None
             await self._protobuf_client.get_presence_localization(appid)
 
     async def _stats_handler(self, game_id, stats, achievements):

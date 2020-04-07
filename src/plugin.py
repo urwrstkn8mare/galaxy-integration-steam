@@ -6,18 +6,18 @@ import ssl
 import sys
 import webbrowser
 import time
-from typing import Any, List, Optional, NewType, Dict
+from typing import Any, List, Optional, NewType, Dict, AsyncGenerator
 
 import certifi
 from galaxy.api.plugin import Plugin, create_and_run_plugin
 from galaxy.api.types import (
     Achievement, Authentication, Game, GameTime, LicenseInfo,
-    LocalGame, LocalGameState, GameLibrarySettings, UserPresence, UserInfo
+    LocalGame, LocalGameState, GameLibrarySettings, UserPresence, UserInfo, Subscription, SubscriptionGame
 )
 from galaxy.api.errors import (
     AuthenticationRequired, UnknownBackendResponse, InvalidCredentials, UnknownError, AccessDenied, BackendTimeout
 )
-from galaxy.api.consts import Platform, LicenseType
+from galaxy.api.consts import Platform, LicenseType, SubscriptionDiscovery
 
 from backend import SteamHttpClient, AuthenticatedHttpClient, UnfinishedAccountSetup
 from client import local_games_list, get_state_changes, get_client_executable
@@ -140,8 +140,8 @@ class SteamPlugin(Plugin):
         self._auth_data = None
         self._cooldown_timer = time.time()
 
-        def user_presence_update_handler(user_id: str, proto_user_info: ProtoUserInfo):
-            self.update_user_presence(user_id, presence_from_user_info(proto_user_info, self._translations_cache))
+        async def user_presence_update_handler(user_id: str, proto_user_info: ProtoUserInfo):
+            self.update_user_presence(user_id, await presence_from_user_info(proto_user_info, self._translations_cache))
 
         self._friends_cache.updated_handler = user_presence_update_handler
 
@@ -344,6 +344,7 @@ class SteamPlugin(Plugin):
             self._owned_games_parsed = True
         self.persistent_cache['games'] = self._games_cache.dump()
         self.push_cache()
+
         return owned_games
 
     async def prepare_achievements_context(self, game_ids: List[str]) -> Any:
@@ -439,8 +440,7 @@ class SteamPlugin(Plugin):
             raise UnknownError(
                 "User {} not in friend list (plugin only supports fetching presence for friends)".format(user_id)
             )
-
-        return presence_from_user_info(user_info, self._translations_cache)
+        return await presence_from_user_info(user_info, self._translations_cache)
 
     async def _update_owned_games(self):
         new_games = self._games_cache.get_added_games()
@@ -512,6 +512,20 @@ class SteamPlugin(Plugin):
 
     async def uninstall_game(self, game_id):
         SteamPlugin._steam_command("uninstall", game_id)
+
+    async def get_subscriptions(self) -> List[Subscription]:
+        await self._games_cache.wait_ready(90)
+        if self._games_cache.get_shared_games():
+            return [Subscription("Family Sharing", True, None, SubscriptionDiscovery.AUTOMATIC)]
+        return [Subscription("Family Sharing", False, None, SubscriptionDiscovery.AUTOMATIC)]
+
+    async def prepare_subscription_games_context(self, subscription_names: List[str]) -> Any:
+        return [SubscriptionGame(game_id=str(game['id']), game_title=game['title']) for game in self._games_cache.get_shared_games()]
+
+    async def get_subscription_games(self, subscription_name: str, context: Any) -> AsyncGenerator[
+        List[SubscriptionGame], None]:
+        yield context
+
 
     async def shutdown_platform_client(self) -> None:
         launch_debounce_time = 30

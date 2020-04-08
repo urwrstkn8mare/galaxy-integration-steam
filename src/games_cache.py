@@ -98,5 +98,14 @@ class GamesCache(ProtoCache):
         return json.dumps(self._storing_map)
 
     def loads(self, persistent_cache):
-        self._storing_map = json.loads(persistent_cache)
+        cache = json.loads(persistent_cache)
+        try:
+            for license in cache:
+                cache[license]['apps']
+                cache[license]['shared']
+        except KeyError:
+            logging.error(f"Incompatible cache")
+            return
+
+        self._storing_map = cache
         logging.info(f"Loaded games from cache {self._storing_map}")

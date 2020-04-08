@@ -1,5 +1,8 @@
-__version__ = "0.50"
+__version__ = "0.50.1"
 __changelog__ = {
+    "0.50.1":'''
+    - Ignore incompatible cache
+    ''',
     "0.50": '''
     - Handle potential infinite rich presence translation
     - Return Family sharing games as a subscriptions

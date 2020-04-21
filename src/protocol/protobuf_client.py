@@ -520,7 +520,7 @@ class ProtobufClient:
             achi_block_enum = 32 * (achievement_block.achievement_id - 1)
             for index, unlock_time in enumerate(achievement_block.unlock_time):
                 if unlock_time > 0:
-                    if str(index) not in achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits']:
+                    if str(achievement_block.achievement_id) not in achievements_schema[str(game_id)]['stats'] or str(index) not in achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits']:
                         logger.info(f"Non existent achievement unlocked")
                         continue
                     try:

@@ -144,7 +144,7 @@ class ProtobufClient:
         await self._send(EMsg.ClientGetUserStats, message)
 
     async def _import_game_time(self):
-        logger.info(f"Importing game times")
+        logger.info("Importing game times")
         job_id = next(self._job_id_iterator)
         message = steammessages_player_pb2.CPlayer_CustomGetLastPlayedTimes_Request()
         message.min_last_played = 0
@@ -244,7 +244,7 @@ class ProtobufClient:
         data = struct.pack("<2I", emsg | self._PROTO_MASK, len(header))
         data = data + header + body
 
-        logger.debug("Sending message %d (%d bytes)", emsg, len(data))
+        logger.info("Sending message %d (%d bytes)", emsg, len(data))
         await self._socket.send(data)
 
     async def _heartbeat(self, interval):
@@ -255,7 +255,7 @@ class ProtobufClient:
 
     async def _process_packet(self, packet):
         package_size = len(packet)
-        logger.debug("Processing packet of %d bytes", package_size)
+        logger.info("Processing packet of %d bytes", package_size)
         if package_size < 8:
             logger.warning("Package too small, ignoring...")
         raw_emsg = struct.unpack("<I", packet[:4])[0]
@@ -272,7 +272,7 @@ class ProtobufClient:
             logger.warning("Packet with extended header - ignoring")
 
     async def _process_message(self, emsg, header, body):
-        logger.debug("Processing message %d", emsg)
+        logger.info("Processing message %d", emsg)
         if emsg == EMsg.Multi:
             await self._process_multi(body)
         elif emsg == EMsg.ClientLogOnResponse:
@@ -305,7 +305,7 @@ class ProtobufClient:
             logger.warning("Ignored message %d", emsg)
 
     async def _process_multi(self, body):
-        logger.debug("Processing message Multi")
+        logger.info("Processing message Multi")
         message = steammessages_base_pb2.CMsgMulti()
         message.ParseFromString(body)
         if message.size_unzipped > 0:
@@ -321,10 +321,10 @@ class ProtobufClient:
             size = struct.unpack("<I", data[offset:offset + size_bytes])[0]
             await self._process_packet(data[offset + size_bytes:offset + size_bytes + size])
             offset += size_bytes + size
-        logger.debug("Finished processing message Multi")
+        logger.info("Finished processing message Multi")
 
     async def _process_client_log_on_response(self, body):
-        logger.debug("Processing message ClientLogOnResponse")
+        logger.info("Processing message ClientLogOnResponse")
         message = steammessages_clientserver_login_pb2.CMsgClientLogonResponse()
         message.ParseFromString(body)
         result = message.eresult
@@ -341,12 +341,14 @@ class ProtobufClient:
             await self.user_authentication_handler('steam_id', self.steam_id)
             await self.user_authentication_handler('account_id', message.client_supplied_steamid - self._ACCOUNT_ID_MASK)
             self._heartbeat_task = asyncio.create_task(self._heartbeat(interval))
+        else:
+            logger.info(f"Failed to log on, reason : {message}")
 
         if self.log_on_handler is not None:
             await self.log_on_handler(result)
 
     async def _process_client_update_machine_auth(self, body, jobid_source):
-        logger.debug("Processing message ClientUpdateMachineAuth")
+        logger.info("Processing message ClientUpdateMachineAuth")
         message = steammessages_clientserver_2_pb2.CMsgClientUpdateMachineAuth()
         message.ParseFromString(body)
 
@@ -355,21 +357,21 @@ class ProtobufClient:
         await self.accept_update_machine_auth(jobid_source, sentry_sha, message.offset, message.filename, message.cubtowrite)
 
     async def _process_account_info(self, body):
-        logger.debug("Processing message ClientAccountInfo")
+        logger.info("Processing message ClientAccountInfo")
         message = steammessages_clientserver_login_pb2.CMsgClientAccountInfo()
         message.ParseFromString(body)
         await self.user_authentication_handler('persona_name', message.persona_name)
         self.account_info_retrieved.set()
 
     async def _process_client_new_login_key(self, body):
-        logger.debug("Processing message ClientNewLoginKey")
+        logger.info("Processing message ClientNewLoginKey")
         message = steammessages_clientserver_login_pb2.CMsgClientNewLoginKey()
         message.ParseFromString(body)
         await self.user_authentication_handler('token', message.login_key)
         self.login_key_retrieved.set()
 
     async def _process_client_log_off(self, body):
-        logger.debug("Processing message ClientLoggedOff")
+        logger.info("Processing message ClientLoggedOff")
         message = steammessages_clientserver_login_pb2.CMsgClientLoggedOff()
         message.ParseFromString(body)
         result = message.eresult
@@ -381,7 +383,7 @@ class ProtobufClient:
             await self.log_off_handler(result)
 
     async def _process_user_nicknames(self, body):
-        logger.debug("Processing message ClientPlayerNicknameList")
+        logger.info("Processing message ClientPlayerNicknameList")
         message = steammessages_clientserver_friends_pb2.CMsgClientPlayerNicknameList()
         message.ParseFromString(body)
         nicknames = {}
@@ -391,7 +393,7 @@ class ProtobufClient:
         await self.user_nicknames_handler(nicknames)
 
     async def _process_client_friend_list(self, body):
-        logger.debug("Processing message ClientFriendsList")
+        logger.info("Processing message ClientFriendsList")
         if self.relationship_handler is None:
             return
 
@@ -407,7 +409,7 @@ class ProtobufClient:
         await self.relationship_handler(message.bincremental, friends)
 
     async def _process_client_persona_state(self, body):
-        logger.debug("Processing message ClientPersonaState")
+        logger.info("Processing message ClientPersonaState")
         if self.user_info_handler is None:
             return
 
@@ -443,7 +445,7 @@ class ProtobufClient:
             await self.user_info_handler(user_id, user_info)
 
     async def _process_license_list(self, body):
-        logger.debug("Processing message ClientLicenseList")
+        logger.info("Processing message ClientLicenseList")
         if self.license_import_handler is None:
             return
 
@@ -459,7 +461,7 @@ class ProtobufClient:
             if int(license.owner_id) == int(self.steam_id - self._ACCOUNT_ID_MASK):
                 licenses_to_check.append({'license':license, 'shared':False})
             else:
-                logger.info(f"Shared license {license}")
+                logger.info(f"Shared license {license.package_id}")
                 licenses_to_check.append({'license':license, 'shared':True})
 
         await self.license_import_handler(licenses_to_check)
@@ -505,7 +507,7 @@ class ProtobufClient:
         await self.translations_handler(message.appid, message.token_lists)
 
     async def _process_user_stats_response(self, body):
-        logger.debug("Processing message ClientGetUserStatsResponse")
+        logger.info("Processing message ClientGetUserStatsResponse")
         message = steammessages_clientserver_pb2.CMsgClientGetUserStatsResponse()
         message.ParseFromString(body)
         game_id = message.game_id
@@ -520,8 +522,9 @@ class ProtobufClient:
             achi_block_enum = 32 * (achievement_block.achievement_id - 1)
             for index, unlock_time in enumerate(achievement_block.unlock_time):
                 if unlock_time > 0:
-                    if str(achievement_block.achievement_id) not in achievements_schema[str(game_id)]['stats'] or str(index) not in achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits']:
-                        logger.info(f"Non existent achievement unlocked")
+                    if str(achievement_block.achievement_id) not in achievements_schema[str(game_id)]['stats'] or \
+                            str(index) not in achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits']:
+                        logger.info("Non existent achievement unlocked")
                         continue
                     try:
                         if 'english' in achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits'][str(index)]['display']['name']:
@@ -541,7 +544,7 @@ class ProtobufClient:
         await self.stats_handler(game_id, stats, achievements_unlocked)
 
     async def _process_user_time_response(self, body):
-        logger.debug(f"Received information about game times")
+        logger.info("Received information about game times")
         message = steammessages_player_pb2.CPlayer_CustomGetLastPlayedTimes_Response()
         message.ParseFromString(body)
         for game in message.games:
@@ -563,7 +566,7 @@ class ProtobufClient:
         self.collections['event'].set()
 
     async def _process_service_method_response(self, target_job_name, target_job_id, body):
-        logger.debug("Processing message ServiceMethodResponse %s", target_job_name)
+        logger.info("Processing message ServiceMethodResponse %s", target_job_name)
         if target_job_name == 'Community.GetAppRichPresenceLocalization#1':
             await self._process_rich_presence_translations(body)
         if target_job_name == 'Player.ClientGetLastPlayedTimes#1':

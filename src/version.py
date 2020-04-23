@@ -1,5 +1,10 @@
-__version__ = "0.50.1"
+__version__ = "0.50.2"
 __changelog__ = {
+    "0.50.2":'''
+    - Fix missing achievement_id crashing protobuf_client (Thanks MartinCa!)
+    - Extended supported result codes from steam auth
+    - Increase logging of protobuf responses
+    ''',
     "0.50.1":'''
     - Ignore incompatible cache
     ''',

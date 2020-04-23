@@ -104,7 +104,7 @@ class GamesCache(ProtoCache):
                 cache[license]['apps']
                 cache[license]['shared']
         except KeyError:
-            logging.error(f"Incompatible cache")
+            logging.error("Incompatible cache")
             return
 
         self._storing_map = cache

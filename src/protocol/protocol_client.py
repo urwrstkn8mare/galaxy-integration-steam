@@ -20,11 +20,14 @@ def translate_error(result: EResult):
         "result": result
     }
     if result in (
+        EResult.InvalidPassword,
         EResult.AccountNotFound,
         EResult.InvalidSteamID,
         EResult.InvalidLoginAuthCode,
         EResult.AccountLogonDeniedNoMailSent,
-        EResult.AccountLoginDeniedNeedTwoFactor
+        EResult.AccountLoginDeniedNeedTwoFactor,
+        EResult.TwoFactorCodeMismatch,
+        EResult.TwoFactorActivationCodeMismatch
     ):
         return galaxy.api.errors.InvalidCredentials(data)
     if result in (
@@ -72,11 +75,6 @@ def translate_error(result: EResult):
         EResult.BadResponse
     ):
         return galaxy.api.errors.BackendError()
-
-    if result in (
-        EResult.InvalidPassword,
-    ):
-        return galaxy.api.errors.InvalidCredentials()
 
     return galaxy.api.errors.UnknownError(data)
 
@@ -152,7 +150,13 @@ class ProtocolClient:
         elif result == EResult.AccountLoginDeniedNeedTwoFactor:
             self._auth_lost_handler = auth_lost_handler
             return UserActionRequired.PhoneTwoFactorInputRequired
-        elif result in (EResult.InvalidPassword, EResult.InvalidSteamID, EResult.AccountNotFound, EResult.InvalidLoginAuthCode):
+        elif result in (EResult.InvalidPassword,
+                        EResult.InvalidSteamID,
+                        EResult.AccountNotFound,
+                        EResult.InvalidLoginAuthCode,
+                        EResult.TwoFactorCodeMismatch,
+                        EResult.TwoFactorActivationCodeMismatch
+                        ):
             self._auth_lost_handler = auth_lost_handler
             return UserActionRequired.InvalidAuthData
         else:
@@ -170,6 +174,8 @@ class ProtocolClient:
         result = await self._login_future
         if result == EResult.OK:
             self._auth_lost_handler = auth_lost_handler
+        elif result == EResult.InvalidPassword:
+            raise galaxy.api.errors.BackendError()
         else:
             logger.warning(f"Received unknown error, code: {result}")
             raise translate_error(result)

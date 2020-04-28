@@ -15,7 +15,7 @@ from galaxy.api.types import (
     LocalGame, LocalGameState, GameLibrarySettings, UserPresence, UserInfo, Subscription, SubscriptionGame
 )
 from galaxy.api.errors import (
-    AuthenticationRequired, UnknownBackendResponse, InvalidCredentials, UnknownError, AccessDenied, BackendTimeout
+    AuthenticationRequired, UnknownBackendResponse, InvalidCredentials, UnknownError, AccessDenied, BackendTimeout, BackendError
 )
 from galaxy.api.consts import Platform, LicenseType, SubscriptionDiscovery
 
@@ -222,6 +222,13 @@ class SteamPlugin(Plugin):
 
         return Authentication(steam_id, login)
 
+    async def cancel_task(self, task):
+        try:
+            task.cancel()
+            await task
+        except asyncio.CancelledError:
+            pass
+
     async def authenticate(self, stored_credentials=None):
         if not stored_credentials:
             self.create_task(self._steam_client.run(), "Run WebSocketClient")
@@ -237,11 +244,21 @@ class SteamPlugin(Plugin):
         if 'games' in self.persistent_cache:
             self._games_cache.loads(self.persistent_cache['games'])
 
-        self.create_task(self._steam_client.run(), "Run WebSocketClient")
+        steam_run_task = self.create_task(self._steam_client.run(), "Run WebSocketClient")
+        connection_timeout = 60
         try:
-            await asyncio.wait_for(self._user_info_cache.initialized.wait(), 60)
+            await asyncio.wait_for(self._user_info_cache.initialized.wait(), connection_timeout)
         except asyncio.TimeoutError:
-            self.check_for_websocket_errors()
+            try:
+                self.raise_websocket_errors()
+            except BackendError as e:
+                logging.info(f"Unable to keep connection with steam backend {repr(e)}")
+            except Exception as e:
+                logging.info(f"Internal websocket exception caught during auth {repr(e)}")
+                await self.cancel_task(steam_run_task)
+                raise
+            logging.info(f"Failed to initialize connection with steam client within {connection_timeout} seconds")
+            await self.cancel_task(steam_run_task)
             raise BackendTimeout()
         self.store_credentials(self._user_info_cache.to_dict())
         return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
@@ -251,7 +268,7 @@ class SteamPlugin(Plugin):
             result = await asyncio.wait_for(self._steam_client.communication_queues['plugin'].get(), 60)
             result = result['auth_result']
         except asyncio.TimeoutError:
-            self.check_for_websocket_errors()
+            self.raise_websocket_errors()
             raise BackendTimeout()
         return result
 
@@ -454,7 +471,7 @@ class SteamPlugin(Plugin):
                 iter = 0
                 await asyncio.sleep(1)
 
-    def check_for_websocket_errors(self):
+    def raise_websocket_errors(self):
         try:
             result = self._steam_client.communication_queues['errors'].get_nowait()
             if result and isinstance(result, Exception):
@@ -477,7 +494,7 @@ class SteamPlugin(Plugin):
             self.store_credentials(self._user_info_cache.to_dict())
 
         if self._user_info_cache.initialized.is_set():
-            self.check_for_websocket_errors()
+            self.raise_websocket_errors()
 
     async def _update_local_games(self):
         if time.time() < self._cooldown_timer:

@@ -1,5 +1,8 @@
-__version__ = "0.50.2"
+__version__ = "0.50.3"
 __changelog__ = {
+    "0.50.3":'''
+    - Dont endlessly retry auth to not lock user out
+    ''',
     "0.50.2":'''
     - Fix missing achievement_id crashing protobuf_client (Thanks MartinCa!)
     - Extended supported result codes from steam auth

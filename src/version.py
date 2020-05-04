@@ -1,5 +1,8 @@
-__version__ = "0.50.3"
+__version__ = "0.50.4"
 __changelog__ = {
+    "0.50.4":'''
+    - Fix for owned games which are also present in one of family sharings being reported only as family shared. (Thanks for the help Svill and TM-CG!)
+    ''',
     "0.50.3":'''
     - Dont endlessly retry auth to not lock user out
     ''',

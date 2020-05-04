@@ -242,15 +242,14 @@ class ProtocolClient:
         logger.info(f"Received user nicknames {nicknames}")
         self._friends_cache.update_nicknames(nicknames)
 
-    async def _license_import_handler(self, licenses):
+    async def _license_import_handler(self, licenses_to_check):
         packages = []
         package_ids = []
 
-        for license in licenses:
-            package_id = str(license['license'].package_id)
-            packages.append({'package_id': package_id,
-                                'shared':license['shared']})
-            package_ids.append(package_id)
+        for package_id in licenses_to_check:
+            packages.append({'package_id': str(package_id),
+                                'shared':licenses_to_check[package_id]['shared']})
+            package_ids.append(str(package_id))
 
         if self._games_cache.get_package_ids() == package_ids:
             logger.info("Owned packages from cache same as fresh ones, skipping")

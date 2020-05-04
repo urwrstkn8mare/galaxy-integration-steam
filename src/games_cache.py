@@ -1,4 +1,5 @@
 from cache_proto import ProtoCache
+from version import __version__
 import logging
 import json
 
@@ -18,9 +19,9 @@ class GamesCache(ProtoCache):
         self._parsing_status = {'packages': 0, 'apps': 0}
 
     def start_packages_import(self, licenses):
-        self._storing_map = {}
+        self._storing_map = {'licenses':{}}
         for license in licenses:
-            self._storing_map[license['package_id']] = {'shared':license['shared'], 'apps':{}}
+            self._storing_map['licenses'][license['package_id']] = {'shared':license['shared'], 'apps':{}}
         self._parsing_status['packages'] = len(self._storing_map)
         self._parsing_status['apps'] = 0
         self._update_ready_state()
@@ -44,44 +45,52 @@ class GamesCache(ProtoCache):
     def get_package_ids(self):
         if not self._storing_map:
             return []
-        return [package_id for package_id in self._storing_map]
+        return [package_id for package_id in self._storing_map['licenses']]
 
     def update_packages(self, package_id):
         self._parsing_status['packages'] -= 1
         self._update_ready_state()
 
     def __iter__(self):
-        for package in self._storing_map:
-            for app in self._storing_map[package]['apps']:
-                if self._storing_map[package]['apps'][app]:
+        licenses_map = self._storing_map['licenses']
+        for package in licenses_map:
+            for app in licenses_map[package]['apps']:
+                if licenses_map[package]['apps'][app]:
                     self._sent_games.append(app)
-                    if not self._storing_map[package]['shared']:
-                        yield app, self._storing_map[package]['apps'][app]
+                    if not licenses_map[package]['shared']:
+                        yield app, licenses_map[package]['apps'][app]
 
     def get_shared_games(self):
         shared_games = []
-        for package in self._storing_map:
-            for app in self._storing_map[package]['apps']:
-                if self._storing_map[package]['apps'][app]:
-                    if self._storing_map[package]['shared']:
-                        shared_games.append({'id': app, 'title': self._storing_map[package]['apps'][app]})
+        licenses_map = self._storing_map['licenses']
+        for package in licenses_map:
+            for app in licenses_map[package]['apps']:
+                if licenses_map[package]['apps'][app]:
+                    if licenses_map[package]['shared']:
+                        shared_games.append({'id': app, 'title': licenses_map[package]['apps'][app]})
         return shared_games
 
-    def update(self, mother_appid, appid, title, game):
+    def update(self, package_id, appid, title, game):
 
-        if mother_appid:
+
+        if package_id:
             self._parsing_status['apps'] += 1
-            self._appid_package_map[appid] = mother_appid
-            self._storing_map[mother_appid]['apps'][appid] = None
+            if appid not in self._appid_package_map:
+                self._appid_package_map[appid] = [package_id]
+            else:
+                self._appid_package_map[appid].append(package_id)
+            self._storing_map['licenses'][package_id]['apps'][appid] = None
         else:
             self._parsing_status['apps'] -= 1
 
         if title and game:
-            self._storing_map[self._appid_package_map[appid]]['apps'][appid] = title
+            for package_id in self._appid_package_map[appid]:
+                self._storing_map['licenses'][package_id]['apps'][appid] = title
 
             if self.add_game_lever and appid not in self._sent_games:
-                if not self._storing_map[self._appid_package_map[appid]]['shared']:
-                    self._games_added[appid] = title
+                for package_id in self._appid_package_map[appid]:
+                    if not self._storing_map['licenses'][package_id]['shared']:
+                        self._games_added[appid] = title
 
             self._update_ready_state()
 
@@ -95,16 +104,21 @@ class GamesCache(ProtoCache):
             self._ready_event.clear()
 
     def dump(self):
-        return json.dumps(self._storing_map)
+        self._storing_map['version'] = __version__
+        cache_json = json.dumps(self._storing_map)
+        return cache_json
 
     def loads(self, persistent_cache):
         cache = json.loads(persistent_cache)
         try:
-            for license in cache:
-                cache[license]['apps']
-                cache[license]['shared']
+            for license in cache['licenses']:
+                cache['licenses'][license]['apps']
+                cache['licenses'][license]['shared']
         except KeyError:
             logging.error("Incompatible cache")
+            return
+        if 'version' not in cache or cache['version'] != __version__:
+            logging.error("New plugin version, refreshing cache")
             return
 
         self._storing_map = cache

@@ -53,6 +53,7 @@ class WebSocketClient:
         self.communication_queues = {'plugin': asyncio.Queue(), 'websocket': asyncio.Queue(), 'errors': asyncio.Queue()}
         self._times_cache = times_cache
 
+
     async def run(self):
         loop = asyncio.get_running_loop()
         while True:

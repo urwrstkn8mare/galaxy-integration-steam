@@ -452,17 +452,22 @@ class ProtobufClient:
         message = steammessages_clientserver_pb2.CMsgClientLicenseList()
         message.ParseFromString(body)
 
-        licenses_to_check = []
+        licenses_to_check = {}
+
         for license in message.licenses:
             # license.type 1024 = free games
             # license.flags 520 = unidentified trash entries (games which are not owned nor are free)
             if int(license.flags) == 520:
                 continue
+
             if int(license.owner_id) == int(self.steam_id - self._ACCOUNT_ID_MASK):
-                licenses_to_check.append({'license':license, 'shared':False})
+                logger.info(f"Owned license {license.package_id}")
+                licenses_to_check[license.package_id] = {'license': license, 'shared':False}
             else:
+                if license.package_id in licenses_to_check:
+                    continue
                 logger.info(f"Shared license {license.package_id}")
-                licenses_to_check.append({'license':license, 'shared':True})
+                licenses_to_check[license.package_id] = {'license': license, 'shared':True}
 
         await self.license_import_handler(licenses_to_check)
 
@@ -479,6 +484,7 @@ class ProtobufClient:
                 logger.info("Skipping packageid 0 ")
                 continue
             package_content = vdf.binary_loads(info.buffer[4:])
+            logger.info(f"Parsing package {info.packageid} with apps {package_content[str(info.packageid)]['appids']}")
             for app in package_content[str(info.packageid)]['appids']:
                 await self.app_info_handler(mother_appid=str(info.packageid), appid=str(package_content[str(info.packageid)]['appids'][app]))
                 apps_to_parse.append(package_content[str(info.packageid)]['appids'][app])

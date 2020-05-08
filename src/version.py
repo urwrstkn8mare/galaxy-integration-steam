@@ -1,5 +1,9 @@
-__version__ = "0.50.4"
+__version__ = "0.50.5"
 __changelog__ = {
+    "0.50.5":'''
+    - Don't get stuck on broken cache in subsequent runs, instead always reimport packages which didn't end up being resolved (Thanks Dugsdghk!)
+    - Don't crash protobuf on bytes response in initial rich presence parsing (Thanks Dugsdghk!)
+    ''',
     "0.50.4":'''
     - Fix for owned games which are also present in one of family sharings being reported only as family shared. (Thanks for the help Svill and TM-CG!)
     ''',

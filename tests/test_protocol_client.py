@@ -48,7 +48,7 @@ def translations_cache():
 
 @pytest.fixture
 async def client(protobuf_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache):
-    return ProtocolClient(MagicMock(), friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache)
+    return ProtocolClient(protobuf_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache)
 
 
 
@@ -131,3 +131,13 @@ async def test_user_info(client, protobuf_client, friends_cache):
     friends_cache.update = AsyncMock()
     await protobuf_client.user_info_handler(user_id, user_info)
     friends_cache.update.assert_called_once_with(user_id, user_info)
+
+@pytest.mark.asyncio
+async def test_license_import(client):
+    licenses_to_check = {'123':{'shared': False},
+                         '321':{'shared': True}}
+    client._protobuf_client.get_packages_info = AsyncMock()
+    await client._license_import_handler(licenses_to_check)
+
+    client._games_cache.reset_storing_map.assert_called_once()
+    client._protobuf_client.get_packages_info.assert_called_once_with(['123','321'])

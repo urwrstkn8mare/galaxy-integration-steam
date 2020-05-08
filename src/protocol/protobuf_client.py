@@ -431,6 +431,10 @@ class ProtobufClient:
                 user_info.game_id = user.gameid
                 rich_presence: Dict[str, str] = {}
                 for element in user.rich_presence:
+                    if type(element.value) == bytes:
+                        logger.info(f"Unsuported presence type: {type(element.value)} {element.value}")
+                        rich_presence = {}
+                        break
                     rich_presence[element.key] = element.value
                     if element.key == 'status' and element.value:
                         if "#" in element.value:

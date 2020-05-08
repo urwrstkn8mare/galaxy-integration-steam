@@ -246,21 +246,35 @@ class ProtocolClient:
         packages = []
         package_ids = []
 
+        not_resolved_packages = []
+        not_resolved_packages_ids = []
+
+        resolved_packages = self._games_cache.get_resolved_packages()
+
         for package_id in licenses_to_check:
             packages.append({'package_id': str(package_id),
                                 'shared':licenses_to_check[package_id]['shared']})
             package_ids.append(str(package_id))
+            if str(package_id) not in resolved_packages:
+                not_resolved_packages.append({'package_id': str(package_id),
+                                 'shared': licenses_to_check[package_id]['shared']})
+                not_resolved_packages_ids.append(str(package_id))
 
-        if self._games_cache.get_package_ids() == package_ids:
-            logger.info("Owned packages from cache same as fresh ones, skipping")
-            self._games_cache._update_ready_state()
-            return
+        if self._games_cache.get_package_ids() != package_ids:
+            logger.info("Licenses list different than last time")
+            logger.info(f"Starting license import for {package_ids}")
+            self._games_cache.reset_storing_map()
+            self._games_cache.start_packages_import(packages)
+            return await self._protobuf_client.get_packages_info(package_ids)
 
-        logger.info(f"Starting license import for {package_ids}")
+        # This path will only attempt import on packages which aren't resolved (dont have any apps assigned)
 
-        self._games_cache.start_packages_import(packages)
+        logger.info(f"Starting license import for {not_resolved_packages_ids}")
+        logger.info(f"Skipping already resolved packages {resolved_packages}")
 
-        await self._protobuf_client.get_packages_info(package_ids)
+        self._games_cache.start_packages_import(not_resolved_packages)
+
+        await self._protobuf_client.get_packages_info(not_resolved_packages_ids)
 
     async def _app_info_handler(self, appid, mother_appid=None, title=None, game=None):
         self._games_cache.update(mother_appid, appid, title, game)

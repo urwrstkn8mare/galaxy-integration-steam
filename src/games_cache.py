@@ -18,11 +18,13 @@ class GamesCache(ProtoCache):
 
         self._parsing_status = {'packages': 0, 'apps': 0}
 
-    def start_packages_import(self, licenses):
+    def reset_storing_map(self):
         self._storing_map = {'licenses':{}}
+
+    def start_packages_import(self, licenses):
         for license in licenses:
             self._storing_map['licenses'][license['package_id']] = {'shared':license['shared'], 'apps':{}}
-        self._parsing_status['packages'] = len(self._storing_map)
+        self._parsing_status['packages'] = len(licenses)
         self._parsing_status['apps'] = 0
         self._update_ready_state()
 
@@ -46,6 +48,11 @@ class GamesCache(ProtoCache):
         if not self._storing_map:
             return []
         return [package_id for package_id in self._storing_map['licenses']]
+
+    def get_resolved_packages(self):
+        if not self._storing_map:
+            return []
+        return [package_id for package_id in self._storing_map['licenses'] if self._storing_map['licenses'][package_id]['apps']]
 
     def update_packages(self, package_id):
         self._parsing_status['packages'] -= 1

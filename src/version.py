@@ -1,5 +1,9 @@
-__version__ = "0.50.5"
+__version__ = "0.50.6"
 __changelog__ = {
+    "0.50.6":'''
+    - Send log off call on plugin shutdown
+    - More precise login parameters, up protocol version
+    ''',
     "0.50.5":'''
     - Don't get stuck on broken cache in subsequent runs, instead always reimport packages which didn't end up being resolved (Thanks Dugsdghk!)
     - Don't crash protobuf on bytes response in initial rich presence parsing (Thanks Dugsdghk!)

@@ -55,8 +55,8 @@ async def client(protobuf_client, friends_cache, games_cache, translations_cache
 @pytest.mark.asyncio
 async def test_close(client, protobuf_client):
     protobuf_client.close.return_value = async_return_value(None)
-    await client.close()
-    protobuf_client.close.assert_called_once_with()
+    await client.close(True)
+    protobuf_client.close.assert_called_once_with(True)
 
 
 # @pytest.mark.asyncio

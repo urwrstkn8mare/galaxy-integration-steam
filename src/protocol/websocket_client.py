@@ -89,11 +89,13 @@ class WebSocketClient:
                 raise
             except websockets.ConnectionClosedOK:
                 logger.debug("Expected WebSocket disconnection")
-                await self._disconnect()
+                await self._close_socket()
+                await self._close_protocol_client()
                 continue
             except websockets.ConnectionClosedError as error:
                 logger.warning("WebSocket disconnected (%d: %s), reconnecting...", error.code, error.reason)
-                await self._disconnect()
+                await self._close_socket()
+                await self._close_protocol_client()
                 continue
             except (BackendNotAvailable, BackendTimeout, BackendError, NetworkError):
                 logger.exception(
@@ -107,9 +109,25 @@ class WebSocketClient:
                 await self.communication_queues['errors'].put(e)
                 raise
 
-    async def close(self):
+    async def _close_socket(self):
+        if self._websocket is not None:
+            logger.info("Closing websocket")
+            await self._websocket.close()
+            await self._websocket.wait_closed()
+            self._websocket = None
+
+    async def _close_protocol_client(self):
+        is_socket_connected = True if self._websocket else False
         if self._protocol_client is not None:
-            await self._protocol_client.close()
+            logger.info("Closing protocol client")
+            await self._protocol_client.close(is_socket_connected)
+            await self._protocol_client.wait_closed()
+            self._protocol_client = None
+
+    async def close(self):
+        is_socket_connected = True if self._websocket else False
+        if self._protocol_client is not None:
+            await self._protocol_client.close(is_socket_connected)
         if self._websocket is not None:
             await self._websocket.close()
 
@@ -167,16 +185,6 @@ class WebSocketClient:
                 RECONNECT_INTERVAL_SECONDS
             )
             await asyncio.sleep(RECONNECT_INTERVAL_SECONDS)
-
-    async def _disconnect(self):
-        if self._protocol_client is not None:
-            await self._protocol_client.close()
-            await self._protocol_client.wait_closed()
-            self._protocol_client = None
-        if self._websocket is not None:
-            await self._websocket.close()
-            await self._websocket.wait_closed()
-            self._websocket = None
 
     async def _authenticate(self, auth_lost_future):
         async def auth_lost_handler(error):

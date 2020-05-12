@@ -116,8 +116,8 @@ class ProtocolClient:
         self._auth_lost_handler = None
         self._login_future = None
 
-    async def close(self):
-        await self._protobuf_client.close()
+    async def close(self, is_socket_connected):
+        await self._protobuf_client.close(is_socket_connected)
 
     async def wait_closed(self):
         await self._protobuf_client.wait_closed()

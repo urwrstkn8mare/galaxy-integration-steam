@@ -3,6 +3,7 @@ import struct
 import gzip
 import json
 import logging
+import socket
 from itertools import count
 from typing import Awaitable, Callable,Dict, Optional, Any
 from galaxy.api.errors import UnknownBackendResponse
@@ -50,7 +51,9 @@ class ProtobufClient:
         self.collections = {'event': asyncio.Event(),
                             'collections': dict()}
 
-    async def close(self):
+    async def close(self, is_socket_connected):
+        if is_socket_connected:
+            await self.send_log_off_message()
         if self._heartbeat_task is not None:
             self._heartbeat_task.cancel()
 
@@ -79,6 +82,14 @@ class ProtobufClient:
             except asyncio.TimeoutError:
                 pass
 
+    async def send_log_off_message(self):
+        message = steammessages_clientserver_login_pb2.CMsgClientLogOff()
+        logger.info("Sending log off message")
+        try:
+            await self._send(EMsg.ClientLogOff, message)
+        except Exception as e:
+            logger.info(f"Unable to send logoff message {repr(e)}")
+
     async def log_on_web_auth(self, steam_id, miniprofile_id, account_name, token):
         # magic numbers taken from JavaScript Steam client
         message = steammessages_clientserver_login_pb2.CMsgClientLogon()
@@ -106,10 +117,11 @@ class ProtobufClient:
 
         message = steammessages_clientserver_login_pb2.CMsgClientLogon()
         message.account_name = account_name
-        message.protocol_version = 65579
+        message.protocol_version = 65580
         message.password = sanitize_password(password)
         message.should_remember_password = True
         message.supports_rate_limit_response = True
+        message.obfuscated_private_ip.v4 = struct.unpack(">L", socket.inet_aton(socket.gethostbyname(socket.gethostname())))[0] ^ 0xF00DBAAD
 
         if two_factor:
             if two_factor_type == 'email':
@@ -122,10 +134,11 @@ class ProtobufClient:
     async def log_on_token(self, steam_id, account_name, token):
         message = steammessages_clientserver_login_pb2.CMsgClientLogon()
         message.account_name = account_name
-        message.protocol_version = 65579
+        message.protocol_version = 65580
         message.should_remember_password = True
         message.supports_rate_limit_response = True
         message.login_key = token
+        message.obfuscated_private_ip.v4 = struct.unpack(">L", socket.inet_aton(socket.gethostbyname(socket.gethostname())))[0] ^ 0xF00DBAAD
 
         sentry = await self.sentry()
         if sentry:
@@ -246,6 +259,7 @@ class ProtobufClient:
 
         logger.info("Sending message %d (%d bytes)", emsg, len(data))
         await self._socket.send(data)
+        logger.info("Send message success")
 
     async def _heartbeat(self, interval):
         message = steammessages_clientserver_login_pb2.CMsgClientHeartBeat()

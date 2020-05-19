@@ -1,5 +1,9 @@
-__version__ = "0.50.6"
+__version__ = "0.50.7"
 __changelog__ = {
+    "0.50.7":'''
+    - Use LoginKeyAccepted message post auth
+    - Retry using servers from a different cellid (update login params to handle cell id)
+    ''',
     "0.50.6":'''
     - Send log off call on plugin shutdown
     - More precise login parameters, up protocol version

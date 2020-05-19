@@ -131,9 +131,10 @@ class ProtobufClient:
         logger.info("Sending log on message using credentials")
         await self._send(EMsg.ClientLogon, message)
 
-    async def log_on_token(self, steam_id, account_name, token):
+    async def log_on_token(self, steam_id, account_name, token, used_server_cell_id):
         message = steammessages_clientserver_login_pb2.CMsgClientLogon()
         message.account_name = account_name
+        message.cell_id = used_server_cell_id
         message.protocol_version = 65580
         message.should_remember_password = True
         message.supports_rate_limit_response = True
@@ -229,6 +230,13 @@ class ProtobufClient:
 
         await self._send(EMsg.ClientUpdateMachineAuthResponse, message, None, jobid_target, None)
 
+    async def accept_new_login_token(self, unique_id, jobid_target):
+        logger.info("Accepting new login key")
+        message = steammessages_clientserver_login_pb2.CMsgClientNewLoginKeyAccepted()
+        message.unique_id = unique_id
+
+        await self._send(EMsg.ClientNewLoginKeyAccepted, message, None, jobid_target, None)
+
     async def _send(
             self,
             emsg,
@@ -306,7 +314,7 @@ class ProtobufClient:
         elif emsg == EMsg.ClientAccountInfo:
             await self._process_account_info(body)
         elif emsg == EMsg.ClientNewLoginKey:
-            await self._process_client_new_login_key(body)
+            await self._process_client_new_login_key(body, header.jobid_source)
         elif emsg == EMsg.ClientUpdateMachineAuth:
             await self._process_client_update_machine_auth(body, header.jobid_source)
         elif emsg == EMsg.ClientPlayerNicknameList:
@@ -377,11 +385,12 @@ class ProtobufClient:
         await self.user_authentication_handler('persona_name', message.persona_name)
         self.account_info_retrieved.set()
 
-    async def _process_client_new_login_key(self, body):
+    async def _process_client_new_login_key(self, body, jobid_source):
         logger.info("Processing message ClientNewLoginKey")
         message = steammessages_clientserver_login_pb2.CMsgClientNewLoginKey()
         message.ParseFromString(body)
         await self.user_authentication_handler('token', message.login_key)
+        await self.accept_new_login_token(message.unique_id, jobid_source)
         self.login_key_retrieved.set()
 
     async def _process_client_log_off(self, body):

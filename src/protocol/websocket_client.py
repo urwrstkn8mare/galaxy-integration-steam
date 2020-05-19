@@ -52,6 +52,7 @@ class WebSocketClient:
         self._store_credentials = _store_credentials
         self.communication_queues = {'plugin': asyncio.Queue(), 'websocket': asyncio.Queue(), 'errors': asyncio.Queue()}
         self._times_cache = times_cache
+        self.used_server_cell_id = 0
 
 
     async def run(self):
@@ -103,6 +104,7 @@ class WebSocketClient:
                     RECONNECT_INTERVAL_SECONDS
                 )
                 await asyncio.sleep(RECONNECT_INTERVAL_SECONDS)
+                self.used_server_cell_id += 1
                 continue
             except Exception as e:
                 logger.exception(f"Failed to establish authenticated WebSocket connection {repr(e)}")
@@ -171,11 +173,11 @@ class WebSocketClient:
             return  # already connected
 
         while True:
-            servers = await self._servers_cache.get()
+            servers = await self._servers_cache.get(self.used_server_cell_id)
             for server in servers:
                 try:
                     self._websocket = await asyncio.wait_for(websockets.connect(server, ssl=self._ssl_context), 5)
-                    self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache,self._user_info_cache)
+                    self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self.used_server_cell_id)
                     return
                 except (asyncio.TimeoutError, OSError, websockets.InvalidURI, websockets.InvalidHandshake):
                     continue

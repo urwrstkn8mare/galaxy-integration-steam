@@ -90,7 +90,7 @@ class UserActionRequired(enum.IntEnum):
 class ProtocolClient:
     _STATUS_FLAG = 1106
 
-    def __init__(self, socket, friends_cache: FriendsCache, games_cache: GamesCache, translations_cache: dict, stats_cache: StatsCache, times_cache: TimesCache, user_info_cache: UserInfoCache):
+    def __init__(self, socket, friends_cache: FriendsCache, games_cache: GamesCache, translations_cache: dict, stats_cache: StatsCache, times_cache: TimesCache, user_info_cache: UserInfoCache, used_server_cell_id):
 
         self._protobuf_client = ProtobufClient(socket)
         self._protobuf_client.log_on_handler = self._log_on_handler
@@ -115,6 +115,7 @@ class ProtocolClient:
         self._times_cache = times_cache
         self._auth_lost_handler = None
         self._login_future = None
+        self._used_server_cell_id = used_server_cell_id
 
     async def close(self, is_socket_connected):
         await self._protobuf_client.close(is_socket_connected)
@@ -170,7 +171,7 @@ class ProtocolClient:
     async def authenticate_token(self, steam_id, account_name, token, auth_lost_handler):
         loop = asyncio.get_running_loop()
         self._login_future = loop.create_future()
-        await self._protobuf_client.log_on_token(steam_id, account_name, token)
+        await self._protobuf_client.log_on_token(steam_id, account_name, token, self._used_server_cell_id)
         result = await self._login_future
         if result == EResult.OK:
             self._auth_lost_handler = auth_lost_handler

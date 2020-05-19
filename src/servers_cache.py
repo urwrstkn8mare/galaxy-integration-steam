@@ -27,39 +27,42 @@ class ServersCache:
         self._persistent_cache_state = persistent_cache_state
 
     def _read_cache(self):
-        if 'servers_cache' not in self._persistent_cache:
+
+        cache = self._persistent_cache.get('servers_cache')
+
+        if cache is None:
             logger.debug("servers_cache entry was not found in cache")
-            return None
+            return dict()
 
-        cache = self._persistent_cache['servers_cache']
+        for cell_id in cache.copy():
 
-        if 'timeout' not in cache:
-            logger.debug("timeout was not found in servers_cache entry")
-            return None
+            if 'timeout' not in cache[cell_id]:
+                logger.debug(f"timeout was not found in servers_cache entry {cache[cell_id]}")
+                cache.pop(cell_id, None)
 
-        if 'servers' not in cache:
-            logger.debug("servers was not found in servers_cache entry")
-            return None
+            if 'servers' not in cache[cell_id]:
+                logger.debug(f"servers was not found in servers_cache entry {cache[cell_id]}")
+                cache.pop(cell_id, None)
 
-        if time.time() > cache['timeout']:
-            logger.debug("Found data in servers_cache entry but it is outdated")
-            return None
+            if time.time() > cache[cell_id]['timeout']:
+                logger.debug(f"Found data in servers_cache entry but it is outdated {cache[cell_id]}")
+                cache.pop(cell_id, None)
 
-        servers = cache['servers']
-        logger.debug("Found servers in servers_cache entry %s", str(servers))
+        logger.debug(f"Using server cache {str(cache)}")
 
-        return servers
+        return cache
 
-    def _store_cache(self, servers: Dict[str, int]):
+    def _store_cache(self, servers: Dict[str, int], cell_id):
 
-        logger.debug("storing servers in cache %s", str(servers))
+        logger.debug(f"storing servers in cache {str(servers)} at cell {cell_id}")
+        cache = self._read_cache()
 
-        servers_cache = {
+        cache[cell_id] = {
             'timeout': time.time() + 86400 * 30,
             'servers': servers
         }
 
-        self._persistent_cache['servers_cache'] = servers_cache
+        self._persistent_cache['servers_cache'] = cache
         self._persistent_cache_state.modified = True
 
     async def _test_servers(self, raw_server_list: List[str]) -> Dict[str, int]:
@@ -82,11 +85,12 @@ class ServersCache:
 
         return {server: ping for server, ping in res if ping is not None}
 
-    async def get(self):
-        sorted_servers = self._read_cache()
-
-        if not sorted_servers:
-            raw_server_list = await self._backend_client.get_servers()
+    async def get(self, used_cell_id):
+        cache = self._read_cache()
+        try:
+            sorted_servers = cache[used_cell_id]['servers']
+        except KeyError:
+            raw_server_list = await self._backend_client.get_servers(used_cell_id)
             logger.debug("Got servers from backend: %s", str(raw_server_list))
             servers = await self._test_servers(
                 ["wss://{}/cmsocket/".format(raw_server) for raw_server in raw_server_list]
@@ -94,6 +98,6 @@ class ServersCache:
             if not servers:
                 return []
             sorted_servers = sorted(servers.items(), key=itemgetter(1))
-            self._store_cache(sorted_servers)
+            self._store_cache(sorted_servers, used_cell_id)
 
         return [server for (server, ping) in sorted_servers]

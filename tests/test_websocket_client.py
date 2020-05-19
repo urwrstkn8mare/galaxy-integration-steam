@@ -101,7 +101,7 @@ async def test_connect_authenticate(client, protocol_client, servers_cache, webs
     with pytest.raises(AssertionError):
         await client.run()
 
-    servers_cache.get.assert_called_once_with()
+    servers_cache.get.assert_called_once_with(0)
     protocol_client.run.assert_called_once_with()
     protocol_client.authenticate_password.assert_called_once_with(ACCOUNT_NAME, PASSWORD, TWO_FACTOR, ANY, ANY)
 
@@ -167,7 +167,7 @@ async def test_servers_cache_failure(client, protocol_client, backend_client, se
     servers_cache.get.return_value = async_raise(AccessDenied())
     with pytest.raises(AccessDenied):
         await client.run()
-    servers_cache.get.assert_called_once_with()
+    servers_cache.get.assert_called_once_with(0)
     backend_client.get_authentication_data.assert_not_called()
     protocol_client.authenticate.assert_not_called()
     protocol_client.run.assert_not_called()

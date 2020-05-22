@@ -52,7 +52,17 @@ class GamesCache(ProtoCache):
     def get_resolved_packages(self):
         if not self._storing_map:
             return []
-        return [package_id for package_id in self._storing_map['licenses'] if self._storing_map['licenses'][package_id]['apps']]
+        resolved_package_ids = []
+        for package_id in self._storing_map['licenses']:
+            all_apps_resolved = True
+            if not self._storing_map['licenses'][package_id]['apps']:
+                continue
+            for appid in self._storing_map['licenses'][package_id]['apps']:
+                if not self._storing_map['licenses'][package_id]['apps'][appid]:
+                    all_apps_resolved = False
+            if all_apps_resolved:
+                resolved_package_ids.append(package_id)
+        return resolved_package_ids
 
     def update_packages(self, package_id):
         self._parsing_status['packages'] -= 1

@@ -38,6 +38,7 @@ async def presence_from_user_info(user_info: ProtoUserInfo, translations_cache: 
 
     status = None
     if user_info.rich_presence is not None:
+        logger.info(f"Attempting to resolve rich presence from {user_info}")
         check_for_params = r"%.*%"
         status = user_info.rich_presence.get("steam_display")
         if not status:
@@ -49,7 +50,13 @@ async def presence_from_user_info(user_info: ProtoUserInfo, translations_cache: 
                     async def translate_presence(user_info, status):
                         token_list = translations_cache[int(game_id)]
                         replaced = True
+                        max_depth = 10
+                        current_depth = 0
                         while replaced:
+                            if current_depth >= max_depth:
+                                logger.info(f"Unable to resolve rich presence translation for {user_info}")
+                                return None
+                            current_depth +=1
                             replaced = False
 
                             params = user_info.rich_presence.keys()
@@ -72,7 +79,7 @@ async def presence_from_user_info(user_info: ProtoUserInfo, translations_cache: 
                         return status
 
                     try:
-                        status = await asyncio.wait_for(translate_presence(user_info,status), 1)
+                        status = await asyncio.wait_for(translate_presence(user_info,status), timeout=1)
                     except asyncio.TimeoutError:
                         logger.info(f"Timed out translating presence {user_info.rich_presence} using {translations_cache[int(game_id)]}")
                         status = None

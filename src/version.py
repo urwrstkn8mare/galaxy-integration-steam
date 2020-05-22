@@ -1,5 +1,9 @@
-__version__ = "0.50.7"
+__version__ = "0.50.8"
 __changelog__ = {
+    "0.50.8":'''
+    - Fix crash on potential looping rich presence translation
+    - Fix possible 0 owned games sent issue occuring if previous retrieval was stopped mid-way
+    ''',
     "0.50.7":'''
     - Use LoginKeyAccepted message post auth
     - Retry using servers from a different cellid (update login params to handle cell id)

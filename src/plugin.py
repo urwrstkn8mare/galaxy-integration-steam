@@ -6,7 +6,7 @@ import ssl
 import sys
 import webbrowser
 import time
-from typing import Any, List, Optional, NewType, Dict, AsyncGenerator
+from typing import Any, List, Optional, NewType, Dict
 
 import certifi
 from galaxy.api.plugin import Plugin, create_and_run_plugin
@@ -20,7 +20,10 @@ from galaxy.api.errors import (
 from galaxy.api.consts import Platform, LicenseType, SubscriptionDiscovery
 
 from backend import SteamHttpClient, AuthenticatedHttpClient, UnfinishedAccountSetup
-from client import local_games_list, get_state_changes, get_client_executable
+from client import (
+    local_games_list, get_state_changes, get_client_executable,
+    load_vdf, get_library_folders, get_app_manifests, app_id_from_manifest_path
+)
 from servers_cache import ServersCache
 from presence import presence_from_user_info
 from friends_cache import FriendsCache
@@ -345,11 +348,11 @@ class SteamPlugin(Plugin):
         self._games_cache.add_game_lever = True
 
         try:
-            for game_id, game_title in self._games_cache:
+            for app in self._games_cache.get_owned_games():
                 owned_games.append(
                     Game(
-                        str(game_id),
-                        game_title,
+                        str(app.appid),
+                        app.title,
                         [],
                         LicenseInfo(LicenseType.SinglePurchase, None)
                     )
@@ -464,7 +467,7 @@ class SteamPlugin(Plugin):
         iter = 0
         for game in new_games:
             iter += 1
-            self.add_game(Game(game, new_games[game], [], license_info=LicenseInfo(LicenseType.SinglePurchase)))
+            self.add_game(Game(game.appid, game.title, [], license_info=LicenseInfo(LicenseType.SinglePurchase)))
             self.persistent_cache['games'] = self._games_cache.dump()
             self.push_cache()
             if iter >= 5:
@@ -537,12 +540,30 @@ class SteamPlugin(Plugin):
         return [Subscription("Family Sharing", False, None, SubscriptionDiscovery.AUTOMATIC)]
 
     async def prepare_subscription_games_context(self, subscription_names: List[str]) -> Any:
-        return [SubscriptionGame(game_id=str(game['id']), game_title=game['title']) for game in self._games_cache.get_shared_games()]
+        return [SubscriptionGame(game_id=str(game.appid), game_title=game.title) for game in self._games_cache.get_shared_games()]
 
-    async def get_subscription_games(self, subscription_name: str, context: Any) -> AsyncGenerator[
-        List[SubscriptionGame], None]:
+    async def get_subscription_games(self, subscription_name: str, context: Any):
         yield context
 
+    async def prepare_local_size_context(self, game_ids: List[str]) -> Dict[str, str]:
+        library_folders = get_library_folders()
+        app_manifests = list(get_app_manifests(library_folders))
+        return {
+            app_id_from_manifest_path(path): path
+            for path in app_manifests
+        }
+
+    async def get_local_size(self, game_id: str, context: Dict[str, str]) -> Optional[int]:
+        try:
+            manifest_path = context[game_id]
+        except KeyError:  # not installed
+            return 0
+        try:
+            manifest = load_vdf(manifest_path)
+            return int(manifest['AppState']['SizeOnDisk'])
+        except Exception as e:
+            logger.warning("Cannot parse SizeOnDisk in %s: %r", manifest_path, e)
+            return None
 
     async def shutdown_platform_client(self) -> None:
         launch_debounce_time = 30

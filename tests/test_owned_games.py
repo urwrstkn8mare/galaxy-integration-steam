@@ -3,6 +3,7 @@ from galaxy.api.consts import LicenseType
 from galaxy.api.errors import AuthenticationRequired
 from galaxy.unittest.mock import AsyncMock
 from unittest.mock import MagicMock
+from games_cache import App
 import pytest
 
 @pytest.mark.asyncio
@@ -28,7 +29,7 @@ async def test_multiple_games(authenticated_plugin, backend_client, miniprofile)
     ]
 
     authenticated_plugin._games_cache = MagicMock()
-    authenticated_plugin._games_cache.__iter__.return_value = [(281990, "Stellaris"), (236850, "Europa Universalis IV")]
+    authenticated_plugin._games_cache.get_owned_games.return_value = [App(appid="281990", title="Stellaris", type="game"), App(appid="236850", title="Europa Universalis IV", type="game")]
     authenticated_plugin._games_cache.wait_ready = AsyncMock()
     result = await authenticated_plugin.get_owned_games()
     assert result == [

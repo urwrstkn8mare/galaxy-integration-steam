@@ -63,7 +63,8 @@ def test_integration():
         "ImportGameTime",
         "ImportUserPresence",
         "ImportSubscriptionGames",
-        "ImportSubscriptions"
+        "ImportSubscriptions",
+        "ImportLocalSize"
     }
 
     plugin_socket.close()

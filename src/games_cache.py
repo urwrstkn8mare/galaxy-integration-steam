@@ -1,118 +1,153 @@
 from cache_proto import ProtoCache
 from version import __version__
+from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json
+from typing import List, Dict
 import logging
 import json
+import copy
+
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass_json
+@dataclass
+class App:
+    appid: str
+    title: str
+    type: str
+
+
+@dataclass_json
+@dataclass
+class License:
+    package_id: str
+    shared: bool
+    app_ids: List[str] = field(default_factory=list)
+
+
+@dataclass_json
+@dataclass
+class LicensesCache:
+    licenses: List[License] = field(default_factory=list)
+    apps: Dict[str, App] = field(default_factory=dict)
+
+
+@dataclass
+class ParsingStatus:
+    packages_to_parse: int = None
+    apps_to_parse: int = None
+
 class GamesCache(ProtoCache):
     def __init__(self):
         super(GamesCache, self).__init__()
-        self._storing_map = None
-        self._sent_games = []
-        self._appid_package_map = {}
+        self._storing_map: LicensesCache = LicensesCache()
 
-        self._games_added = {}
+        self._sent_apps = []
+
+        self._apps_added: List[App] = []
         self.add_game_lever: bool = False
 
-        self._parsing_status = {'packages': 0, 'apps': 0}
+        self._parsing_status = ParsingStatus()
+
 
     def reset_storing_map(self):
-        self._storing_map = {'licenses':{}}
+        self._storing_map: LicensesCache = LicensesCache()
 
     def start_packages_import(self, licenses):
+        package_ids = self.get_package_ids()
         for license in licenses:
-            self._storing_map['licenses'][license['package_id']] = {'shared':license['shared'], 'apps':{}}
-        self._parsing_status['packages'] = len(licenses)
-        self._parsing_status['apps'] = 0
+            if license['package_id'] in package_ids:
+                continue
+            self._storing_map.licenses.append(License(package_id=license['package_id'],
+                                             shared=license['shared']))
+        self._parsing_status.packages_to_parse = len(licenses)
+        self._parsing_status.apps_to_parse = 0
         self._update_ready_state()
 
-    def _reset(self, game_ids):
-        pass
-
-    def _add(self, game_id):
-        pass
-
-    def _remove(self, game_id):
-        pass
-
     def get_added_games(self):
-        games = self._games_added
-        self._games_added = {}
-        for game in games:
-            self._sent_games.append(game)
+        apps = self._apps_added
+        self._apps_added = []
+        games = []
+        for app in apps:
+            self._sent_apps.append(app)
+            if app.type == "game":
+                games.append(app)
         return games
 
     def get_package_ids(self):
         if not self._storing_map:
             return []
-        return [package_id for package_id in self._storing_map['licenses']]
+        return [license.package_id for license in copy.copy(self._storing_map).licenses]
 
     def get_resolved_packages(self):
         if not self._storing_map:
             return []
-        resolved_package_ids = []
-        for package_id in self._storing_map['licenses']:
-            all_apps_resolved = True
-            if not self._storing_map['licenses'][package_id]['apps']:
-                continue
-            for appid in self._storing_map['licenses'][package_id]['apps']:
-                if not self._storing_map['licenses'][package_id]['apps'][appid]:
-                    all_apps_resolved = False
-            if all_apps_resolved:
-                resolved_package_ids.append(package_id)
-        return resolved_package_ids
+        packages = []
+        storing_map = copy.copy(self._storing_map)
+        for license in storing_map.licenses:
+            if license.app_ids:
+                resolved = True
+                for app in license.app_ids:
+                    if app not in storing_map.apps:
+                        resolved = False
+                if resolved:
+                    packages.append(license.package_id)
 
-    def update_packages(self, package_id):
-        self._parsing_status['packages'] -= 1
+        return packages
+
+    def update_packages(self):
+        self._parsing_status.packages_to_parse -= 1
         self._update_ready_state()
 
-    def __iter__(self):
-        licenses_map = self._storing_map['licenses']
-        for package in licenses_map:
-            for app in licenses_map[package]['apps']:
-                if licenses_map[package]['apps'][app]:
-                    self._sent_games.append(app)
-                    if not licenses_map[package]['shared']:
-                        yield app, licenses_map[package]['apps'][app]
+    def get_owned_games(self):
+        storing_map = copy.copy(self._storing_map)
+        for license in storing_map.licenses:
+            if license.shared:
+                continue
+            for appid in license.app_ids:
+                if appid not in self._storing_map.apps:
+                    logger.warning(f"Tried to retrieve unresolved app: {appid} for license: {license.package_id}!")
+                    continue
+                app = self._storing_map.apps[appid]
+                if app.type == "game":
+                    self._sent_apps.append(app)
+                    yield app
 
     def get_shared_games(self):
-        shared_games = []
-        licenses_map = self._storing_map['licenses']
-        for package in licenses_map:
-            for app in licenses_map[package]['apps']:
-                if licenses_map[package]['apps'][app]:
-                    if licenses_map[package]['shared']:
-                        shared_games.append({'id': app, 'title': licenses_map[package]['apps'][app]})
-        return shared_games
+        storing_map = copy.copy(self._storing_map)
+        for license in storing_map.licenses:
+            if not license.shared:
+                continue
+            for appid in license.app_ids:
+                if appid not in self._storing_map.apps:
+                    logger.warning(f"Tried to retrieve unresolved app: {appid} for shared license: {license.package_id}!")
+                    continue
+                app = self._storing_map.apps[appid]
+                if app.type == "game":
+                    self._sent_apps.append(app)
+                    yield app
 
-    def update(self, package_id, appid, title, game):
+    def update_license_apps(self, package_id, appid):
+        self._parsing_status.apps_to_parse += 1
+        for license in self._storing_map.licenses:
+            if license.package_id == package_id:
+                license.app_ids.append(appid)
 
+    def update_app_title(self, appid, title, type):
+        for license in self._storing_map.licenses:
+            if appid in license.app_ids:
+                self._parsing_status.apps_to_parse -= 1
+        new_app = App(appid=appid, title=title, type=type)
+        self._storing_map.apps[appid] = new_app
+        if self.add_game_lever and new_app not in self._sent_apps:
+            self._apps_added.append(new_app)
 
-        if package_id:
-            self._parsing_status['apps'] += 1
-            if appid not in self._appid_package_map:
-                self._appid_package_map[appid] = [package_id]
-            else:
-                self._appid_package_map[appid].append(package_id)
-            self._storing_map['licenses'][package_id]['apps'][appid] = None
-        else:
-            self._parsing_status['apps'] -= 1
-
-        if title and game:
-            for package_id in self._appid_package_map[appid]:
-                self._storing_map['licenses'][package_id]['apps'][appid] = title
-
-            if self.add_game_lever and appid not in self._sent_games:
-                for package_id in self._appid_package_map[appid]:
-                    if not self._storing_map['licenses'][package_id]['shared']:
-                        self._games_added[appid] = title
-
-            self._update_ready_state()
+        self._update_ready_state()
 
     def _update_ready_state(self):
-        if self._parsing_status['packages'] == 0 and self._parsing_status['apps'] == 0:
+        if self._parsing_status.packages_to_parse == 0 and self._parsing_status.apps_to_parse == 0:
             if self._ready_event.is_set():
                 return
             logger.info("Setting state to ready")
@@ -121,22 +156,17 @@ class GamesCache(ProtoCache):
             self._ready_event.clear()
 
     def dump(self):
-        self._storing_map['version'] = __version__
-        cache_json = json.dumps(self._storing_map)
-        return cache_json
+        cache_json = {}
+        cache_json['licenses'] = self._storing_map.to_json()
+        cache_json['version'] = __version__
+        return json.dumps(cache_json)
 
     def loads(self, persistent_cache):
         cache = json.loads(persistent_cache)
-        try:
-            for license in cache['licenses']:
-                cache['licenses'][license]['apps']
-                cache['licenses'][license]['shared']
-        except KeyError:
-            logging.error("Incompatible cache")
-            return
+
         if 'version' not in cache or cache['version'] != __version__:
             logging.error("New plugin version, refreshing cache")
             return
 
-        self._storing_map = cache
+        self._storing_map = LicensesCache.from_json(cache['licenses'])
         logging.info(f"Loaded games from cache {self._storing_map}")

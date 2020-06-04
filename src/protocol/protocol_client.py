@@ -262,7 +262,7 @@ class ProtocolClient:
                 not_resolved_packages_ids.append(str(package_id))
 
         if self._games_cache.get_package_ids() != package_ids:
-            logger.info("Licenses list different than last time")
+            logger.info(f"Licenses list different than last time {self._games_cache.get_package_ids()}")
             logger.info(f"Starting license import for {package_ids}")
             self._games_cache.reset_storing_map()
             self._games_cache.start_packages_import(packages)
@@ -277,11 +277,14 @@ class ProtocolClient:
 
         await self._protobuf_client.get_packages_info(not_resolved_packages_ids)
 
-    async def _app_info_handler(self, appid, mother_appid=None, title=None, game=None):
-        self._games_cache.update(mother_appid, appid, title, game)
+    async def _app_info_handler(self, appid, package_id=None, title=None, type=None):
+        if package_id:
+            self._games_cache.update_license_apps(package_id, appid)
+        if title and type:
+            self._games_cache.update_app_title(appid, title, type)
 
-    async def _package_info_handler(self, package_id):
-        self._games_cache.update_packages(package_id)
+    async def _package_info_handler(self):
+        self._games_cache.update_packages()
 
     async def _translations_handler(self, appid, translations=None):
         if appid and translations:

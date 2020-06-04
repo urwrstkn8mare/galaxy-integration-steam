@@ -1,5 +1,9 @@
-__version__ = "0.50.8"
+__version__ = "0.50.9"
 __changelog__ = {
+    "0.50.9":'''
+    - Refactor games cache for readability and debugging purposses
+    - Implement getting local game sizes
+    ''',
     "0.50.8":'''
     - Fix crash on potential looping rich presence translation
     - Fix possible 0 owned games sent issue occuring if previous retrieval was stopped mid-way
@@ -36,9 +40,9 @@ __changelog__ = {
     - Dont crash on unknown presence format
     ''',
     "0.49": '''
-    - Better handle parsing rich presence from steam 
+    - Better handle parsing rich presence from steam
     - Add a cooldown to parsing local files, should fix ssues with large cpu usage during game installation
-    - Better flow in case of clicking forgot password during auth ( focus should stay on proper window ) 
+    - Better flow in case of clicking forgot password during auth ( focus should stay on proper window )
     ''',
     "0.48": '''
     - Cache the results of owned games so the import is possibly immediate in subsequent plugin runs

@@ -202,10 +202,12 @@ def get_app_manifests(library_folders: Iterable[str]) -> Iterable[str]:
         yield from glob.iglob(os.path.join(escaped_path, "*.acf"))
 
 
+def app_id_from_manifest_path(path):
+    return os.path.basename(path)[len('appmanifest_'):-4]
+
+
 def get_installed_games(library_paths: Iterable[str]) -> Iterable[str]:
     for app_manifest_path in get_app_manifests(library_paths):
-        logger.debug("Parsing %s", app_manifest_path)
-        # appmanifest_<appid>.acf
-        app_id = os.path.basename(app_manifest_path)[12:-4]
+        app_id = app_id_from_manifest_path(app_manifest_path)
         if app_id:
             yield app_id

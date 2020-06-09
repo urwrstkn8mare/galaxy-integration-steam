@@ -1,5 +1,7 @@
 
 from unittest.mock import MagicMock, ANY
+from protocol.protobuf_client import SteamLicense
+from typing import NamedTuple
 
 import pytest
 
@@ -8,6 +10,10 @@ from galaxy.unittest.mock import async_return_value, AsyncMock
 from protocol.consts import EFriendRelationship
 from protocol.protocol_client import ProtocolClient
 from protocol.types import ProtoUserInfo
+
+
+class ProtoResponse(NamedTuple):
+    package_id: int
 
 
 STEAM_ID = 71231321
@@ -138,10 +144,10 @@ async def test_user_info(client, protobuf_client, friends_cache):
 
 @pytest.mark.asyncio
 async def test_license_import(client):
-    licenses_to_check = {'123':{'shared': False},
-                         '321':{'shared': True}}
+    licenses_to_check = [SteamLicense(ProtoResponse(123), False),
+                        SteamLicense(ProtoResponse(321), True)]
     client._protobuf_client.get_packages_info = AsyncMock()
     await client._license_import_handler(licenses_to_check)
 
     client._games_cache.reset_storing_map.assert_called_once()
-    client._protobuf_client.get_packages_info.assert_called_once_with(['123','321'])
+    client._protobuf_client.get_packages_info.assert_called_once_with(licenses_to_check)

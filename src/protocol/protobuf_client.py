@@ -7,6 +7,7 @@ import socket
 from itertools import count
 from typing import Awaitable, Callable,Dict, Optional, Any
 from galaxy.api.errors import UnknownBackendResponse
+from typing import List, NamedTuple
 
 from protocol.messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, steammessages_player_pb2, \
     steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, steamui_libraryroot_pb2, steammessages_clientserver_2_pb2
@@ -18,6 +19,11 @@ import hashlib
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+
+class SteamLicense(NamedTuple):
+    license: str
+    shared: bool
 
 
 class ProtobufClient:
@@ -188,13 +194,15 @@ class ProtobufClient:
         message.versions.append(message_inside)
         await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, "CloudConfigStore.Download#1")
 
-    async def get_packages_info(self, package_ids):
-        logger.info(f"Sending call {EMsg.PICSProductInfoRequest} with {package_ids}")
+    async def get_packages_info(self, steam_licenses: List[SteamLicense]):
+        logger.info(f"Sending call {EMsg.PICSProductInfoRequest} with "
+                    f"{[steam_license.license.package_id for steam_license in steam_licenses]}")
         message = steammessages_clientserver_pb2.CMsgClientPICSProductInfoRequest()
 
-        for package_id in package_ids:
+        for steam_license in steam_licenses:
             info = message.packages.add()
-            info.packageid = int(package_id)
+            info.packageid = steam_license.license.package_id
+            info.access_token = steam_license.license.access_token
 
         await self._send(EMsg.PICSProductInfoRequest, message)
 
@@ -479,7 +487,7 @@ class ProtobufClient:
         message = steammessages_clientserver_pb2.CMsgClientLicenseList()
         message.ParseFromString(body)
 
-        licenses_to_check = {}
+        licenses_to_check = []
 
         for license in message.licenses:
             # license.type 1024 = free games
@@ -494,12 +502,12 @@ class ProtobufClient:
 
             if int(license.owner_id) == int(self.steam_id - self._ACCOUNT_ID_MASK):
                 logger.info(f"Owned license {license.package_id}")
-                licenses_to_check[license.package_id] = {'license': license, 'shared':False}
+                licenses_to_check.append(SteamLicense(license=license, shared=False))
             else:
                 if license.package_id in licenses_to_check:
                     continue
                 logger.info(f"Shared license {license.package_id}")
-                licenses_to_check[license.package_id] = {'license': license, 'shared':True}
+                licenses_to_check.append(SteamLicense(license=license, shared=True))
 
         await self.license_import_handler(licenses_to_check)
 

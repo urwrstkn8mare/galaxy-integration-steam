@@ -1,5 +1,8 @@
-__version__ = "0.50.9"
+__version__ = "0.51"
 __changelog__ = {
+    "0.51":'''
+    - Use package access token when retrieving package information, should fix some games not appearing
+    ''',
     "0.50.9":'''
     - Refactor games cache for readability and debugging purposses
     - Implement getting local game sizes

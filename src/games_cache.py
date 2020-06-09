@@ -3,10 +3,10 @@ from version import __version__
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from typing import List, Dict
+from protocol.protobuf_client import SteamLicense
 import logging
 import json
 import copy
-
 
 logger = logging.getLogger(__name__)
 
@@ -55,14 +55,14 @@ class GamesCache(ProtoCache):
     def reset_storing_map(self):
         self._storing_map: LicensesCache = LicensesCache()
 
-    def start_packages_import(self, licenses):
+    def start_packages_import(self, steam_licenses: List[SteamLicense]):
         package_ids = self.get_package_ids()
-        for license in licenses:
-            if license['package_id'] in package_ids:
+        for steam_license in steam_licenses:
+            if steam_license.license.package_id in package_ids:
                 continue
-            self._storing_map.licenses.append(License(package_id=license['package_id'],
-                                             shared=license['shared']))
-        self._parsing_status.packages_to_parse = len(licenses)
+            self._storing_map.licenses.append(License(package_id=str(steam_license.license.package_id),
+                                             shared=steam_license.shared))
+        self._parsing_status.packages_to_parse = len(steam_licenses)
         self._parsing_status.apps_to_parse = 0
         self._update_ready_state()
 

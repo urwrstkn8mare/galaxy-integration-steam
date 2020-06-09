@@ -3,13 +3,15 @@ import logging
 import enum
 import galaxy.api.errors
 
-from protocol.protobuf_client import ProtobufClient
+from protocol.protobuf_client import ProtobufClient, SteamLicense
 from protocol.consts import EResult, EFriendRelationship, EPersonaState
 from friends_cache import FriendsCache
 from games_cache import GamesCache
 from stats_cache import StatsCache
 from user_info_cache import UserInfoCache
 from times_cache import TimesCache
+
+from typing import List
 
 
 logger = logging.getLogger(__name__)
@@ -243,39 +245,30 @@ class ProtocolClient:
         logger.info(f"Received user nicknames {nicknames}")
         self._friends_cache.update_nicknames(nicknames)
 
-    async def _license_import_handler(self, licenses_to_check):
-        packages = []
-        package_ids = []
-
-        not_resolved_packages = []
-        not_resolved_packages_ids = []
+    async def _license_import_handler(self, steam_licenses: List[SteamLicense]):
+        not_resolved_licenses = []
 
         resolved_packages = self._games_cache.get_resolved_packages()
+        package_ids = [str(steam_license.license.package_id) for steam_license in steam_licenses]
 
-        for package_id in licenses_to_check:
-            packages.append({'package_id': str(package_id),
-                                'shared':licenses_to_check[package_id]['shared']})
-            package_ids.append(str(package_id))
-            if str(package_id) not in resolved_packages:
-                not_resolved_packages.append({'package_id': str(package_id),
-                                 'shared': licenses_to_check[package_id]['shared']})
-                not_resolved_packages_ids.append(str(package_id))
-
+        for steam_license in steam_licenses:
+            if str(steam_license.license.package_id) not in resolved_packages:
+                not_resolved_licenses.append(steam_license)
         if self._games_cache.get_package_ids() != package_ids:
             logger.info(f"Licenses list different than last time {self._games_cache.get_package_ids()}")
             logger.info(f"Starting license import for {package_ids}")
             self._games_cache.reset_storing_map()
-            self._games_cache.start_packages_import(packages)
-            return await self._protobuf_client.get_packages_info(package_ids)
+            self._games_cache.start_packages_import(steam_licenses)
+            return await self._protobuf_client.get_packages_info(steam_licenses)
 
         # This path will only attempt import on packages which aren't resolved (dont have any apps assigned)
 
-        logger.info(f"Starting license import for {not_resolved_packages_ids}")
+        logger.info(f"Starting license import for {[package_id for package_id in package_ids if package_id not in resolved_packages]}")
         logger.info(f"Skipping already resolved packages {resolved_packages}")
 
-        self._games_cache.start_packages_import(not_resolved_packages)
+        self._games_cache.start_packages_import(not_resolved_licenses)
 
-        await self._protobuf_client.get_packages_info(not_resolved_packages_ids)
+        await self._protobuf_client.get_packages_info(not_resolved_licenses)
 
     async def _app_info_handler(self, appid, package_id=None, title=None, type=None):
         if package_id:

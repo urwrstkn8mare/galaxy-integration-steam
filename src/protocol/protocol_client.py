@@ -270,11 +270,11 @@ class ProtocolClient:
 
         await self._protobuf_client.get_packages_info(not_resolved_licenses)
 
-    async def _app_info_handler(self, appid, package_id=None, title=None, type=None):
+    async def _app_info_handler(self, appid, package_id=None, title=None, type=None, parent=None):
         if package_id:
             self._games_cache.update_license_apps(package_id, appid)
         if title and type:
-            self._games_cache.update_app_title(appid, title, type)
+            self._games_cache.update_app_title(appid, title, type, parent)
 
     async def _package_info_handler(self):
         self._games_cache.update_packages()

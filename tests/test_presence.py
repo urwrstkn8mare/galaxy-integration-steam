@@ -8,30 +8,27 @@ from galaxy.api.errors import AuthenticationRequired, UnknownError
 from galaxy.api.consts import PresenceState
 from galaxy.api.types import UserPresence
 
+from typing import NamedTuple
 from dataclasses import dataclass
 
-@dataclass
-class token_translations_mock_dataclass:
-    name = "#hero"
-    value = "translated_hero"
+class TOKEN(NamedTuple):
+    name: str
+    value: str
 
 @dataclass
 class translations_cache_mock_dataclass:
-    tokens = [token_translations_mock_dataclass()]
-
-@dataclass
-class token_translations_parametrized_mock_dataclass_menu:
-    name = "#menu"
-    value = "translated_menu{%param0%}"
-
-@dataclass
-class token_translations_parametrized_mock_dataclass_EN:
-    name = "#EN"
-    value = "english"
+    tokens = [TOKEN("#hero", "translated_hero")]
 
 @dataclass
 class translations_cache_parametrized_mock_dataclass:
-    tokens = [token_translations_parametrized_mock_dataclass_menu(), token_translations_parametrized_mock_dataclass_EN()]
+    tokens = [TOKEN("#menu", "translated_menu{%param0%}"),
+              TOKEN("#EN", "english")]
+
+@dataclass
+class translations_cache_values_fitting_partially_dataclass:
+    tokens = [TOKEN("#PlayingAs", "Playing %Empire% (%Ethics1% %Ethics2%) in %Year%"),
+              TOKEN("#PlayingAsNew", "Playing %Empire% (%Ethics%) in %Year%"),
+              TOKEN("#PlayingAsNoEthics", "Playing %Empire% in %Year%")]
 
 @pytest.mark.parametrize(
     "user_info,user_presence",
@@ -69,14 +66,23 @@ class translations_cache_parametrized_mock_dataclass:
         (
             ProtoUserInfo(state=EPersonaState.Online, game_id=1513, game_name="abc", rich_presence={"status": "#menu", "num_params": 1, "param0": "#EN"}),
             UserPresence(
-                presence_state=PresenceState.Online, game_id="1513", game_title="abc", in_game_status="translated_menu english "
+                presence_state=PresenceState.Online, game_id="1513", game_title="abc", in_game_status="translated_menu english"
+            )
+        ),
+        # User playing a game with translatable rich presence and cache token that are partially fitting
+        (
+            ProtoUserInfo(state=EPersonaState.Online, game_id=1514, game_name="abc", rich_presence={'steam_display': '#PlayingAsNew', 'Empire': "Rihi'Nar Death Bringers", 'Ethics': 'Fanatic Xenophobe, Militarist', 'year': '2200'}),
+            UserPresence(
+                presence_state=PresenceState.Online, game_id="1514", game_title="abc", in_game_status="Playing Rihi'Nar Death Bringers (Fanatic Xenophobe, Militarist) in 2200"
             )
         )
     ]
 )
 @pytest.mark.asyncio
 async def test_from_user_info(user_info, user_presence):
-    assert await presence_from_user_info(user_info, {1512: translations_cache_mock_dataclass(), 1513: translations_cache_parametrized_mock_dataclass()}) == user_presence
+    assert await presence_from_user_info(user_info, {1512: translations_cache_mock_dataclass(),
+                                                     1513: translations_cache_parametrized_mock_dataclass(),
+                                                     1514: translations_cache_values_fitting_partially_dataclass()}) == user_presence
 
 
 CONTEXT = {
@@ -121,3 +127,6 @@ async def test_get_user_presence_success(authenticated_plugin, steam_client):
 async def test_get_user_presence_not_friend(authenticated_plugin, steam_client):
     with pytest.raises(UnknownError):
         await authenticated_plugin.get_user_presence("123151", {})
+
+
+

@@ -29,7 +29,7 @@ async def test_multiple_games(authenticated_plugin, backend_client, miniprofile)
     ]
 
     authenticated_plugin._games_cache = MagicMock()
-    authenticated_plugin._games_cache.get_owned_games.return_value = [App(appid="281990", title="Stellaris", type="game"), App(appid="236850", title="Europa Universalis IV", type="game")]
+    authenticated_plugin._games_cache.get_owned_games.return_value = [App(appid="281990", title="Stellaris", type="game", parent=None), App(appid="236850", title="Europa Universalis IV", type="game", parent=None)]
     authenticated_plugin._games_cache.wait_ready = AsyncMock()
     result = await authenticated_plugin.get_owned_games()
     assert result == [

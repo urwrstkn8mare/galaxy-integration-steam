@@ -236,7 +236,6 @@ class SteamPlugin(Plugin):
         if not stored_credentials:
             self.create_task(self._steam_client.run(), "Run WebSocketClient")
             return next_step_response(START_URI.LOGIN, END_URI.LOGIN_FINISHED)
-
         # TODO remove at some point, old refresh flow
         cookies = stored_credentials.get("cookies", [])
         if cookies:
@@ -348,7 +347,10 @@ class SteamPlugin(Plugin):
         self._games_cache.add_game_lever = True
 
         try:
+            temp_title = None
             for app in self._games_cache.get_owned_games():
+                if str(app.appid) == "292030":
+                    temp_title = app.title
                 owned_games.append(
                     Game(
                         str(app.appid),
@@ -357,9 +359,24 @@ class SteamPlugin(Plugin):
                         LicenseInfo(LicenseType.SinglePurchase, None)
                     )
                 )
+
+            if temp_title:
+                dlcs = []
+                for dlc in self._games_cache.get_dlcs():
+                    dlcs.append(str(dlc.appid))
+                if "355880" in dlcs or ("378648" in dlcs and "378649" in dlcs):
+                    owned_games.append(Game(
+                        "499450",
+                        temp_title,
+                        [],
+                        LicenseInfo(LicenseType.SinglePurchase, None)
+                    ))
+
         except (KeyError, ValueError):
             logger.exception("Can not parse backend response")
             raise UnknownBackendResponse()
+
+
         finally:
             self._owned_games_parsed = True
         self.persistent_cache['games'] = self._games_cache.dump()
@@ -519,6 +536,8 @@ class SteamPlugin(Plugin):
 
     @staticmethod
     def _steam_command(command, game_id):
+        if game_id == "499450":
+            game_id = "292030"
         if is_uri_handler_installed("steam"):
             webbrowser.open("steam://{}/{}".format(command, game_id))
         else:
@@ -534,7 +553,8 @@ class SteamPlugin(Plugin):
         SteamPlugin._steam_command("uninstall", game_id)
 
     async def get_subscriptions(self) -> List[Subscription]:
-        await self._games_cache.wait_ready(90)
+        if not self._owned_games_parsed:
+            await self._games_cache.wait_ready(90)
         if self._games_cache.get_shared_games():
             return [Subscription("Family Sharing", True, None, SubscriptionDiscovery.AUTOMATIC)]
         return [Subscription("Family Sharing", False, None, SubscriptionDiscovery.AUTOMATIC)]

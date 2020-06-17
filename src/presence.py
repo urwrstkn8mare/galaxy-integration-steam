@@ -17,6 +17,37 @@ def _translate_string(game_id, string, translations_cache):
             return token.value
 
 
+async def _translate_presence(user_info, status, token_list):
+                    replaced = True
+                    max_depth = 10
+                    current_depth = 0
+                    while replaced:
+                        if current_depth >= max_depth:
+                            logger.info(f"Unable to resolve rich presence translation for {user_info}")
+                            return None
+                        current_depth += 1
+                        replaced = False
+
+                        params = user_info.rich_presence.keys()
+                        for param in params:
+                            if "%"+param.lower()+"%" in status.lower():
+                                param_replace = re.compile(re.escape("%"+param+"%"), re.IGNORECASE)
+                                status = param_replace.sub(user_info.rich_presence.get(param), status)
+                                replaced = True
+
+                        for token in token_list.tokens:
+                            if re.findall(rf'{token.name.lower()}(\s|#|%|\Z)', status.lower()):
+                                token_replace = re.compile(rf'{re.escape(token.name)}(\s|#|%|\Z)', re.IGNORECASE)
+                                status = token_replace.sub(token.value, status)
+                                replaced = True
+                                break
+
+                        status = status.replace("{"," ")
+                        status = status.replace("}"," ")
+
+                    return status
+
+
 async def presence_from_user_info(user_info: ProtoUserInfo, translations_cache: dict) -> UserPresence:
     if user_info.state == EPersonaState.Online:
         state = PresenceState.Online
@@ -46,40 +77,8 @@ async def presence_from_user_info(user_info: ProtoUserInfo, translations_cache: 
         if status:
             try:
                 if int(game_id) in translations_cache and translations_cache[int(game_id)]:
-
-                    async def translate_presence(user_info, status):
-                        token_list = translations_cache[int(game_id)]
-                        replaced = True
-                        max_depth = 10
-                        current_depth = 0
-                        while replaced:
-                            if current_depth >= max_depth:
-                                logger.info(f"Unable to resolve rich presence translation for {user_info}")
-                                return None
-                            current_depth +=1
-                            replaced = False
-
-                            params = user_info.rich_presence.keys()
-                            for param in params:
-                                if "%"+param+"%" in status:
-                                    status = status.replace("%"+param+"%", user_info.rich_presence.get(param))
-                                    replaced = True
-
-                            for token in token_list.tokens:
-                                if token.name.lower() in status.lower():
-
-                                    token_replace = re.compile(re.escape(token.name), re.IGNORECASE)
-                                    status = token_replace.sub(token.value, status)
-                                    replaced = True
-                                    break
-
-                            status = status.replace("{"," ")
-                            status = status.replace("}"," ")
-
-                        return status
-
                     try:
-                        status = await asyncio.wait_for(translate_presence(user_info,status), timeout=1)
+                        status = await asyncio.wait_for(_translate_presence(user_info,status, translations_cache[int(game_id)]), timeout=1)
                     except asyncio.TimeoutError:
                         logger.info(f"Timed out translating presence {user_info.rich_presence} using {translations_cache[int(game_id)]}")
                         status = None

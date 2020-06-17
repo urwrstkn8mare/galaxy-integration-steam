@@ -537,12 +537,16 @@ class ProtobufClient:
             try:
                 type_ = app_content['appinfo']['common']['type'].lower()
                 title = app_content['appinfo']['common']['name']
+                parent = None
+                if 'extended' in app_content['appinfo'] and type_ == 'dlc':
+                    parent = app_content['appinfo']['extended']['dlcforappid']
+                    logger.info(f"Retrieved dlc {title} for {parent}")
                 if type == 'game':
                     logger.info(f"Retrieved game {title}")
-                await self.app_info_handler(appid=appid, title=title, type=type_)
+                await self.app_info_handler(appid=appid, title=title, type=type_, parent=parent)
             except KeyError:
                 logger.info(f"Unrecognized app structure {app_content}")
-                await self.app_info_handler(appid=appid, title='unknown', type='unknown')
+                await self.app_info_handler(appid=appid, title='unknown', type='unknown', parent=None)
 
         if len(apps_to_parse) > 0:
             logger.info(f"Apps to parse {apps_to_parse}, {len(apps_to_parse)} entries")

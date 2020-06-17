@@ -2,7 +2,7 @@ from cache_proto import ProtoCache
 from version import __version__
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
-from typing import List, Dict
+from typing import List, Dict, Optional
 from protocol.protobuf_client import SteamLicense
 import logging
 import json
@@ -17,6 +17,7 @@ class App:
     appid: str
     title: str
     type: str
+    parent: Optional[str]
 
 
 @dataclass_json
@@ -57,12 +58,13 @@ class GamesCache(ProtoCache):
 
     def start_packages_import(self, steam_licenses: List[SteamLicense]):
         package_ids = self.get_package_ids()
+        self._parsing_status.packages_to_parse = 0
         for steam_license in steam_licenses:
             if steam_license.license.package_id in package_ids:
                 continue
             self._storing_map.licenses.append(License(package_id=str(steam_license.license.package_id),
                                              shared=steam_license.shared))
-        self._parsing_status.packages_to_parse = len(steam_licenses)
+            self._parsing_status.packages_to_parse += 1
         self._parsing_status.apps_to_parse = 0
         self._update_ready_state()
 
@@ -115,6 +117,20 @@ class GamesCache(ProtoCache):
                     self._sent_apps.append(app)
                     yield app
 
+    def get_dlcs(self):
+        storing_map = copy.copy(self._storing_map)
+        for license in storing_map.licenses:
+            if license.shared:
+                continue
+            for appid in license.app_ids:
+                if appid not in self._storing_map.apps:
+                    logger.warning(f"Tried to retrieve unresolved app: {appid} for license: {license.package_id}!")
+                    continue
+                app = self._storing_map.apps[appid]
+                if app.type == "dlc":
+                    self._sent_apps.append(app)
+                    yield app
+
     def get_shared_games(self):
         storing_map = copy.copy(self._storing_map)
         for license in storing_map.licenses:
@@ -135,11 +151,11 @@ class GamesCache(ProtoCache):
             if license.package_id == package_id:
                 license.app_ids.append(appid)
 
-    def update_app_title(self, appid, title, type):
+    def update_app_title(self, appid, title, type, parent):
         for license in self._storing_map.licenses:
             if appid in license.app_ids:
                 self._parsing_status.apps_to_parse -= 1
-        new_app = App(appid=appid, title=title, type=type)
+        new_app = App(appid=appid, title=title, type=type, parent=parent)
         self._storing_map.apps[appid] = new_app
         if self.add_game_lever and new_app not in self._sent_apps:
             self._apps_added.append(new_app)

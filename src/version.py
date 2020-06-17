@@ -1,5 +1,10 @@
-__version__ = "0.51"
+__version__ = "0.51.1"
 __changelog__ = {
+    "0.51.1":'''
+    - Fixup marking when games cache is ready in situations when part of the cache was already initialized
+    - Optimize retrieving subscription status
+    - Fixes for rich presence translations for certain games (dota, stellaris)
+    ''',
     "0.51":'''
     - Use package access token when retrieving package information, should fix some games not appearing
     ''',

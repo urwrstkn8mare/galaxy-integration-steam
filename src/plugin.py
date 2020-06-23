@@ -21,7 +21,7 @@ from galaxy.api.consts import Platform, LicenseType, SubscriptionDiscovery
 
 from backend import SteamHttpClient, AuthenticatedHttpClient, UnfinishedAccountSetup
 from client import (
-    local_games_list, get_state_changes, get_client_executable,
+    StateFlags, local_games_list, get_state_changes, get_client_executable,
     load_vdf, get_library_folders, get_app_manifests, app_id_from_manifest_path
 )
 from servers_cache import ServersCache
@@ -580,7 +580,12 @@ class SteamPlugin(Plugin):
             return 0
         try:
             manifest = load_vdf(manifest_path)
-            return int(manifest['AppState']['SizeOnDisk'])
+            app_state = manifest['AppState']
+            state_flags = StateFlags(int(app_state['StateFlags']))
+            if StateFlags.FullyInstalled in state_flags:
+                return int(app_state['SizeOnDisk'])
+            else:  # as SizeOnDisk is 0
+                return int(app_state['BytesDownloaded'])
         except Exception as e:
             logger.warning("Cannot parse SizeOnDisk in %s: %r", manifest_path, e)
             return None

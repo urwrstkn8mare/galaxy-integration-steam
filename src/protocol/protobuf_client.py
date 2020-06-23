@@ -3,7 +3,6 @@ import struct
 import gzip
 import json
 import logging
-import socket
 from itertools import count
 from typing import Awaitable, Callable,Dict, Optional, Any
 from galaxy.api.errors import UnknownBackendResponse
@@ -127,7 +126,6 @@ class ProtobufClient:
         message.password = sanitize_password(password)
         message.should_remember_password = True
         message.supports_rate_limit_response = True
-        message.obfuscated_private_ip.v4 = struct.unpack(">L", socket.inet_aton(socket.gethostbyname(socket.gethostname())))[0] ^ 0xF00DBAAD
 
         if two_factor:
             if two_factor_type == 'email':
@@ -145,7 +143,6 @@ class ProtobufClient:
         message.should_remember_password = True
         message.supports_rate_limit_response = True
         message.login_key = token
-        message.obfuscated_private_ip.v4 = struct.unpack(">L", socket.inet_aton(socket.gethostbyname(socket.gethostname())))[0] ^ 0xF00DBAAD
 
         sentry = await self.sentry()
         if sentry:

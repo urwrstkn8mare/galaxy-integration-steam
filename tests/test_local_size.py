@@ -23,16 +23,38 @@ async def test_import_no_appmanifest(plugin):
 
 
 @pytest.mark.asyncio
-async def test_import(plugin, mock_vdf_reader):
+@pytest.mark.parametrize('state_flags', [
+    "4", "6", "132", "134"
+])
+async def test_import_installed(state_flags, plugin, mock_vdf_reader):
     context = {
         "111": "path_to_manifest/appmanifest_111.acf",
     }
     mock_vdf_reader.return_value = {
         "AppState": {
+            "StateFlags": state_flags,
             "SizeOnDisk": "23052001786"
         }
     }
     assert await plugin.get_local_size('111', context) == 23052001786
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('state_flags', [
+    "1", "2", "130", "530"
+])
+async def test_import_not_fully_installed(state_flags, plugin, mock_vdf_reader):
+    context = {
+        "111": "path_to_manifest/appmanifest_111.acf",
+   }
+    mock_vdf_reader.return_value = {
+        "AppState": {
+            "StateFlags": state_flags,
+            "SizeOnDisk": "0",
+            "BytesDownloaded": "1000"
+        }
+    }
+    assert await plugin.get_local_size('111', context) == 1000
 
 
 @pytest.mark.asyncio

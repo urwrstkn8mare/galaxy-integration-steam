@@ -1,5 +1,9 @@
-__version__ = "0.51.1"
+__version__ = "0.51.2"
 __changelog__ = {
+    "0.51.2":'''
+    - Enhance local game sizes by returning downloading size if game is not fully installed yet
+    - Drop attaching obfuscated private ip to login params.
+    ''',
     "0.51.1":'''
     - Fixup marking when games cache is ready in situations when part of the cache was already initialized
     - Optimize retrieving subscription status

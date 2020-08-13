@@ -1,12 +1,16 @@
 import pytest
+import json
 import time
-from servers_cache import ServersCache
 from asyncio import TimeoutError
 from unittest.mock import MagicMock, ANY, call
-from galaxy.unittest.mock import async_return_value, skip_loop
 import websockets
+
+from galaxy.unittest.mock import async_return_value, skip_loop
+
+from servers_cache import ServersCache
 from async_mock import AsyncMock
 from persistent_cache_state import PersistentCacheState
+
 
 async def async_raise(error, loop_iterations_delay=0):
     if loop_iterations_delay > 0:
@@ -37,7 +41,7 @@ async def test_no_cache_all_connect_failure(backend_client, mocker, exception):
         "protocol.websocket_client.websockets.connect",
         return_value=async_raise(exception)
     )
-    used_server_cell_id = 0
+    used_server_cell_id = "0"
     assert await cache.get(used_server_cell_id) == []
     backend_client.get_servers.assert_called_once_with(used_server_cell_id)
     assert 'servers_cache' not in persistent_cache
@@ -71,7 +75,7 @@ async def test_no_cache_fist_connect_failure(backend_client, mocker, exception):
             async_return_value(websocket)
         ]
     )
-    used_server_cell_id = 0
+    used_server_cell_id = "0"
     assert await cache.get(used_server_cell_id) == [wrap_address(addresses[1])]
     backend_client.get_servers.assert_called_once_with(used_server_cell_id)
     assert 'servers_cache' in persistent_cache
@@ -84,9 +88,9 @@ async def test_valid_cache(backend_client):
     addresses = [
         "address_1"
     ]
-    used_server_cell_id = 0
+    used_server_cell_id = "0"
 
-    persistent_cache = {'servers_cache':{ used_server_cell_id: {'timeout': time.time() + 10, 'servers': [(addresses[0], 3.206969738006592)]}}}
+    persistent_cache = {'servers_cache': json.dumps({used_server_cell_id: {'timeout': time.time() + 10, 'servers': [(addresses[0], 3.206969738006592)]}})}
     persistent_cache_state = PersistentCacheState()
 
     cache = ServersCache(backend_client, MagicMock(), persistent_cache, persistent_cache_state)
@@ -101,14 +105,14 @@ async def test_timeouted_cache(backend_client, mocker):
         "echo.websocket.org"
     ]
 
-    used_server_cell_id = 0
+    used_server_cell_id = "0"
     persistent_cache = {
-        'servers_cache': {
+        'servers_cache': json.dumps({
             used_server_cell_id:{
                 'timeout': time.time() - 10,
                 'servers': [(wrap_address(address), 3.206969738006592) for address in addresses]
             }
-        }
+        })
     }
     persistent_cache_state = PersistentCacheState()
 
@@ -124,6 +128,6 @@ async def test_timeouted_cache(backend_client, mocker):
     )
     assert await cache.get(used_server_cell_id) == [wrap_address(address) for address in addresses]
     backend_client.get_servers.assert_called_once_with(used_server_cell_id)
-    assert persistent_cache['servers_cache'][used_server_cell_id]['timeout'] > time.time()
+    assert json.loads(persistent_cache['servers_cache'])[used_server_cell_id]['timeout'] > time.time()
     assert persistent_cache_state.modified
     connect.assert_has_calls([call(wrap_address(address), ssl=ANY) for address in addresses])

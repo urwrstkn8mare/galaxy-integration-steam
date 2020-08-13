@@ -13,6 +13,7 @@ from games_cache import GamesCache
 from stats_cache import StatsCache
 from times_cache import TimesCache
 from user_info_cache import UserInfoCache
+from ownership_ticket_cache import OwnershipTicketCache
 
 from protocol.protocol_client import UserActionRequired
 
@@ -33,7 +34,10 @@ def servers_cache():
 
 @pytest.fixture()
 def protocol_client(mocker):
-    return mocker.patch("protocol.websocket_client.ProtocolClient").return_value
+    protocol_client = mocker.patch("protocol.websocket_client.ProtocolClient").return_value
+    protocol_client.get_steam_app_ownership_ticket = AsyncMock(return_value=async_return_value(None))
+    protocol_client.register_auth_ticket_with_cm = AsyncMock(return_value=async_return_value(None))
+    return protocol_client
 
 
 @pytest.fixture
@@ -71,12 +75,12 @@ def user_info_cache(mocker):
     return MagicMock(UserInfoCache)
 
 @pytest.fixture
-def store_credentials():
-    return MagicMock()
+def ownership_ticket_cache():
+    return MagicMock(OwnershipTicketCache)
 
 @pytest.fixture
-async def client(backend_client, servers_cache, protocol_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, store_credentials):
-    return WebSocketClient(backend_client, MagicMock(), servers_cache, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, store_credentials)
+async def client(backend_client, servers_cache, protocol_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, ownership_ticket_cache):
+    return WebSocketClient(backend_client, MagicMock(), servers_cache, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, ownership_ticket_cache)
 
 @pytest.mark.asyncio
 async def test_connect_authenticate(client, protocol_client, servers_cache, websocket):
@@ -101,7 +105,7 @@ async def test_connect_authenticate(client, protocol_client, servers_cache, webs
     with pytest.raises(AssertionError):
         await client.run()
 
-    servers_cache.get.assert_called_once_with(0)
+    servers_cache.get.assert_called_once_with("0")
     protocol_client.run.assert_called_once_with()
     protocol_client.authenticate_password.assert_called_once_with(ACCOUNT_NAME, PASSWORD, TWO_FACTOR, ANY, ANY)
 
@@ -167,7 +171,7 @@ async def test_servers_cache_failure(client, protocol_client, backend_client, se
     servers_cache.get.return_value = async_raise(AccessDenied())
     with pytest.raises(AccessDenied):
         await client.run()
-    servers_cache.get.assert_called_once_with(0)
+    servers_cache.get.assert_called_once_with("0")
     backend_client.get_authentication_data.assert_not_called()
     protocol_client.authenticate.assert_not_called()
     protocol_client.run.assert_not_called()

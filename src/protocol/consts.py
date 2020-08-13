@@ -1,5 +1,9 @@
 import enum
 
+
+STEAM_CLIENT_APP_ID = 7
+
+
 class EMsg(enum.IntEnum):
     Invalid = 0
     Multi = 1

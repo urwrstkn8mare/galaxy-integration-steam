@@ -1,5 +1,9 @@
-__version__ = "0.51.2"
+__version__ = "0.52"
 __changelog__ = {
+    "0.52": '''
+    - raise BackendError instead of BackendTimeout when couldn't login with token
+    - register steam app ticket with CM before logging and save a new ticket after login
+    ''',
     "0.51.2":'''
     - Enhance local game sizes by returning downloading size if game is not fully installed yet
     - Drop attaching obfuscated private ip to login params.

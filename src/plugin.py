@@ -32,6 +32,7 @@ from stats_cache import StatsCache
 from user_info_cache import UserInfoCache
 from times_cache import TimesCache
 from persistent_cache_state import PersistentCacheState
+from ownership_ticket_cache import OwnershipTicketCache
 from protocol.websocket_client import WebSocketClient, UserActionRequired
 from protocol.types import ProtoUserInfo
 from registry_monitor import get_steam_registry_monitor
@@ -119,16 +120,15 @@ class SteamPlugin(Plugin):
         self._http_client = AuthenticatedHttpClient()
         self._client = SteamHttpClient(self._http_client)
         self._persistent_storage_state = PersistentCacheState()
-        self._servers_cache = ServersCache(
-            self._client, self._ssl_context, self.persistent_cache, self._persistent_storage_state
-        )
         self._friends_cache = FriendsCache()
         self._games_cache = GamesCache()
         self._translations_cache = dict()
         self._stats_cache = StatsCache()
         self._user_info_cache = UserInfoCache()
         self._times_cache = TimesCache()
-        self._steam_client = WebSocketClient(self._client, self._ssl_context, self._servers_cache, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self.store_credentials)
+
+        # waits for persistent cache to initialize
+        self._steam_client = None
         self._steam_client_run_task = None
 
         self._tags_semaphore = asyncio.Semaphore(5)
@@ -147,6 +147,15 @@ class SteamPlugin(Plugin):
             self.update_user_presence(user_id, await presence_from_user_info(proto_user_info, self._translations_cache))
 
         self._friends_cache.updated_handler = user_presence_update_handler
+
+    def handshake_complete(self):
+        servers_cache = ServersCache(self._client, self._ssl_context, self.persistent_cache, self._persistent_storage_state)
+        ownership_ticket_cache = OwnershipTicketCache(self.persistent_cache, self._persistent_storage_state)
+        self._steam_client = WebSocketClient(
+            self._client, self._ssl_context, servers_cache, self._friends_cache, self._games_cache,
+            self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache,
+            ownership_ticket_cache
+        )
 
     # TODO: Remove - Steamcommunity auth element
     def _store_cookies(self, cookies):
@@ -255,13 +264,16 @@ class SteamPlugin(Plugin):
                 self.raise_websocket_errors()
             except BackendError as e:
                 logging.info(f"Unable to keep connection with steam backend {repr(e)}")
+                raise
             except Exception as e:
                 logging.info(f"Internal websocket exception caught during auth {repr(e)}")
-                await self.cancel_task(steam_run_task)
                 raise
-            logging.info(f"Failed to initialize connection with steam client within {connection_timeout} seconds")
-            await self.cancel_task(steam_run_task)
-            raise BackendTimeout()
+            else:
+                logging.info(f"Failed to initialize connection with steam client within {connection_timeout} seconds")
+                raise BackendTimeout()
+            finally:
+                await self.cancel_task(steam_run_task)
+
         self.store_credentials(self._user_info_cache.to_dict())
         return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
 

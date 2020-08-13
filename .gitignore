@@ -1,12 +1,14 @@
-# pytest
+# tools
 __pycache__/
 .pytest_cache/
-
-# pyinsaller
-build/
-output/
 *.spec
 .idea/
 .vscode/
 .mypy_cache/
 .venv
+
+# dev
+build/
+output/
+*.log
+*.log.[1-9]

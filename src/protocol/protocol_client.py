@@ -4,12 +4,13 @@ import enum
 import galaxy.api.errors
 
 from protocol.protobuf_client import ProtobufClient, SteamLicense
-from protocol.consts import EResult, EFriendRelationship, EPersonaState
+from protocol.consts import EResult, EFriendRelationship, EPersonaState, STEAM_CLIENT_APP_ID
 from friends_cache import FriendsCache
 from games_cache import GamesCache
 from stats_cache import StatsCache
 from user_info_cache import UserInfoCache
 from times_cache import TimesCache
+from ownership_ticket_cache import OwnershipTicketCache
 
 from typing import List
 
@@ -76,7 +77,7 @@ def translate_error(result: EResult):
         EResult.RemoteFileConflict,
         EResult.BadResponse
     ):
-        return galaxy.api.errors.BackendError()
+        return galaxy.api.errors.BackendError(data)
 
     return galaxy.api.errors.UnknownError(data)
 
@@ -92,7 +93,17 @@ class UserActionRequired(enum.IntEnum):
 class ProtocolClient:
     _STATUS_FLAG = 1106
 
-    def __init__(self, socket, friends_cache: FriendsCache, games_cache: GamesCache, translations_cache: dict, stats_cache: StatsCache, times_cache: TimesCache, user_info_cache: UserInfoCache, used_server_cell_id):
+    def __init__(self,
+        socket,
+        friends_cache: FriendsCache,
+        games_cache: GamesCache,
+        translations_cache: dict,
+        stats_cache: StatsCache,
+        times_cache: TimesCache,
+        user_info_cache: UserInfoCache,
+        ownership_ticket_cache: OwnershipTicketCache,
+        used_server_cell_id,
+    ):
 
         self._protobuf_client = ProtobufClient(socket)
         self._protobuf_client.log_on_handler = self._log_on_handler
@@ -101,6 +112,7 @@ class ProtocolClient:
         self._protobuf_client.user_info_handler = self._user_info_handler
         self._protobuf_client.user_nicknames_handler = self._user_nicknames_handler
         self._protobuf_client.app_info_handler = self._app_info_handler
+        self._protobuf_client.app_ownership_ticket_handler = self._app_ownership_ticket_handler
         self._protobuf_client.license_import_handler = self._license_import_handler
         self._protobuf_client.package_info_handler = self._package_info_handler
         self._protobuf_client.translations_handler = self._translations_handler
@@ -115,6 +127,7 @@ class ProtocolClient:
         self._stats_cache = stats_cache
         self._user_info_cache = user_info_cache
         self._times_cache = times_cache
+        self._ownership_ticket_cache = ownership_ticket_cache
         self._auth_lost_handler = None
         self._login_future = None
         self._used_server_cell_id = used_server_cell_id
@@ -127,6 +140,12 @@ class ProtocolClient:
 
     async def run(self):
         await self._protobuf_client.run()
+
+    async def get_steam_app_ownership_ticket(self):
+        await self._protobuf_client.get_app_ownership_ticket(STEAM_CLIENT_APP_ID)
+
+    async def register_auth_ticket_with_cm(self, ticket: bytes):
+        await self._protobuf_client.register_auth_ticket_with_cm(ticket)
 
     # TODO: Remove - Steamcommunity auth element
     async def authenticate_web_auth(self, steam_id, miniprofile_id, account_name, token, auth_lost_handler):
@@ -177,8 +196,8 @@ class ProtocolClient:
         result = await self._login_future
         if result == EResult.OK:
             self._auth_lost_handler = auth_lost_handler
-        elif result == EResult.InvalidPassword:
-            raise galaxy.api.errors.BackendError()
+        elif result == EResult.InvalidPassword:  # until we solve real problem with temporarily invalid token
+            raise galaxy.api.errors.BackendError({"result": result})
         else:
             logger.warning(f"Received unknown error, code: {result}")
             raise translate_error(result)
@@ -275,6 +294,13 @@ class ProtocolClient:
             self._games_cache.update_license_apps(package_id, appid)
         if title and type:
             self._games_cache.update_app_title(appid, title, type, parent)
+
+    async def _app_ownership_ticket_handler(self, appid: int, ticket: bytes):
+        if appid == STEAM_CLIENT_APP_ID:
+            logger.info('Storing steam app ownership ticket')
+            self._ownership_ticket_cache.ticket = ticket
+        else:
+            logger.debug(f'Ignoring app_id {appid} in ownership ticket handler')
 
     async def _package_info_handler(self):
         self._games_cache.update_packages()

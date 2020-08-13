@@ -33,6 +33,7 @@ class ProtobufClient:
         self._socket = set_socket
         self.log_on_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
         self.log_off_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
+        self.app_ownership_ticket_handler: Optional[Callable[[int, bytes], Awaitable[None]]] = None
         self.relationship_handler: Optional[Callable[[bool, Dict[int, EFriendRelationship]], Awaitable[None]]] = None
         self.user_info_handler: Optional[Callable[[int, ProtoUserInfo], Awaitable[None]]] = None
         self.user_nicknames_handler: Optional[Callable[[dict], Awaitable[None]]] = None
@@ -94,6 +95,20 @@ class ProtobufClient:
             await self._send(EMsg.ClientLogOff, message)
         except Exception as e:
             logger.info(f"Unable to send logoff message {repr(e)}")
+
+    async def get_app_ownership_ticket(self, app_id: int):
+        logger.info(f"Get app ownership ticket for {app_id}")
+        message = steammessages_clientserver_pb2.CMsgClientGetAppOwnershipTicket()
+        message.app_id = app_id
+        await self._send(EMsg.ClientGetAppOwnershipTicket, message)
+
+    async def register_auth_ticket_with_cm(self, ticket: bytes):
+        logger.info("Register auth ticket with CM")
+        message = steammessages_clientserver_pb2.CMsgClientRegisterAuthTicketWithCM()
+        message.ticket = ticket
+        message.protocol_version = 65580
+        message.client_instance_id = 0  # ??
+        await self._send(EMsg.ClientRegisterAuthTicketWithCM, message)
 
     async def log_on_web_auth(self, steam_id, miniprofile_id, account_name, token):
         # magic numbers taken from JavaScript Steam client
@@ -308,6 +323,8 @@ class ProtobufClient:
             await self._process_client_log_off(body)
         elif emsg == EMsg.ClientFriendsList:
             await self._process_client_friend_list(body)
+        elif emsg == EMsg.ClientGetAppOwnershipTicketResponse:
+            await self._process_client_get_app_ownership_ticket_response(body)
         elif emsg == EMsg.ClientPersonaState:
             await self._process_client_persona_state(body)
         elif emsg == EMsg.ClientLicenseList:
@@ -349,6 +366,18 @@ class ProtobufClient:
             await self._process_packet(data[offset + size_bytes:offset + size_bytes + size])
             offset += size_bytes + size
         logger.info("Finished processing message Multi")
+
+    async def _process_client_get_app_ownership_ticket_response(self, body):
+        logger.info("Processing message ClientGetAppOwnershipTicketResponse")
+        message = steammessages_clientserver_pb2.CMsgClientGetAppOwnershipTicketResponse()
+        message.ParseFromString(body)
+        result = message.eresult
+
+        if result == EResult.OK:
+            if self.app_ownership_ticket_handler is not None:
+                await self.app_ownership_ticket_handler(message.app_id, message.ticket)
+        else:
+            logger.warning("ClientGetAppOwnershipTicketResponse result: {result}")
 
     async def _process_client_log_on_response(self, body):
         logger.info("Processing message ClientLogOnResponse")

@@ -1,4 +1,5 @@
 import asyncio
+import json
 import time
 import logging
 from operator import itemgetter
@@ -28,7 +29,7 @@ class ServersCache:
 
     def _read_cache(self):
 
-        cache = self._persistent_cache.get('servers_cache')
+        cache = json.loads(self._persistent_cache.get('servers_cache', 'null'))
 
         if cache is None:
             logger.debug("servers_cache entry was not found in cache")
@@ -52,7 +53,7 @@ class ServersCache:
 
         return cache
 
-    def _store_cache(self, servers: Dict[str, int], cell_id):
+    def _store_cache(self, servers: Dict[str, int], cell_id: str):
 
         logger.debug(f"storing servers in cache {str(servers)} at cell {cell_id}")
         cache = self._read_cache()
@@ -62,7 +63,7 @@ class ServersCache:
             'servers': servers
         }
 
-        self._persistent_cache['servers_cache'] = cache
+        self._persistent_cache['servers_cache'] = json.dumps(cache)
         self._persistent_cache_state.modified = True
 
     async def _test_servers(self, raw_server_list: List[str]) -> Dict[str, int]:
@@ -85,7 +86,7 @@ class ServersCache:
 
         return {server: ping for server, ping in res if ping is not None}
 
-    async def get(self, used_cell_id):
+    async def get(self, used_cell_id: str):
         cache = self._read_cache()
         try:
             sorted_servers = cache[used_cell_id]['servers']

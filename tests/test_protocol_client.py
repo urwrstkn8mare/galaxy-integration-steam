@@ -7,7 +7,7 @@ import pytest
 
 from galaxy.unittest.mock import async_return_value, AsyncMock
 
-from protocol.consts import EFriendRelationship
+from protocol.consts import EFriendRelationship, STEAM_CLIENT_APP_ID
 from protocol.protocol_client import ProtocolClient
 from protocol.types import ProtoUserInfo
 
@@ -26,7 +26,6 @@ TOKEN = "TOKEN"
 def protobuf_client(mocker):
     mock = mocker.patch("protocol.protocol_client.ProtobufClient")
     return mock.return_value
-
 
 @pytest.fixture()
 def friends_cache():
@@ -53,13 +52,16 @@ def used_server_cellid():
     return MagicMock()
 
 @pytest.fixture()
+def ownership_ticket_cache():
+    return MagicMock()
+
+@pytest.fixture()
 def translations_cache():
     return dict()
 
 @pytest.fixture
-async def client(protobuf_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, used_server_cellid):
-    return ProtocolClient(protobuf_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, used_server_cellid)
-
+async def client(protobuf_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, ownership_ticket_cache, used_server_cellid):
+    return ProtocolClient(protobuf_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, ownership_ticket_cache, used_server_cellid)
 
 
 @pytest.mark.asyncio
@@ -142,6 +144,7 @@ async def test_user_info(client, protobuf_client, friends_cache):
     await protobuf_client.user_info_handler(user_id, user_info)
     friends_cache.update.assert_called_once_with(user_id, user_info)
 
+
 @pytest.mark.asyncio
 async def test_license_import(client):
     licenses_to_check = [SteamLicense(ProtoResponse(123), False),
@@ -151,3 +154,10 @@ async def test_license_import(client):
 
     client._games_cache.reset_storing_map.assert_called_once()
     client._protobuf_client.get_packages_info.assert_called_once_with(licenses_to_check)
+
+
+@pytest.mark.asyncio
+async def test_register_cm_token(client, ownership_ticket_cache):
+    ticket = 'ticket_mock'
+    await client._app_ownership_ticket_handler(STEAM_CLIENT_APP_ID, ticket)
+    assert ownership_ticket_cache.ticket == ticket

@@ -15,6 +15,7 @@ from stats_cache import StatsCache
 from user_info_cache import UserInfoCache
 from contextlib import suppress
 from times_cache import TimesCache
+from ownership_ticket_cache import OwnershipTicketCache
 
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ class WebSocketClient:
         stats_cache: StatsCache,
         times_cache: TimesCache,
         user_info_cache: UserInfoCache,
-        _store_credentials
+        ownership_ticket_cache: OwnershipTicketCache
     ):
         self._backend_client = backend_client
         self._ssl_context = ssl_context
@@ -48,8 +49,8 @@ class WebSocketClient:
         self._translations_cache = translations_cache
         self._stats_cache = stats_cache
         self._user_info_cache = user_info_cache
+        self._steam_app_ownership_ticket_cache = ownership_ticket_cache
 
-        self._store_credentials = _store_credentials
         self.communication_queues = {'plugin': asyncio.Queue(), 'websocket': asyncio.Queue(), 'errors': asyncio.Queue()}
         self._times_cache = times_cache
         self.used_server_cell_id = 0
@@ -86,7 +87,8 @@ class WebSocketClient:
                     raise
             except asyncio.CancelledError as e:
                 logger.warning(f"Websocket task cancelled {repr(e)}")
-                await self.communication_queues['errors'].put(e)
+                await self._close_socket()
+                await self._close_protocol_client()
                 raise
             except websockets.ConnectionClosedOK:
                 logger.debug("Expected WebSocket disconnection")
@@ -173,11 +175,11 @@ class WebSocketClient:
             return  # already connected
 
         while True:
-            servers = await self._servers_cache.get(self.used_server_cell_id)
+            servers = await self._servers_cache.get(str(self.used_server_cell_id))
             for server in servers:
                 try:
                     self._websocket = await asyncio.wait_for(websockets.connect(server, ssl=self._ssl_context), 5)
-                    self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self.used_server_cell_id)
+                    self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self._steam_app_ownership_ticket_cache, self.used_server_cell_id)
                     return
                 except (asyncio.TimeoutError, OSError, websockets.InvalidURI, websockets.InvalidHandshake):
                     continue
@@ -192,13 +194,15 @@ class WebSocketClient:
         async def auth_lost_handler(error):
             logger.warning("WebSocket client authentication lost")
             auth_lost_future.set_exception(error)
-        password = None
-        two_factor = None
+
         try:
             # TODO: Remove - Steamcommunity auth element
             if self._user_info_cache.old_flow:
                 steam_id, miniprofile_id, account_name, token = await self._backend_client.get_authentication_data()
                 return await self._protocol_client.authenticate_web_auth(steam_id, miniprofile_id, account_name, token, auth_lost_handler)
+
+            if self._steam_app_ownership_ticket_cache.ticket:
+                await self._protocol_client.register_auth_ticket_with_cm(self._steam_app_ownership_ticket_cache.ticket)
 
             if self._user_info_cache.token:
                 ret_code = await self._protocol_client.authenticate_token(self._user_info_cache.steam_id, self._user_info_cache.account_username, self._user_info_cache.token, auth_lost_handler)
@@ -210,16 +214,17 @@ class WebSocketClient:
                         logger.info(f"Put {ret_code} in the queue, waiting for other side to receive")
                     response = await self.communication_queues['websocket'].get()
                     logger.info(f" Got {response.keys()} from queue")
-                    if 'password' in response:
-                        password = response['password']
-                    if 'two_factor' in response:
-                        two_factor = response['two_factor']
+                    password = response.get('password', None)
+                    two_factor = response.get('two_factor', None)
                     logger.info(f'Authenticating with {"username" if self._user_info_cache.account_username else ""}, {"password" if password else ""}, {"two_factor" if two_factor else ""}')
                     ret_code = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, password, two_factor, self._user_info_cache.two_step, auth_lost_handler)
                     logger.info(f"Response from auth {ret_code}")
             logger.info("Finished authentication")
-            password = None
             await self.communication_queues['plugin'].put({'auth_result': ret_code})
+
+            # request new steam app ownership ticket
+            await self._protocol_client.get_steam_app_ownership_ticket()
+
         except Exception as e:
             await self.communication_queues['errors'].put(e)
             raise e

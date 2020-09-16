@@ -112,9 +112,9 @@ class ProtocolClient:
         self._protobuf_client.user_info_handler = self._user_info_handler
         self._protobuf_client.user_nicknames_handler = self._user_nicknames_handler
         self._protobuf_client.app_info_handler = self._app_info_handler
+        self._protobuf_client.package_info_handler = self._package_info_handler
         self._protobuf_client.app_ownership_ticket_handler = self._app_ownership_ticket_handler
         self._protobuf_client.license_import_handler = self._license_import_handler
-        self._protobuf_client.package_info_handler = self._package_info_handler
         self._protobuf_client.translations_handler = self._translations_handler
         self._protobuf_client.stats_handler = self._stats_handler
         self._protobuf_client.times_handler = self._times_handler
@@ -265,35 +265,44 @@ class ProtocolClient:
         self._friends_cache.update_nicknames(nicknames)
 
     async def _license_import_handler(self, steam_licenses: List[SteamLicense]):
+        logger.info('Handling %d user licenses', len(steam_licenses))
         not_resolved_licenses = []
 
         resolved_packages = self._games_cache.get_resolved_packages()
-        package_ids = [str(steam_license.license.package_id) for steam_license in steam_licenses]
+        package_ids = set([str(steam_license.license.package_id) for steam_license in steam_licenses])
 
         for steam_license in steam_licenses:
             if str(steam_license.license.package_id) not in resolved_packages:
                 not_resolved_licenses.append(steam_license)
-        if self._games_cache.get_package_ids() != package_ids:
-            logger.info(f"Licenses list different than last time {self._games_cache.get_package_ids()}")
-            logger.info(f"Starting license import for {package_ids}")
-            self._games_cache.reset_storing_map()
-            self._games_cache.start_packages_import(steam_licenses)
-            return await self._protobuf_client.get_packages_info(steam_licenses)
+
+        if len(package_ids) < 12000:
+            # TODO rework cache invalidation for bigger libraries (steam sends licenses in packs of >12k licenses)
+            if package_ids != self._games_cache.get_package_ids():
+                logger.info(
+                    "Licenses list different than last time (cached packages: %d, new packages: %d). Reseting cache.",
+                    len(self._games_cache.get_package_ids()),
+                    len(package_ids)
+                )
+                self._games_cache.reset_storing_map()
+                self._games_cache.start_packages_import(steam_licenses)
+                return await self._protobuf_client.get_packages_info(steam_licenses)
 
         # This path will only attempt import on packages which aren't resolved (dont have any apps assigned)
-
-        logger.info(f"Starting license import for {[package_id for package_id in package_ids if package_id not in resolved_packages]}")
-        logger.info(f"Skipping already resolved packages {resolved_packages}")
-
+        logger.info("Starting license import for %d packages, skipping %d already resolved.",
+            len(package_ids - resolved_packages),
+            len(resolved_packages)
+        )
         self._games_cache.start_packages_import(not_resolved_licenses)
-
         await self._protobuf_client.get_packages_info(not_resolved_licenses)
 
-    async def _app_info_handler(self, appid, package_id=None, title=None, type=None, parent=None):
+    def _app_info_handler(self, appid, package_id=None, title=None, type=None, parent=None):
         if package_id:
             self._games_cache.update_license_apps(package_id, appid)
         if title and type:
             self._games_cache.update_app_title(appid, title, type, parent)
+
+    def _package_info_handler(self):
+        self._games_cache.update_packages()
 
     async def _app_ownership_ticket_handler(self, appid: int, ticket: bytes):
         if appid == STEAM_CLIENT_APP_ID:
@@ -301,9 +310,6 @@ class ProtocolClient:
             self._ownership_ticket_cache.ticket = ticket
         else:
             logger.debug(f'Ignoring app_id {appid} in ownership ticket handler')
-
-    async def _package_info_handler(self):
-        self._games_cache.update_packages()
 
     async def _translations_handler(self, appid, translations=None):
         if appid and translations:

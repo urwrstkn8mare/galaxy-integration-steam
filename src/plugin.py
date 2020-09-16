@@ -138,10 +138,10 @@ class SteamPlugin(Plugin):
 
         self._update_local_games_task = asyncio.create_task(asyncio.sleep(0))
         self._update_owned_games_task = asyncio.create_task(asyncio.sleep(0))
+        self._pushing_cache_task = asyncio.create_task(asyncio.sleep(0))
         self._owned_games_parsed = None
 
         self._auth_data = None
-        self._cooldown_timer = time.time()
 
         async def user_presence_update_handler(user_id: str, proto_user_info: ProtoUserInfo):
             self.update_user_presence(user_id, await presence_from_user_info(proto_user_info, self._translations_cache))
@@ -183,8 +183,10 @@ class SteamPlugin(Plugin):
         with suppress(asyncio.CancelledError):
             self._update_local_games_task.cancel()
             self._update_owned_games_task.cancel()
+            self._pushing_cache_task.cancel()
             await self._update_local_games_task
             await self._update_owned_games_task
+            await self._pushing_cache_task
 
     async def _authenticate(self, username=None, password=None, two_factor=None):
         if two_factor:
@@ -360,7 +362,7 @@ class SteamPlugin(Plugin):
 
         try:
             temp_title = None
-            for app in self._games_cache.get_owned_games():
+            async for app in self._games_cache.get_owned_games():
                 if str(app.appid) == "292030":
                     temp_title = app.title
                 owned_games.append(
@@ -374,7 +376,7 @@ class SteamPlugin(Plugin):
 
             if temp_title:
                 dlcs = []
-                for dlc in self._games_cache.get_dlcs():
+                async for dlc in self._games_cache.get_dlcs():
                     dlcs.append(str(dlc.appid))
                 if "355880" in dlcs or ("378648" in dlcs and "378649" in dlcs):
                     owned_games.append(Game(
@@ -392,7 +394,7 @@ class SteamPlugin(Plugin):
         finally:
             self._owned_games_parsed = True
         self.persistent_cache['games'] = self._games_cache.dump()
-        self.push_cache()
+        self._persistent_storage_state.modified = True
 
         return owned_games
 
@@ -492,16 +494,17 @@ class SteamPlugin(Plugin):
         return await presence_from_user_info(user_info, self._translations_cache)
 
     async def _update_owned_games(self):
-        new_games = self._games_cache.get_added_games()
-        iter = 0
-        for game in new_games:
-            iter += 1
+        new_games = self._games_cache.consume_added_games()
+        if not new_games:
+            return
+
+        self.persistent_cache['games'] = self._games_cache.dump()
+        self._persistent_storage_state.modified = True
+
+        for i, game in enumerate(new_games):
             self.add_game(Game(game.appid, game.title, [], license_info=LicenseInfo(LicenseType.SinglePurchase)))
-            self.persistent_cache['games'] = self._games_cache.dump()
-            self.push_cache()
-            if iter >= 5:
-                iter = 0
-                await asyncio.sleep(1)
+            if i % 50 == 49:
+                await asyncio.sleep(5)  # give Galaxy a breath in case of adding thousands games
 
     def raise_websocket_errors(self):
         try:
@@ -512,25 +515,27 @@ class SteamPlugin(Plugin):
             pass
 
     def tick(self):
-        if self._local_games_cache is not None and \
-                (self._update_local_games_task is None or self._update_local_games_task.done()) and \
-                self._regmon.is_updated():
+        if self._local_games_cache is not None and self._update_local_games_task.done() and self._regmon.is_updated():
             self._update_local_games_task = asyncio.create_task(self._update_local_games())
-        if self._update_owned_games_task is None or self._update_owned_games_task.done() and self._owned_games_parsed:
+
+        if self._update_owned_games_task.done() and self._owned_games_parsed:
             self._update_owned_games_task = asyncio.create_task(self._update_owned_games())
 
-        if self._persistent_storage_state.modified:
-            self.push_cache()
-            self._persistent_storage_state.modified = False
+        if self._pushing_cache_task.done() and self._persistent_storage_state.modified:
+            self._pushing_cache = asyncio.create_task(self._push_cache())
+
         if self._user_info_cache.changed:
             self.store_credentials(self._user_info_cache.to_dict())
 
         if self._user_info_cache.initialized.is_set():
             self.raise_websocket_errors()
 
+    async def _push_cache(self):
+        self.push_cache()
+        self._persistent_storage_state.modified = False
+        await asyncio.sleep(COOLDOWN_TIME)  # lower pushing cache rate to do not clog socket in case of big cache
+
     async def _update_local_games(self):
-        if time.time() < self._cooldown_timer:
-            await asyncio.sleep(COOLDOWN_TIME)
         loop = asyncio.get_running_loop()
         new_list = await loop.run_in_executor(None, local_games_list)
         notify_list = get_state_changes(self._local_games_cache, new_list)
@@ -539,7 +544,7 @@ class SteamPlugin(Plugin):
             if LocalGameState.Running in game.local_game_state:
                 self._last_launch = time.time()
             self.update_local_game_status(game)
-        self._cooldown_timer = time.time() + COOLDOWN_TIME
+        await asyncio.sleep(COOLDOWN_TIME)
 
     async def get_local_games(self):
         loop = asyncio.get_running_loop()
@@ -567,15 +572,17 @@ class SteamPlugin(Plugin):
     async def get_subscriptions(self) -> List[Subscription]:
         if not self._owned_games_parsed:
             await self._games_cache.wait_ready(90)
-        if self._games_cache.get_shared_games():
-            return [Subscription("Family Sharing", True, None, SubscriptionDiscovery.AUTOMATIC)]
-        return [Subscription("Family Sharing", False, None, SubscriptionDiscovery.AUTOMATIC)]
-
-    async def prepare_subscription_games_context(self, subscription_names: List[str]) -> Any:
-        return [SubscriptionGame(game_id=str(game.appid), game_title=game.title) for game in self._games_cache.get_shared_games()]
+        any_shared_game = False
+        async for item in self._games_cache.get_shared_games():
+            any_shared_game = True
+            break
+        return [Subscription("Family Sharing", any_shared_game, None, SubscriptionDiscovery.AUTOMATIC)]
 
     async def get_subscription_games(self, subscription_name: str, context: Any):
-        yield context
+        games = []
+        async for game in self._games_cache.get_shared_games():
+            games.append(SubscriptionGame(game_id=str(game.appid), game_title=game.title))
+        yield games
 
     async def prepare_local_size_context(self, game_ids: List[str]) -> Dict[str, str]:
         library_folders = get_library_folders()

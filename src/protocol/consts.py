@@ -1659,6 +1659,10 @@ class EMsg(enum.IntEnum):
     TestWorkerProcessServiceModuleCallResponse = 9203
     ClientConcurrentSessionsBase = 96009600
 
+    @classmethod
+    def _missing_(cls, value):
+        return cls.Invalid
+
 
 class EResult(enum.IntEnum):
     Invalid = 0

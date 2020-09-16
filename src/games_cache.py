@@ -2,11 +2,13 @@ from cache_proto import ProtoCache
 from version import __version__
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set, AsyncGenerator
 from protocol.protobuf_client import SteamLicense
 import logging
 import json
 import copy
+import asyncio
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,7 @@ class App:
 class License:
     package_id: str
     shared: bool
-    app_ids: List[str] = field(default_factory=list)
+    app_ids: Set[str] = field(default_factory=set)
 
 
 @dataclass_json
@@ -37,8 +39,9 @@ class LicensesCache:
 
 @dataclass
 class ParsingStatus:
-    packages_to_parse: int = None
-    apps_to_parse: int = None
+    packages_to_parse: Optional[int] = None
+    apps_to_parse: Optional[int] = None
+
 
 class GamesCache(ProtoCache):
     def __init__(self):
@@ -59,6 +62,7 @@ class GamesCache(ProtoCache):
     def start_packages_import(self, steam_licenses: List[SteamLicense]):
         package_ids = self.get_package_ids()
         self._parsing_status.packages_to_parse = 0
+        logger.debug('Licenses to parse: %d, cached package_ids: %d', len(steam_licenses), package_ids)
         for steam_license in steam_licenses:
             if steam_license.license.package_id in package_ids:
                 continue
@@ -68,7 +72,7 @@ class GamesCache(ProtoCache):
         self._parsing_status.apps_to_parse = 0
         self._update_ready_state()
 
-    def get_added_games(self):
+    def consume_added_games(self):
         apps = self._apps_added
         self._apps_added = []
         games = []
@@ -78,15 +82,15 @@ class GamesCache(ProtoCache):
                 games.append(app)
         return games
 
-    def get_package_ids(self):
+    def get_package_ids(self) -> Set[str]:
         if not self._storing_map:
-            return []
-        return [license.package_id for license in copy.copy(self._storing_map).licenses]
+            return set()
+        return set([license.package_id for license in copy.copy(self._storing_map).licenses])
 
-    def get_resolved_packages(self):
+    def get_resolved_packages(self) -> Set[str]:
         if not self._storing_map:
-            return []
-        packages = []
+            return set()
+        packages = set()
         storing_map = copy.copy(self._storing_map)
         for license in storing_map.licenses:
             if license.app_ids:
@@ -95,61 +99,45 @@ class GamesCache(ProtoCache):
                     if app not in storing_map.apps:
                         resolved = False
                 if resolved:
-                    packages.append(license.package_id)
-
+                    packages.add(license.package_id)
         return packages
 
     def update_packages(self):
         self._parsing_status.packages_to_parse -= 1
         self._update_ready_state()
 
-    def get_owned_games(self):
+    async def __consume_resolved_apps(self, shared_licenses: bool, apptype: str):
         storing_map = copy.copy(self._storing_map)
         for license in storing_map.licenses:
-            if license.shared:
+            await asyncio.sleep(0.001)  # do not block event loop; waiting one frame (0) was not enough 78#issuecomment-687140437
+            if license.shared != shared_licenses:
                 continue
             for appid in license.app_ids:
                 if appid not in self._storing_map.apps:
-                    logger.warning(f"Tried to retrieve unresolved app: {appid} for license: {license.package_id}!")
+                    logger.warning("Tried to retrieve unresolved app: %s for license: %s!", appid, license.package_id)
                     continue
                 app = self._storing_map.apps[appid]
-                if app.type == "game":
+                if app.type == apptype:
                     self._sent_apps.append(app)
                     yield app
 
-    def get_dlcs(self):
-        storing_map = copy.copy(self._storing_map)
-        for license in storing_map.licenses:
-            if license.shared:
-                continue
-            for appid in license.app_ids:
-                if appid not in self._storing_map.apps:
-                    logger.warning(f"Tried to retrieve unresolved app: {appid} for license: {license.package_id}!")
-                    continue
-                app = self._storing_map.apps[appid]
-                if app.type == "dlc":
-                    self._sent_apps.append(app)
-                    yield app
+    async def get_owned_games(self) -> AsyncGenerator[App, None]:
+        async for app in self.__consume_resolved_apps(False, 'game'):
+            yield app
 
-    def get_shared_games(self):
-        storing_map = copy.copy(self._storing_map)
-        for license in storing_map.licenses:
-            if not license.shared:
-                continue
-            for appid in license.app_ids:
-                if appid not in self._storing_map.apps:
-                    logger.warning(f"Tried to retrieve unresolved app: {appid} for shared license: {license.package_id}!")
-                    continue
-                app = self._storing_map.apps[appid]
-                if app.type == "game":
-                    self._sent_apps.append(app)
-                    yield app
+    async def get_dlcs(self) -> AsyncGenerator[App, None]:
+        async for app in self.__consume_resolved_apps(False, 'dlc'):
+            yield app
+
+    async def get_shared_games(self) -> AsyncGenerator[App, None]:
+        async for app in self.__consume_resolved_apps(True, 'game'):
+            yield app
 
     def update_license_apps(self, package_id, appid):
         self._parsing_status.apps_to_parse += 1
         for license in self._storing_map.licenses:
             if license.package_id == package_id:
-                license.app_ids.append(appid)
+                license.app_ids.add(appid)
 
     def update_app_title(self, appid, title, type, parent):
         for license in self._storing_map.licenses:

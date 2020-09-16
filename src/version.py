@@ -1,5 +1,12 @@
-__version__ = "0.52"
+__version__ = "0.53"
 __changelog__ = {
+    "0.53": '''
+    - fix crashes due to pushing big cache multiple times in a row
+    - fix crashes due to O(n^2) licenses lookup for big libraries
+    - fix crashes due to apps parsing for big libraries
+    - workaround issue with improper games cache invalidation for big libraries
+    - improved how Steam in/out protobuf traffic is logged
+    ''',
     "0.52": '''
     - raise BackendError instead of BackendTimeout when couldn't login with token
     - register steam app ticket with CM before logging and save a new ticket after login
@@ -84,5 +91,3 @@ __changelog__ = {
     - Tags are now pulled from protobufs instead of scrapping local files (allows for tags import without installed steam client)
     '''
 }
-
-

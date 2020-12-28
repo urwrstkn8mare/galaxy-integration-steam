@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 logging.getLogger("websockets").setLevel(logging.WARNING)
 
 RECONNECT_INTERVAL_SECONDS = 20
+MAX_INCOMING_MESSAGE_SIZE = 2**24
 
 class WebSocketClient:
     def __init__(
@@ -178,7 +179,7 @@ class WebSocketClient:
             servers = await self._servers_cache.get(str(self.used_server_cell_id))
             for server in servers:
                 try:
-                    self._websocket = await asyncio.wait_for(websockets.connect(server, ssl=self._ssl_context), 5)
+                    self._websocket = await asyncio.wait_for(websockets.connect(server, ssl=self._ssl_context, max_size=MAX_INCOMING_MESSAGE_SIZE), 5)
                     self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self._steam_app_ownership_ticket_cache, self.used_server_cell_id)
                     return
                 except (asyncio.TimeoutError, OSError, websockets.InvalidURI, websockets.InvalidHandshake):

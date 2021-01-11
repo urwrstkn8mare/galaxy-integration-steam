@@ -196,7 +196,7 @@ async def test_connect_error(client, protocol_client, servers_cache, mocker, exc
     client._authenticate = AsyncMock()
     with pytest.raises(AssertionError):
         await client.run()
-    connect.assert_has_calls([call("wss://websocket_1", ssl=ANY), call("wss://websocket_2", ssl=ANY)])
+    connect.assert_has_calls([call("wss://websocket_1", max_size=ANY, ssl=ANY), call("wss://websocket_2", max_size=ANY, ssl=ANY)])
 
 
 @pytest.mark.asyncio
@@ -220,5 +220,5 @@ async def test_connect_error_all_servers(client, protocol_client, servers_cache,
     client._authenticate = AsyncMock()
     with pytest.raises(AssertionError):
         await client.run()
-    connect.assert_has_calls([call("wss://websocket_1", ssl=ANY), call("wss://websocket_1", ssl=ANY)])
+    connect.assert_has_calls([call("wss://websocket_1", max_size=ANY, ssl=ANY), call("wss://websocket_1", max_size=ANY, ssl=ANY)])
     sleep.assert_any_call(RECONNECT_INTERVAL_SECONDS)

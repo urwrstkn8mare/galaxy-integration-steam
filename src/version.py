@@ -1,5 +1,11 @@
-__version__ = "0.53"
+__version__ = "0.54"
 __changelog__ = {
+    "0.54": '''
+    - fix common problem with not showing achievements (Steam messages > 1MB) (#100 thanks @Neverous!)
+    - fix typo in EMsg.ClientLoggedOff listener
+    - rename "subscription" name from `Family Sharing` to `Steam Family Sharing`
+    - remove old deprecated code for http logging path
+    ''',
     "0.53": '''
     - fix crashes due to pushing big cache multiple times in a row
     - fix crashes due to O(n^2) licenses lookup for big libraries

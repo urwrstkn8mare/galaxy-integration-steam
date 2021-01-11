@@ -312,7 +312,7 @@ class ProtobufClient:
                     logger.info("New session id: %d", header.client_sessionid)
                     self._session_id = header.client_sessionid
                 if self._session_id != header.client_sessionid:
-                    logger.warning('Received session_id %s whiled to client one is %s', header.client_sessionId, self._session_id)
+                    logger.warning('Received session_id %s while client one is %s', header.client_sessionId, self._session_id)
             await self._process_message(emsg, header, packet[8 + header_len:])
         else:
             logger.warning("Packet for %d -> EMsg.%s with extended header - ignoring", emsg, EMsg(emsg).name)
@@ -323,8 +323,8 @@ class ProtobufClient:
             await self._process_multi(body)
         elif emsg == EMsg.ClientLogOnResponse:
             await self._process_client_log_on_response(body)
-        elif emsg == EMsg.ClientLogOff:
-            await self._process_client_log_off(body)
+        elif emsg == EMsg.ClientLoggedOff:
+            await self._process_client_logged_off(body)
         elif emsg == EMsg.ClientFriendsList:
             await self._process_client_friend_list(body)
         elif emsg == EMsg.ClientGetAppOwnershipTicketResponse:
@@ -431,7 +431,7 @@ class ProtobufClient:
         await self.accept_new_login_token(message.unique_id, jobid_source)
         self.login_key_retrieved.set()
 
-    async def _process_client_log_off(self, body):
+    async def _process_client_logged_off(self, body):
         logger.debug("Processing message ClientLoggedOff")
         message = steammessages_clientserver_login_pb2.CMsgClientLoggedOff()
         message.ParseFromString(body)

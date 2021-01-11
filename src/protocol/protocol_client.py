@@ -147,17 +147,6 @@ class ProtocolClient:
     async def register_auth_ticket_with_cm(self, ticket: bytes):
         await self._protobuf_client.register_auth_ticket_with_cm(ticket)
 
-    # TODO: Remove - Steamcommunity auth element
-    async def authenticate_web_auth(self, steam_id, miniprofile_id, account_name, token, auth_lost_handler):
-        loop = asyncio.get_running_loop()
-        self._login_future = loop.create_future()
-        await self._protobuf_client.log_on_web_auth(steam_id, miniprofile_id, account_name, token)
-        result = await self._login_future
-        if result == EResult.OK:
-            self._auth_lost_handler = auth_lost_handler
-        else:
-            raise translate_error(result)
-
     async def authenticate_password(self, account_name, password, two_factor, two_factor_type, auth_lost_handler):
         loop = asyncio.get_running_loop()
         self._login_future = loop.create_future()

@@ -15,11 +15,11 @@ from galaxy.api.types import (
     LocalGame, LocalGameState, GameLibrarySettings, UserPresence, UserInfo, Subscription, SubscriptionGame
 )
 from galaxy.api.errors import (
-    AuthenticationRequired, UnknownBackendResponse, InvalidCredentials, UnknownError, AccessDenied, BackendTimeout, BackendError
+    AuthenticationRequired, UnknownBackendResponse, UnknownError, AccessDenied, BackendTimeout, BackendError
 )
 from galaxy.api.consts import Platform, LicenseType, SubscriptionDiscovery
 
-from backend import SteamHttpClient, AuthenticatedHttpClient, UnfinishedAccountSetup
+from backend import SteamHttpClient, AuthenticatedHttpClient
 from client import (
     StateFlags, local_games_list, get_state_changes, get_client_executable,
     load_vdf, get_library_folders, get_app_manifests, app_id_from_manifest_path
@@ -43,7 +43,6 @@ from urllib import parse
 from authentication import START_URI, END_URI, next_step_response
 
 from contextlib import suppress
-from http.cookies import SimpleCookie, Morsel
 
 
 logger = logging.getLogger(__name__)
@@ -54,18 +53,6 @@ Timestamp = NewType('Timestamp', int)
 def is_windows():
     return platform.system().lower() == "windows"
 
-# TODO: Remove - Steamcommunity auth element
-def dicts_to_morsels(cookies):
-    morsels = []
-    for cookie in cookies:
-        name = cookie["name"]
-        value = cookie["value"]
-        m = Morsel()
-        m.set(name, value, value)
-        m["domain"] = cookie.get("domain", "")
-        m["path"] = cookie.get("path", "")
-        morsels.append(m)
-    return morsels
 
 NO_AVATAR_SET = '0000000000000000000000000000000000000000'
 AVATAR_URL_PREFIX = 'https://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/'
@@ -88,13 +75,6 @@ def morsels_to_dicts(morsels):
         }
         cookies.append(cookie)
     return cookies
-
-
-# TODO: Remove - Steamcommunity auth element
-def parse_stored_cookies(cookies):
-    if isinstance(cookies, dict):
-        cookies = [{"name": key, "value": value} for key, value in cookies.items()]
-    return dicts_to_morsels(cookies)
 
 
 def galaxy_user_info_from_user_info(user_id, user_info):
@@ -157,23 +137,6 @@ class SteamPlugin(Plugin):
             ownership_ticket_cache
         )
 
-    # TODO: Remove - Steamcommunity auth element
-    def _store_cookies(self, cookies):
-        credentials = {
-            "cookies": morsels_to_dicts(cookies)
-        }
-        self.store_credentials(credentials)
-
-    # TODO: Remove - Steamcommunity auth element
-    def _force_utc(self):
-        cookies = SimpleCookie()
-        cookies["timezoneOffset"] = "0,0"
-        morsel = cookies["timezoneOffset"]
-        morsel["domain"] = "steamcommunity.com"
-        # override encoding (steam does not fallow RFC 6265)
-        morsel.set("timezoneOffset", "0,0", "0,0")
-        self._http_client.update_cookies(cookies)
-
     async def shutdown(self):
         self._regmon.close()
         await self._steam_client.close()
@@ -196,46 +159,6 @@ class SteamPlugin(Plugin):
         self._user_info_cache.account_username = username
         await self._steam_client.communication_queues['websocket'].put({'password': password})
 
-    # TODO: Remove - Steamcommunity auth element
-    async def _do_steamcommunity_auth(self, morsels):
-        cookies = [(morsel.key, morsel) for morsel in morsels]
-
-        self._http_client.update_cookies(cookies)
-        self._http_client.set_cookies_updated_callback(self._store_cookies)
-        self._force_utc()
-
-        try:
-            profile_url = await self._client.get_profile()
-        except UnknownBackendResponse:
-            raise InvalidCredentials()
-
-        async def set_profile_data():
-            try:
-                await self._client.get_authentication_data()
-                steam_id, login = await self._client.get_profile_data(profile_url)
-                self._user_info_cache.account_username = login
-                self._user_info_cache.old_flow = True
-                self._user_info_cache.steam_id = steam_id
-                self.create_task(self._steam_client.run(), "Run WebSocketClient")
-                return steam_id, login
-            except AccessDenied:
-                raise InvalidCredentials()
-
-        try:
-            steam_id, login = await set_profile_data()
-        except UnfinishedAccountSetup:
-            await self._client.setup_steam_profile(profile_url)
-            steam_id, login = await set_profile_data()
-
-        self._http_client.set_auth_lost_callback(self.lost_authentication)
-
-        if "steamRememberLogin" in (cookie[0] for cookie in cookies):
-            logging.debug("Remember login cookie present")
-        else:
-            logging.debug("Remember login cookie not present")
-
-        return Authentication(steam_id, login)
-
     async def cancel_task(self, task):
         try:
             task.cancel()
@@ -247,11 +170,10 @@ class SteamPlugin(Plugin):
         if not stored_credentials:
             self.create_task(self._steam_client.run(), "Run WebSocketClient")
             return next_step_response(START_URI.LOGIN, END_URI.LOGIN_FINISHED)
-        # TODO remove at some point, old refresh flow
-        cookies = stored_credentials.get("cookies", [])
-        if cookies:
-            morsels = parse_stored_cookies(cookies)
-            return await self._do_steamcommunity_auth(morsels)
+
+        if stored_credentials.get("cookies", []):
+            logger.error('Old http login flow is not unsupported. Please reconnect the plugin')
+            raise AccessDenied()
 
         self._user_info_cache.from_dict(stored_credentials)
         if 'games' in self.persistent_cache:
@@ -573,10 +495,10 @@ class SteamPlugin(Plugin):
         if not self._owned_games_parsed:
             await self._games_cache.wait_ready(90)
         any_shared_game = False
-        async for item in self._games_cache.get_shared_games():
+        async for _ in self._games_cache.get_shared_games():
             any_shared_game = True
             break
-        return [Subscription("Family Sharing", any_shared_game, None, SubscriptionDiscovery.AUTOMATIC)]
+        return [Subscription("Steam Family Sharing", any_shared_game, None, SubscriptionDiscovery.AUTOMATIC)]
 
     async def get_subscription_games(self, subscription_name: str, context: Any):
         games = []

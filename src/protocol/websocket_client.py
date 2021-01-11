@@ -181,6 +181,7 @@ class WebSocketClient:
                 try:
                     self._websocket = await asyncio.wait_for(websockets.connect(server, ssl=self._ssl_context, max_size=MAX_INCOMING_MESSAGE_SIZE), 5)
                     self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self._steam_app_ownership_ticket_cache, self.used_server_cell_id)
+                    logger.info(f'Logged to Steam on CM {server} from cell_id {self.used_server_cell_id}')
                     return
                 except (asyncio.TimeoutError, OSError, websockets.InvalidURI, websockets.InvalidHandshake):
                     continue
@@ -197,11 +198,6 @@ class WebSocketClient:
             auth_lost_future.set_exception(error)
 
         try:
-            # TODO: Remove - Steamcommunity auth element
-            if self._user_info_cache.old_flow:
-                steam_id, miniprofile_id, account_name, token = await self._backend_client.get_authentication_data()
-                return await self._protocol_client.authenticate_web_auth(steam_id, miniprofile_id, account_name, token, auth_lost_handler)
-
             if self._steam_app_ownership_ticket_cache.ticket:
                 await self._protocol_client.register_auth_ticket_with_cm(self._steam_app_ownership_ticket_cache.ticket)
 

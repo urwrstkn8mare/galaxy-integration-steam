@@ -1,4 +1,5 @@
 import asyncio
+import ipaddress
 import struct
 import gzip
 import json
@@ -29,6 +30,7 @@ class SteamLicense(NamedTuple):
 class ProtobufClient:
     _PROTO_MASK = 0x80000000
     _ACCOUNT_ID_MASK = 0x0110000100000000
+    _IP_OBFUSCATION_MASK = 0x606573A4
 
     def __init__(self, set_socket):
         self._socket = set_socket
@@ -119,6 +121,7 @@ class ProtobufClient:
         message.password = sanitize_password(password)
         message.should_remember_password = True
         message.supports_rate_limit_response = True
+        message.obfuscated_private_ip.v4 = self._get_obfuscated_private_ip()
 
         if two_factor:
             if two_factor_type == 'email':
@@ -136,6 +139,7 @@ class ProtobufClient:
         message.should_remember_password = True
         message.supports_rate_limit_response = True
         message.login_key = token
+        message.obfuscated_private_ip.v4 = self._get_obfuscated_private_ip()
 
         sentry = await self.sentry()
         if sentry:
@@ -146,6 +150,13 @@ class ProtobufClient:
         self.steam_id = steam_id
         logger.info("Sending log on message using token")
         await self._send(EMsg.ClientLogon, message)
+
+    def _get_obfuscated_private_ip(self) -> int:
+        (host, port) = self._socket.local_address
+        ip = int(ipaddress.IPv4Address(host))
+        obfuscated_ip = ip ^ self._IP_OBFUSCATION_MASK
+        logger.debug(f"Local obfuscated IP: {obfuscated_ip}")
+        return obfuscated_ip
 
     async def _import_game_stats(self, game_id):
         logger.info(f"Importing game stats for {game_id}")

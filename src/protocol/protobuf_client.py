@@ -67,9 +67,6 @@ class ProtobufClient:
     async def wait_closed(self):
         pass
 
-    async def _process_packets(self):
-        pass
-
     async def run(self):
         while True:
             for job in self.job_list.copy():
@@ -111,27 +108,6 @@ class ProtobufClient:
         message.protocol_version = 65580
         message.client_instance_id = 0  # ??
         await self._send(EMsg.ClientRegisterAuthTicketWithCM, message)
-
-    async def log_on_web_auth(self, steam_id, miniprofile_id, account_name, token):
-        # magic numbers taken from JavaScript Steam client
-        message = steammessages_clientserver_login_pb2.CMsgClientLogon()
-        message.account_name = account_name
-        message.protocol_version = 65580
-        message.qos_level = 2
-        message.client_os_type = 4294966596
-        message.ui_mode = 4
-        message.chat_mode = 2
-        message.web_logon_nonce = token
-        message.client_instance_id = 0
-
-        try:
-            self.steam_id = steam_id
-            await self.user_authentication_handler('steam_id', self.steam_id)
-            await self.user_authentication_handler('account_id', miniprofile_id)
-            await self._send(EMsg.ClientLogon, message)
-        except Exception:
-            self.steam_id = None
-            raise
 
     async def log_on_password(self, account_name, password, two_factor, two_factor_type):
         def sanitize_password(password):

@@ -152,7 +152,7 @@ class ProtobufClient:
         await self._send(EMsg.ClientLogon, message)
 
     def _get_obfuscated_private_ip(self) -> int:
-        (host, port) = self._socket.local_address
+        host, port = self._socket.local_address
         ip = int(ipaddress.IPv4Address(host))
         obfuscated_ip = ip ^ self._IP_OBFUSCATION_MASK
         logger.debug(f"Local obfuscated IP: {obfuscated_ip}")

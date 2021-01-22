@@ -1,4 +1,5 @@
 import asyncio
+import ipaddress
 import struct
 import gzip
 import json
@@ -29,6 +30,7 @@ class SteamLicense(NamedTuple):
 class ProtobufClient:
     _PROTO_MASK = 0x80000000
     _ACCOUNT_ID_MASK = 0x0110000100000000
+    _IP_OBFUSCATION_MASK = 0x606573A4
 
     def __init__(self, set_socket):
         self._socket = set_socket
@@ -65,9 +67,6 @@ class ProtobufClient:
             self._heartbeat_task.cancel()
 
     async def wait_closed(self):
-        pass
-
-    async def _process_packets(self):
         pass
 
     async def run(self):
@@ -112,27 +111,6 @@ class ProtobufClient:
         message.client_instance_id = 0  # ??
         await self._send(EMsg.ClientRegisterAuthTicketWithCM, message)
 
-    async def log_on_web_auth(self, steam_id, miniprofile_id, account_name, token):
-        # magic numbers taken from JavaScript Steam client
-        message = steammessages_clientserver_login_pb2.CMsgClientLogon()
-        message.account_name = account_name
-        message.protocol_version = 65580
-        message.qos_level = 2
-        message.client_os_type = 4294966596
-        message.ui_mode = 4
-        message.chat_mode = 2
-        message.web_logon_nonce = token
-        message.client_instance_id = 0
-
-        try:
-            self.steam_id = steam_id
-            await self.user_authentication_handler('steam_id', self.steam_id)
-            await self.user_authentication_handler('account_id', miniprofile_id)
-            await self._send(EMsg.ClientLogon, message)
-        except Exception:
-            self.steam_id = None
-            raise
-
     async def log_on_password(self, account_name, password, two_factor, two_factor_type):
         def sanitize_password(password):
             return ''.join([i if ord(i) < 128 else '' for i in password])
@@ -143,6 +121,7 @@ class ProtobufClient:
         message.password = sanitize_password(password)
         message.should_remember_password = True
         message.supports_rate_limit_response = True
+        message.obfuscated_private_ip.v4 = self._get_obfuscated_private_ip()
 
         if two_factor:
             if two_factor_type == 'email':
@@ -160,6 +139,7 @@ class ProtobufClient:
         message.should_remember_password = True
         message.supports_rate_limit_response = True
         message.login_key = token
+        message.obfuscated_private_ip.v4 = self._get_obfuscated_private_ip()
 
         sentry = await self.sentry()
         if sentry:
@@ -170,6 +150,13 @@ class ProtobufClient:
         self.steam_id = steam_id
         logger.info("Sending log on message using token")
         await self._send(EMsg.ClientLogon, message)
+
+    def _get_obfuscated_private_ip(self) -> int:
+        host, port = self._socket.local_address
+        ip = int(ipaddress.IPv4Address(host))
+        obfuscated_ip = ip ^ self._IP_OBFUSCATION_MASK
+        logger.debug(f"Local obfuscated IP: {obfuscated_ip}")
+        return obfuscated_ip
 
     async def _import_game_stats(self, game_id):
         logger.info(f"Importing game stats for {game_id}")

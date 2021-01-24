@@ -181,7 +181,7 @@ class WebSocketClient:
                 try:
                     self._websocket = await asyncio.wait_for(websockets.connect(server, ssl=self._ssl_context, max_size=MAX_INCOMING_MESSAGE_SIZE), 5)
                     self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self._steam_app_ownership_ticket_cache, self.used_server_cell_id)
-                    logger.info(f'Logged to Steam on CM {server} from cell_id {self.used_server_cell_id}')
+                    logger.info(f'Connected to Steam on CM {server} from cell_id {self.used_server_cell_id}')
                     return
                 except (asyncio.TimeoutError, OSError, websockets.InvalidURI, websockets.InvalidHandshake):
                     continue

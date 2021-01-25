@@ -19,6 +19,7 @@ class WebSocketList:
 
     async def get_ordered_by_ping(self, cell_id: int) -> List[str]:
         servers = await self._steam_http_client.get_servers(cell_id)
+        logger.debug("Got servers from backend: %s", str(servers))
 
         sockets_with_ping = await self._test_sockets(
                 [f"wss://{server}/cmsocket/" for server in servers]
@@ -28,6 +29,7 @@ class WebSocketList:
             return []
 
         sorted_sockets = sorted(sockets_with_ping.keys(), key=itemgetter(1))
+        logger.debug(f"Sorted sockets: {sorted_sockets}")
         return sorted_sockets
 
     async def _test_sockets(self, sockets: List[str]) -> Dict[str, int]:

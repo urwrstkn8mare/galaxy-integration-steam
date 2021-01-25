@@ -32,6 +32,7 @@ class WebSocketCachePersistence:
             self._validate_cache(cache, cell_id)
 
             server = cache[str(cell_id)]['server']
+            logger.info(f"websocket_cache returned server: {server}")
             return server
         except CachePersistenceException as e:
             logger.info(e.message)

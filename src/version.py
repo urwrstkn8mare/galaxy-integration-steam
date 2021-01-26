@@ -1,5 +1,9 @@
-__version__ = "0.54"
+__version__ = "0.55"
 __changelog__ = {
+    """0.55""": '''
+    - add obfuscated_private_ip to ClientLogOn message (#104 thanks @SparrowBrain!)
+      this change should fix losing authentication in case of multiple machines in the same network (eresult 32 and eresult 5)
+    ''',
     "0.54": '''
     - fix common problem with not showing achievements (Steam messages > 1MB) (#100 thanks @Neverous!)
     - fix typo in EMsg.ClientLoggedOff listener

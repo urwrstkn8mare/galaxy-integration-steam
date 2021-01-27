@@ -2,7 +2,6 @@ import asyncio
 import logging
 import ssl
 import time
-from operator import itemgetter
 from typing import List, Tuple, Dict, Any
 
 import websockets
@@ -28,7 +27,7 @@ class WebSocketList:
         if not sockets_with_ping:
             return []
 
-        sorted_sockets = sorted(sockets_with_ping.keys(), key=itemgetter(1))
+        sorted_sockets = sorted(sockets_with_ping.keys(), key=sockets_with_ping.get)
         logger.debug(f"Sorted sockets: {sorted_sockets}")
         return sorted_sockets
 

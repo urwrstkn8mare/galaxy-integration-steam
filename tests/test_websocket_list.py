@@ -11,18 +11,13 @@ from websocket_list import WebSocketList
 @pytest.mark.asyncio
 async def test_get_ordered_by_ping_returns_single_server(backend_client, monkeypatch):
     cell_id = 0
-    address = "cm2-waw1.cm.steampowered.com:27039"
+    address = "cm2-waw1.cm.teststeam.com:27039"
     backend_client.get_servers.return_value = [address]
     ssl_context = MagicMock()
 
     websocket = MagicMock()
     websocket.close = AsyncMock()
-
-    async def fake_connect():
-        await sleep(0.001)
-        return websocket
-
-    websockets_connect = AsyncMock(return_value=await fake_connect())
+    websockets_connect = AsyncMock(return_value=websocket)
     monkeypatch.setattr(websockets, 'connect', websockets_connect)
     websocket_list = WebSocketList(backend_client, ssl_context)
 
@@ -35,7 +30,7 @@ async def test_get_ordered_by_ping_returns_single_server(backend_client, monkeyp
 @pytest.mark.asyncio
 async def test_get_ordered_by_ping_queries_list_with_given_cell_id(backend_client):
     cell_id = 1
-    address = "cm2-waw1.cm.steampowered.com:27039"
+    address = "cm2-waw1.cm.teststeam.com:27039"
     backend_client.get_servers.return_value = [address]
     ssl_context = MagicMock()
     websocket_list = WebSocketList(backend_client, ssl_context)
@@ -48,18 +43,13 @@ async def test_get_ordered_by_ping_queries_list_with_given_cell_id(backend_clien
 @pytest.mark.asyncio
 async def test_get_ordered_by_ping_connects_to_servers_and_closes_connection(backend_client, monkeypatch):
     cell_id = 0
-    address = "cm2-waw1.cm.steampowered.com:27039"
+    address = "cm2-waw1.cm.teststeam.com:27039"
     backend_client.get_servers.return_value = [address]
     ssl_context = MagicMock()
 
     websocket = MagicMock()
     websocket.close = AsyncMock()
-
-    async def fake_connect():
-        await sleep(0.001)
-        return websocket
-
-    websockets_connect = AsyncMock(return_value=await fake_connect())
+    websockets_connect = AsyncMock(return_value=websocket)
     monkeypatch.setattr(websockets, 'connect', websockets_connect)
     websocket_list = WebSocketList(backend_client, ssl_context)
 
@@ -69,7 +59,6 @@ async def test_get_ordered_by_ping_connects_to_servers_and_closes_connection(bac
     websocket.close.assert_called_once()
 
 
-@pytest.mark.skip(reason="cannot pass arguments to fake_connect")
 @pytest.mark.asyncio
 async def test_get_ordered_by_ping_orders_servers_by_ping(backend_client, monkeypatch):
     cell_id = 0
@@ -83,18 +72,17 @@ async def test_get_ordered_by_ping_orders_servers_by_ping(backend_client, monkey
 
     async def fake_connect(uri, ssl):
         delays = {
-            f"wss://{address_slow}/cmsocket/": 0.002,
-            f"wss://{address_fast}/cmsocket/": 0.001,
+            f"wss://{address_slow}/cmsocket/": 0.1,
+            f"wss://{address_fast}/cmsocket/": 0.0,
         }
-        delay = delays.get(uri, 10)
+        delay = delays[uri]
         await sleep(delay)
         return websocket
 
-    websockets_connect = AsyncMock(side_effect=fake_connect)
+    websockets_connect = MagicMock(side_effect=fake_connect)
     monkeypatch.setattr(websockets, 'connect', websockets_connect)
     websocket_list = WebSocketList(backend_client, ssl_context)
 
-    await websocket_list.get_ordered_by_ping(cell_id)
+    servers = await websocket_list.get_ordered_by_ping(cell_id)
 
-    websockets_connect.assert_called_once_with(f"wss://{address_slow}/cmsocket/", ssl=ssl_context)
-    websocket.close.assert_called_once()
+    assert servers == [f"wss://{address_fast}/cmsocket/", f"wss://{address_slow}/cmsocket/"]

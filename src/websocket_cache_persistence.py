@@ -65,7 +65,7 @@ class WebSocketCachePersistence:
         if cache is None:
             raise CachePersistenceException("websocket_cache entry was not found in cache")
 
-        cell_id_cache = cache.get(str(cell_id))
+        cell_id_cache = cache.get(str(cell_id), None)
         if cell_id_cache is None:
             raise CachePersistenceException(f"No websocket_cache for cell id: {cell_id}")
 
@@ -81,4 +81,5 @@ class WebSocketCachePersistence:
     # TODO: Temporary clean up, remove after 2021-08-01
     def _clean_up_servers_cache(self):
         if 'servers_cache' in self._persistent_cache:
+            logger.info("Removing 'servers_cache' from persistent_cache")
             self._persistent_cache.pop('servers_cache')

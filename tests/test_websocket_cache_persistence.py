@@ -156,3 +156,17 @@ def test_write_preserves_other_cell_ids():
     cache.write(cell_id_for_write, new_address)
 
     assert json.loads(persistent_cache['websocket_cache'])[str(existing_cell_id)]['server'] == existing_address
+
+
+# TODO: Temporary clean up, remove after 2021-08-01
+def test_cleanup_servers_cache():
+    address = "address_1"
+    used_cell_id = 0
+
+    persistent_cache = {'servers_cache': json.dumps({used_cell_id: {'timeout': time.time() + 10, 'servers': [(address, 3.206969738006592)]}})}
+    persistent_cache_state = PersistentCacheState()
+
+    cache = WebSocketCachePersistence(persistent_cache, persistent_cache_state)
+    cache.write(used_cell_id, address)
+    assert persistent_cache_state.modified
+    assert 'servers_cache' not in persistent_cache

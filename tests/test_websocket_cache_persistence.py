@@ -149,7 +149,7 @@ def test_write_preserves_other_cell_ids():
     existing_cell_id = 0
     cell_id_for_write = 1
     persistent_cache = {
-        'websocket_cache': json.dumps({existing_cell_id: {'timeout': time.time() - 10, 'server': existing_address}})}
+        'websocket_cache': json.dumps({existing_cell_id: {'timeout': time.time() + 10, 'server': existing_address}})}
     persistent_cache_state = PersistentCacheState()
     cache = WebSocketCachePersistence(persistent_cache, persistent_cache_state)
 

@@ -159,6 +159,7 @@ def test_write_preserves_other_cell_ids():
 
 
 # TODO: Temporary clean up, remove after 2021-08-01
+# https://github.com/FriendsOfGalaxy/galaxy-integration-steam/pull/108
 def test_cleanup_servers_cache():
     address = "address_1"
     used_cell_id = 0

@@ -15,7 +15,7 @@ from protocol.protocol_client import ProtocolClient, UserActionRequired
 from stats_cache import StatsCache
 from times_cache import TimesCache
 from user_info_cache import UserInfoCache
-from websocket_cache import WebSocketCache
+from websocket_list import WebSocketList
 
 logger = logging.getLogger(__name__)
 # do not log low level events from websockets
@@ -29,7 +29,7 @@ class WebSocketClient:
         self,
         backend_client: SteamHttpClient,
         ssl_context: ssl.SSLContext,
-        websocket_cache: WebSocketCache,
+        websocket_list: WebSocketList,
         friends_cache: FriendsCache,
         games_cache: GamesCache,
         translations_cache: dict,
@@ -40,7 +40,7 @@ class WebSocketClient:
     ):
         self._backend_client = backend_client
         self._ssl_context = ssl_context
-        self._websocket_cache = websocket_cache
+        self._websocket_list = websocket_list
         self._websocket: Optional[websockets.WebSocketClientProtocol] = None
         self._protocol_client: Optional[ProtocolClient] = None
 
@@ -106,7 +106,6 @@ class WebSocketClient:
                     RECONNECT_INTERVAL_SECONDS
                 )
                 await asyncio.sleep(RECONNECT_INTERVAL_SECONDS)
-                self.used_server_cell_id += 1
                 continue
             except Exception as e:
                 logger.exception(f"Failed to establish authenticated WebSocket connection {repr(e)}")
@@ -175,11 +174,11 @@ class WebSocketClient:
             return  # already connected
 
         while True:
-            async for server in self._websocket_cache.get(self.used_server_cell_id):
+            for server in await self._websocket_list.get(self.used_server_cell_id):
                 try:
                     self._websocket = await asyncio.wait_for(websockets.connect(server, ssl=self._ssl_context, max_size=MAX_INCOMING_MESSAGE_SIZE), 5)
                     self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self._steam_app_ownership_ticket_cache, self.used_server_cell_id)
-                    logger.info(f'Connected to Steam on CM {server} from cell_id {self.used_server_cell_id}')
+                    logger.info(f'Connected to Steam on CM {server} on cell_id {self.used_server_cell_id}')
                     return
                 except (asyncio.TimeoutError, OSError, websockets.InvalidURI, websockets.InvalidHandshake):
                     continue

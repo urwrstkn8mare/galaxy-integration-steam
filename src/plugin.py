@@ -24,8 +24,6 @@ from client import (
     StateFlags, local_games_list, get_state_changes, get_client_executable,
     load_vdf, get_library_folders, get_app_manifests, app_id_from_manifest_path
 )
-from websocket_cache import WebSocketCache
-from websocket_cache_persistence import WebSocketCachePersistence
 from websocket_list import WebSocketList
 from presence import presence_from_user_info
 from friends_cache import FriendsCache
@@ -131,11 +129,9 @@ class SteamPlugin(Plugin):
         self._friends_cache.updated_handler = user_presence_update_handler
 
     def handshake_complete(self):
-        websocket_cache_persistence = WebSocketCachePersistence(self.persistent_cache, self._persistent_storage_state)
         websocket_list = WebSocketList(self._client, self._ssl_context)
-        websocket_cache = WebSocketCache(websocket_cache_persistence, websocket_list)
         ownership_ticket_cache = OwnershipTicketCache(self.persistent_cache, self._persistent_storage_state)
-        self._steam_client = WebSocketClient(self._client, self._ssl_context, websocket_cache, self._friends_cache,
+        self._steam_client = WebSocketClient(self._client, self._ssl_context, websocket_list, self._friends_cache,
                                              self._games_cache, self._translations_cache, self._stats_cache,
                                              self._times_cache, self._user_info_cache, ownership_ticket_cache)
 

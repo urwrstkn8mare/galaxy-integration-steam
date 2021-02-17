@@ -129,7 +129,7 @@ class SteamPlugin(Plugin):
         self._friends_cache.updated_handler = user_presence_update_handler
 
     def handshake_complete(self):
-        websocket_list = WebSocketList(self._client, self._ssl_context)
+        websocket_list = WebSocketList(self._client)
         ownership_ticket_cache = OwnershipTicketCache(self.persistent_cache, self._persistent_storage_state)
         self._steam_client = WebSocketClient(self._client, self._ssl_context, websocket_list, self._friends_cache,
                                              self._games_cache, self._translations_cache, self._stats_cache,

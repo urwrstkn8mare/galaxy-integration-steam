@@ -1,12 +1,12 @@
 {
-    "tag_name": "v0.55",
+    "tag_name": "v0.56",
     "assets": [
         {
-            "browser_download_url": "https://github.com/FriendsOfGalaxy/galaxy-integration-steam/releases/download/v0.55/windows.zip",
+            "browser_download_url": "https://github.com/FriendsOfGalaxy/galaxy-integration-steam/releases/download/v0.56/windows.zip",
             "name": "windows.zip"
         },
         {
-            "browser_download_url": "https://github.com/FriendsOfGalaxy/galaxy-integration-steam/releases/download/v0.55/macos.zip",
+            "browser_download_url": "https://github.com/FriendsOfGalaxy/galaxy-integration-steam/releases/download/v0.56/macos.zip",
             "name": "macos.zip"
         }
     ]

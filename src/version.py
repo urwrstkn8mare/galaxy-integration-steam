@@ -1,6 +1,10 @@
-__version__ = "0.55"
+__version__ = "0.56"
 __changelog__ = {
-    """0.55""": '''
+    "0.56": '''
+    - fixed handling if libraryfolders.vdf was not found
+    - connection stability improvement (no longer connects to servers from different regions) (#108 thanks @SparrowBrain!)
+    ''',
+    "0.55": '''
     - add obfuscated_private_ip to ClientLogOn message (#104 thanks @SparrowBrain!)
       this change should fix losing authentication in case of multiple machines in the same network (eresult 32 and eresult 5)
     ''',

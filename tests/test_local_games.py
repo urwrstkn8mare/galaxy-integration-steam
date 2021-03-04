@@ -254,7 +254,7 @@ def test_get_library_folders_parsing_error(mocker):
     get_configuration_folder.return_value = path
     get_custom_library_folders = mocker.patch("client.get_custom_library_folders")
     get_custom_library_folders.return_value = None
-    assert get_library_folders() == []
+    assert get_library_folders() == [os.path.join(path, 'steamapps')]
     get_custom_library_folders.assert_called_once_with(os.path.join(path, "steamapps", "libraryfolders.vdf"))
 
 

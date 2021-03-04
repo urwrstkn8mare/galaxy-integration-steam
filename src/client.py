@@ -4,7 +4,7 @@ import logging
 import os
 import enum
 import platform
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Dict, Any
 
 import vdf
 from galaxy.api.types import LocalGame, LocalGameState
@@ -47,7 +47,7 @@ class CaseInsensitiveDict(dict):
         return super().__getitem__(key.lower())
 
 
-def load_vdf(path: str):
+def load_vdf(path: str) -> Dict[str, Any]:
     return vdf.load(open(path, encoding="utf-8", errors="replace"), mapper=CaseInsensitiveDict)
 
 
@@ -167,13 +167,10 @@ def get_library_folders() -> Iterable[str]:
     configuration_folder = get_configuration_folder()
     if not configuration_folder:
         return []
-    steam_apps_folder = os.path.join(configuration_folder, "steamapps")
+    steam_apps_folder = os.path.join(configuration_folder, "steamapps")  # default location
     library_folders_config = os.path.join(steam_apps_folder, "libraryfolders.vdf")
-    library_folders = get_custom_library_folders(library_folders_config)
-    if library_folders is None:
-        return []
-    library_folders.insert(0, steam_apps_folder)  # default location
-    return library_folders
+    library_folders = get_custom_library_folders(library_folders_config) or []
+    return [steam_apps_folder] + library_folders
 
 
 def get_client_executable() -> Optional[str]:
@@ -211,12 +208,11 @@ def get_custom_library_folders(config_path: str) -> Optional[List[str]]:
         result = []
         for i in itertools.count(1):
             library_folders = config["LibraryFolders"]
-            key = str(i)
-            library_folder = library_folders.get(key)
+            numerical_vdf_key = str(i)
+            library_folder = library_folders.get(numerical_vdf_key)
             if library_folder is None:
                 break
             result.append(os.path.join(library_folder, "steamapps"))
-
         return result
     except (OSError, SyntaxError, KeyError):
         logger.exception("Failed to parse %s", config_path)

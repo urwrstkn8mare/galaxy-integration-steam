@@ -44,6 +44,10 @@ def user_info_cache():
     return AsyncMock()
 
 @pytest.fixture()
+def local_machine_cache():
+    return MagicMock()
+
+@pytest.fixture()
 def times_cache():
     return MagicMock()
 
@@ -60,8 +64,8 @@ def translations_cache():
     return dict()
 
 @pytest.fixture
-async def client(protobuf_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, ownership_ticket_cache, used_server_cellid):
-    return ProtocolClient(protobuf_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, ownership_ticket_cache, used_server_cellid)
+async def client(protobuf_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, local_machine_cache, ownership_ticket_cache, used_server_cellid):
+    return ProtocolClient(protobuf_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, local_machine_cache, ownership_ticket_cache, used_server_cellid)
 
 
 @pytest.mark.asyncio

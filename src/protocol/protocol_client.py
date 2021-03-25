@@ -1,10 +1,14 @@
 import asyncio
 import logging
 import enum
-import galaxy.api.errors
+import platform
 
+import galaxy.api.errors
+import secrets
+
+from local_machine_cache import LocalMachineCache
 from protocol.protobuf_client import ProtobufClient, SteamLicense
-from protocol.consts import EResult, EFriendRelationship, EPersonaState, STEAM_CLIENT_APP_ID
+from protocol.consts import EResult, EFriendRelationship, EPersonaState, STEAM_CLIENT_APP_ID, EOSType
 from friends_cache import FriendsCache
 from games_cache import GamesCache
 from stats_cache import StatsCache
@@ -16,6 +20,41 @@ from typing import List
 
 
 logger = logging.getLogger(__name__)
+
+
+def get_os() -> EOSType:
+    system = platform.system()
+    if system == 'Windows':
+        release = platform.release()
+        releases = {
+            'XP': EOSType.WinXP,
+            'Vista': EOSType.WinVista,
+            '7': EOSType.Windows7,
+            '8': EOSType.Windows8,
+            '8.1': EOSType.Windows81,
+            '10': EOSType.Windows10,
+        }
+        return releases.get(release, EOSType.WinUnknown)
+    elif system == 'Darwin':
+        release = platform.mac_ver()[0]
+        releases = {
+            '10.4': EOSType.MacOS104,
+            '10.5': EOSType.MacOS105,
+            '10.6': EOSType.MacOS106,
+            '10.7': EOSType.MacOS107,
+            '10.8': EOSType.MacOS108,
+            '10.9': EOSType.MacOS109,
+            '10.10': EOSType.MacOS1010,
+            '10.11': EOSType.MacOS1011,
+            '10.12': EOSType.MacOS1012,
+            '10.13': EOSType.MacOS1013,
+            '10.14': EOSType.MacOS1014,
+            '10.15': EOSType.MacOS1015,
+            '10.16': EOSType.MacOS1016,
+        }
+        return releases.get(release, EOSType.MacOSUnknown)
+    return EOSType.Unknown
+
 
 def translate_error(result: EResult):
     assert result != EResult.OK
@@ -101,6 +140,7 @@ class ProtocolClient:
         stats_cache: StatsCache,
         times_cache: TimesCache,
         user_info_cache: UserInfoCache,
+        local_machine_cache: LocalMachineCache,
         ownership_ticket_cache: OwnershipTicketCache,
         used_server_cell_id,
     ):
@@ -131,6 +171,14 @@ class ProtocolClient:
         self._auth_lost_handler = None
         self._login_future = None
         self._used_server_cell_id = used_server_cell_id
+        self._local_machine_cache = local_machine_cache
+        if not self._local_machine_cache.machine_id:
+            self._local_machine_cache.machine_id = self._generate_machine_id()
+        self._machine_id = self._local_machine_cache.machine_id
+
+    @staticmethod
+    def _generate_machine_id():
+        return secrets.token_bytes()
 
     async def close(self, is_socket_connected):
         await self._protobuf_client.close(is_socket_connected)
@@ -150,7 +198,11 @@ class ProtocolClient:
     async def authenticate_password(self, account_name, password, two_factor, two_factor_type, auth_lost_handler):
         loop = asyncio.get_running_loop()
         self._login_future = loop.create_future()
-        await self._protobuf_client.log_on_password(account_name, password, two_factor, two_factor_type)
+        os_value = get_os()
+        sentry = await self._get_sentry()
+        await self._protobuf_client.log_on_password(
+            account_name, password, two_factor, two_factor_type, self._machine_id, os_value, sentry
+        )
         result = await self._login_future
         logger.info(result)
         if result == EResult.OK:
@@ -181,7 +233,12 @@ class ProtocolClient:
     async def authenticate_token(self, steam_id, account_name, token, auth_lost_handler):
         loop = asyncio.get_running_loop()
         self._login_future = loop.create_future()
-        await self._protobuf_client.log_on_token(steam_id, account_name, token, self._used_server_cell_id)
+        self._protobuf_client.steam_id = steam_id
+        os_value = get_os()
+        sentry = await self._get_sentry()
+        await self._protobuf_client.log_on_token(
+            account_name, token, self._used_server_cell_id, self._machine_id, os_value, sentry
+        )
         result = await self._login_future
         if result == EResult.OK:
             self._auth_lost_handler = auth_lost_handler

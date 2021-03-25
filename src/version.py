@@ -1,5 +1,9 @@
-__version__ = "0.56"
+__version__ = "0.57"
 __changelog__ = {
+    "0.57": '''
+    - added helper script for injecting Nethook (for devs)
+    - improved login auth protobuf message for following attributes: client_package_version, machine_id, client_language, qos_level, machine_name, client_os_type
+    ''',
     "0.56": '''
     - fixed handling if libraryfolders.vdf was not found
     - connection stability improvement (no longer connects to servers from different regions) (#108 thanks @SparrowBrain!)
@@ -25,50 +29,50 @@ __changelog__ = {
     - raise BackendError instead of BackendTimeout when couldn't login with token
     - register steam app ticket with CM before logging and save a new ticket after login
     ''',
-    "0.51.2":'''
+    "0.51.2": '''
     - Enhance local game sizes by returning downloading size if game is not fully installed yet
     - Drop attaching obfuscated private ip to login params.
     ''',
-    "0.51.1":'''
+    "0.51.1": '''
     - Fixup marking when games cache is ready in situations when part of the cache was already initialized
     - Optimize retrieving subscription status
     - Fixes for rich presence translations for certain games (dota, stellaris)
     ''',
-    "0.51":'''
+    "0.51": '''
     - Use package access token when retrieving package information, should fix some games not appearing
     ''',
-    "0.50.9":'''
+    "0.50.9": '''
     - Refactor games cache for readability and debugging purposses
     - Implement getting local game sizes
     ''',
-    "0.50.8":'''
+    "0.50.8": '''
     - Fix crash on potential looping rich presence translation
     - Fix possible 0 owned games sent issue occuring if previous retrieval was stopped mid-way
     ''',
-    "0.50.7":'''
+    "0.50.7": '''
     - Use LoginKeyAccepted message post auth
     - Retry using servers from a different cellid (update login params to handle cell id)
     ''',
-    "0.50.6":'''
+    "0.50.6": '''
     - Send log off call on plugin shutdown
     - More precise login parameters, up protocol version
     ''',
-    "0.50.5":'''
+    "0.50.5": '''
     - Don't get stuck on broken cache in subsequent runs, instead always reimport packages which didn't end up being resolved (Thanks Dugsdghk!)
     - Don't crash protobuf on bytes response in initial rich presence parsing (Thanks Dugsdghk!)
     ''',
-    "0.50.4":'''
+    "0.50.4": '''
     - Fix for owned games which are also present in one of family sharings being reported only as family shared. (Thanks for the help Svill and TM-CG!)
     ''',
-    "0.50.3":'''
+    "0.50.3": '''
     - Dont endlessly retry auth to not lock user out
     ''',
-    "0.50.2":'''
+    "0.50.2": '''
     - Fix missing achievement_id crashing protobuf_client (Thanks MartinCa!)
     - Extended supported result codes from steam auth
     - Increase logging of protobuf responses
     ''',
-    "0.50.1":'''
+    "0.50.1": '''
     - Ignore incompatible cache
     ''',
     "0.50": '''

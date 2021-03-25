@@ -24,6 +24,7 @@ from client import (
     StateFlags, local_games_list, get_state_changes, get_client_executable,
     load_vdf, get_library_folders, get_app_manifests, app_id_from_manifest_path
 )
+from local_machine_cache import LocalMachineCache
 from websocket_list import WebSocketList
 from presence import presence_from_user_info
 from friends_cache import FriendsCache
@@ -131,9 +132,10 @@ class SteamPlugin(Plugin):
     def handshake_complete(self):
         websocket_list = WebSocketList(self._client)
         ownership_ticket_cache = OwnershipTicketCache(self.persistent_cache, self._persistent_storage_state)
+        local_machine_cache = LocalMachineCache(self.persistent_cache, self._persistent_storage_state)
         self._steam_client = WebSocketClient(self._client, self._ssl_context, websocket_list, self._friends_cache,
                                              self._games_cache, self._translations_cache, self._stats_cache,
-                                             self._times_cache, self._user_info_cache, ownership_ticket_cache)
+                                             self._times_cache, self._user_info_cache, local_machine_cache, ownership_ticket_cache)
 
     async def shutdown(self):
         self._regmon.close()

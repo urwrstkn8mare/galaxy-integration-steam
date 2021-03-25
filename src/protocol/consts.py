@@ -1862,6 +1862,10 @@ class EOSType(enum.IntEnum):
     MacOS1010 = -87
     MacOS1011 = -86
     MacOS1012 = -85
+    MacOS1013 = -84
+    MacOS1014 = -83
+    MacOS1015 = -82
+    MacOS1016 = -81
     MacOSMax = -1
     LinuxUnknown = -203
     Linux22 = -202

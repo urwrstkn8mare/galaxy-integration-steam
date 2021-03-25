@@ -10,6 +10,7 @@ from galaxy.api.errors import BackendNotAvailable, BackendTimeout, BackendError,
 from backend import SteamHttpClient
 from friends_cache import FriendsCache
 from games_cache import GamesCache
+from local_machine_cache import LocalMachineCache
 from ownership_ticket_cache import OwnershipTicketCache
 from protocol.protocol_client import ProtocolClient, UserActionRequired
 from stats_cache import StatsCache
@@ -24,6 +25,7 @@ logging.getLogger("websockets").setLevel(logging.WARNING)
 RECONNECT_INTERVAL_SECONDS = 20
 MAX_INCOMING_MESSAGE_SIZE = 2**24
 
+
 class WebSocketClient:
     def __init__(
         self,
@@ -36,6 +38,7 @@ class WebSocketClient:
         stats_cache: StatsCache,
         times_cache: TimesCache,
         user_info_cache: UserInfoCache,
+        local_machine_cache: LocalMachineCache,
         ownership_ticket_cache: OwnershipTicketCache
     ):
         self._backend_client = backend_client
@@ -49,12 +52,12 @@ class WebSocketClient:
         self._translations_cache = translations_cache
         self._stats_cache = stats_cache
         self._user_info_cache = user_info_cache
+        self._local_machine_cache = local_machine_cache
         self._steam_app_ownership_ticket_cache = ownership_ticket_cache
 
         self.communication_queues = {'plugin': asyncio.Queue(), 'websocket': asyncio.Queue(), 'errors': asyncio.Queue()}
         self._times_cache = times_cache
         self.used_server_cell_id = 0
-
 
     async def run(self):
         loop = asyncio.get_running_loop()
@@ -177,7 +180,7 @@ class WebSocketClient:
             for server in await self._websocket_list.get(self.used_server_cell_id):
                 try:
                     self._websocket = await asyncio.wait_for(websockets.connect(server, ssl=self._ssl_context, max_size=MAX_INCOMING_MESSAGE_SIZE), 5)
-                    self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self._steam_app_ownership_ticket_cache, self.used_server_cell_id)
+                    self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self._local_machine_cache, self._steam_app_ownership_ticket_cache, self.used_server_cell_id)
                     logger.info(f'Connected to Steam on CM {server} on cell_id {self.used_server_cell_id}')
                     return
                 except (asyncio.TimeoutError, OSError, websockets.InvalidURI, websockets.InvalidHandshake):

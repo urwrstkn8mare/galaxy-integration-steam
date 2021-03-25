@@ -14,7 +14,10 @@ _PERSONA_NAME = "Ptester"
 _TOKEN = "token"
 _SENTRY = b""
 
-serialized_creds = {'steam_id': 'MTIz', 'account_id': 'MjM=', 'token': 'dG9rZW4=', 'account_username': '8J+Yi+WtpuS4reaWh9Cd0LXMgdC60L7Rgg==', 'persona_name': 'UHRlc3Rlcg==', 'sentry': ''}
+serialized_creds = {'steam_id': 'MTIz', 'account_id': 'MjM=', 'token': 'dG9rZW4=',
+                    'account_username': '8J+Yi+WtpuS4reaWh9Cd0LXMgdC60L7Rgg==', 'persona_name': 'UHRlc3Rlcg==',
+                    'sentry': ''}
+
 
 @pytest.mark.asyncio
 async def test_credentials_cache_store():
@@ -64,6 +67,7 @@ async def test_login_finished(authenticated_plugin):
     assert isinstance(await authenticated_plugin.pass_login_credentials("", credentials, {}), Authentication)
     authenticated_plugin._get_websocket_auth_step.assert_called()
     authenticated_plugin.store_credentials.assert_called()
+
 
 @pytest.mark.asyncio
 async def test_login_two_step(authenticated_plugin):

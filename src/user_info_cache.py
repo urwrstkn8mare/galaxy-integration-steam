@@ -2,6 +2,7 @@ import asyncio
 import base64
 import logging as log
 
+
 class UserInfoCache:
     def __init__(self):
         self._steam_id = None
@@ -143,4 +144,3 @@ class UserInfoCache:
         self._sentry = val
         if not self.initialized.is_set():
             self._check_initialized()
-

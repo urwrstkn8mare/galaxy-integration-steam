@@ -77,12 +77,16 @@ def user_info_cache(mocker):
     return MagicMock(UserInfoCache)
 
 @pytest.fixture
+def local_machine_cache():
+    return MagicMock()
+
+@pytest.fixture
 def ownership_ticket_cache():
     return MagicMock(OwnershipTicketCache)
 
 @pytest.fixture
-async def client(backend_client, websocket_list, protocol_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, ownership_ticket_cache):
-    return WebSocketClient(backend_client, MagicMock(), websocket_list, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, ownership_ticket_cache)
+async def client(backend_client, websocket_list, protocol_client, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, local_machine_cache, ownership_ticket_cache):
+    return WebSocketClient(backend_client, MagicMock(), websocket_list, friends_cache, games_cache, translations_cache, stats_cache, times_cache, user_info_cache, local_machine_cache, ownership_ticket_cache)
 
 
 @pytest.mark.asyncio

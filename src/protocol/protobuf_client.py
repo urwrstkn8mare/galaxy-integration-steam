@@ -1,21 +1,23 @@
 import asyncio
-import ipaddress
-import struct
 import gzip
+import hashlib
+import ipaddress
 import json
 import logging
+import socket
+import struct
 from itertools import count
-from typing import Awaitable, Callable,Dict, Optional, Any
-from galaxy.api.errors import UnknownBackendResponse
+from typing import Awaitable, Callable, Dict, Optional, Any
 from typing import List, NamedTuple
 
-from protocol.messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, steammessages_player_pb2, \
-    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, steamui_libraryroot_pb2, steammessages_clientserver_2_pb2
-from protocol.consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
-from protocol.types import SteamId, ProtoUserInfo
-
 import vdf
-import hashlib
+from galaxy.api.errors import UnknownBackendResponse
+
+from protocol.consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
+from protocol.messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, steammessages_player_pb2, \
+    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, steamui_libraryroot_pb2, \
+    steammessages_clientserver_2_pb2
+from protocol.types import SteamId, ProtoUserInfo
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -31,6 +33,8 @@ class ProtobufClient:
     _PROTO_MASK = 0x80000000
     _ACCOUNT_ID_MASK = 0x0110000100000000
     _IP_OBFUSCATION_MASK = 0x606573A4
+    _MSG_PROTOCOL_VERSION = 65580
+    _MSG_CLIENT_PACKAGE_VERSION = 1561159470
 
     def __init__(self, set_socket):
         self._socket = set_socket
@@ -107,22 +111,15 @@ class ProtobufClient:
     async def register_auth_ticket_with_cm(self, ticket: bytes):
         message = steammessages_clientserver_pb2.CMsgClientRegisterAuthTicketWithCM()
         message.ticket = ticket
-        message.protocol_version = 65580
-        message.client_instance_id = 0  # ??
+        message.protocol_version = self._MSG_PROTOCOL_VERSION
         await self._send(EMsg.ClientRegisterAuthTicketWithCM, message)
 
-    async def log_on_password(self, account_name, password, two_factor, two_factor_type):
+    async def log_on_password(self, account_name, password, two_factor, two_factor_type, machine_id, os_value, sentry):
         def sanitize_password(password):
             return ''.join([i if ord(i) < 128 else '' for i in password])
 
-        message = steammessages_clientserver_login_pb2.CMsgClientLogon()
-        message.account_name = account_name
-        message.protocol_version = 65580
+        message = self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
         message.password = sanitize_password(password)
-        message.should_remember_password = True
-        message.supports_rate_limit_response = True
-        message.obfuscated_private_ip.v4 = self._get_obfuscated_private_ip()
-
         if two_factor:
             if two_factor_type == 'email':
                 message.auth_code = two_factor
@@ -131,25 +128,36 @@ class ProtobufClient:
         logger.info("Sending log on message using credentials")
         await self._send(EMsg.ClientLogon, message)
 
-    async def log_on_token(self, steam_id, account_name, token, used_server_cell_id):
+    async def log_on_token(self, account_name, token, used_server_cell_id, machine_id, os_value, sentry):
+        message = self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
+        message.cell_id = used_server_cell_id
+        message.login_key = token
+        logger.info("Sending log on message using token")
+        await self._send(EMsg.ClientLogon, message)
+
+    def _prepare_log_on_msg(self, account_name: str, machine_id: bytes, os_value: int, sentry) -> "steammessages_clientserver_login_pb2.CMsgClientLogon":
         message = steammessages_clientserver_login_pb2.CMsgClientLogon()
         message.account_name = account_name
-        message.cell_id = used_server_cell_id
-        message.protocol_version = 65580
+        message.protocol_version = self._MSG_PROTOCOL_VERSION
+        message.client_package_version = self._MSG_CLIENT_PACKAGE_VERSION
+        message.client_language = "english"
         message.should_remember_password = True
         message.supports_rate_limit_response = True
-        message.login_key = token
+        message.steamguard_dont_remember_computer = False
         message.obfuscated_private_ip.v4 = self._get_obfuscated_private_ip()
+        message.qos_level = 3
+        message.machine_name = socket.gethostname()
+        message.client_os_type = os_value if os_value >= 0 else 0
+        message.machine_id = machine_id
 
-        sentry = await self.sentry()
         if sentry:
             logger.info("Sentry present")
             message.eresult_sentryfile = EResult.OK
             message.sha_sentryfile = sentry
+        else:
+            message.eresult_sentryfile = EResult.FileNotFound
 
-        self.steam_id = steam_id
-        logger.info("Sending log on message using token")
-        await self._send(EMsg.ClientLogon, message)
+        return message
 
     def _get_obfuscated_private_ip(self) -> int:
         host, port = self._socket.local_address
@@ -224,9 +232,10 @@ class ProtobufClient:
         message.language = language
 
         job_id = next(self._job_id_iterator)
-        await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None,  target_job_name='Community.GetAppRichPresenceLocalization#1')
+        await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None,
+                         target_job_name='Community.GetAppRichPresenceLocalization#1')
 
-    async def accept_update_machine_auth(self,jobid_target, sha_hash, offset, filename, cubtowrite):
+    async def accept_update_machine_auth(self, jobid_target, sha_hash, offset, filename, cubtowrite):
         message = steammessages_clientserver_2_pb2.CMsgClientUpdateMachineAuthResponse()
         message.filename = filename
         message.eresult = EResult.OK
@@ -244,12 +253,12 @@ class ProtobufClient:
         await self._send(EMsg.ClientNewLoginKeyAccepted, message, None, jobid_target, None)
 
     async def _send(
-            self,
-            emsg,
-            message,
-            source_job_id=None,
-            target_job_id=None,
-            target_job_name=None
+        self,
+        emsg,
+        message,
+        source_job_id=None,
+        target_job_id=None,
+        target_job_name=None
     ):
         proto_header = steammessages_base_pb2.CMsgProtoBufHeader()
         if self.steam_id is not None:

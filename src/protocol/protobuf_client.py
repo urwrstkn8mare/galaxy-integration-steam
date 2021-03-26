@@ -604,11 +604,17 @@ class ProtobufClient:
             achi_block_enum = 32 * (achievement_block.achievement_id - 1)
             for index, unlock_time in enumerate(achievement_block.unlock_time):
                 if unlock_time > 0:
-                    if str(achievement_block.achievement_id) not in achievements_schema[str(game_id)]['stats'] or \
-                            str(index) not in achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits']:
-                        logger.warning("Non existent achievement unlocked")
-                        continue
                     try:
+                        if 'bits' not in achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]:
+                            logger.warning("'bits' not found in achievements_schema while parsing achievement %d for game %s", index, game_id)
+                            logger.info(achievements_schema)
+                            continue
+
+                        if str(achievement_block.achievement_id) not in achievements_schema[str(game_id)]['stats'] or \
+                                str(index) not in achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits']:
+                            logger.warning("Non existent achievement unlocked")
+                            continue
+
                         if 'english' in achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits'][str(index)]['display']['name']:
                             name = achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits'][str(index)]['display']['name']['english']
                         else:
@@ -617,8 +623,8 @@ class ProtobufClient:
                                                       'unlock_time': unlock_time,
                                                      'name': name})
                     except Exception as e:
-                        logger.error("Unable to parse achievement %d from block %s : %s",
-                            index, str(achievement_block.achievement_id), repr(e)
+                        logger.error("Unable to parse achievement %d for game %s from block %s : %s",
+                            index, game_id, str(achievement_block.achievement_id), repr(e)
                         )
                         logger.info(achievs)
                         logger.info(achievements_schema)

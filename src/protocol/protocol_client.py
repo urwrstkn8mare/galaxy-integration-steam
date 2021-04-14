@@ -242,10 +242,8 @@ class ProtocolClient:
         result = await self._login_future
         if result == EResult.OK:
             self._auth_lost_handler = auth_lost_handler
-        elif result == EResult.InvalidPassword:  # until we solve real problem with temporarily invalid token
-            raise galaxy.api.errors.BackendError({"result": result})
         else:
-            logger.warning(f"Received unknown error, code: {result}")
+            logger.warning(f"authenticate_token failed with code: {result}")
             raise translate_error(result)
 
         await self._protobuf_client.account_info_retrieved.wait()

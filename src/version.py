@@ -1,10 +1,12 @@
-__version__ = "0.57"
+__version__ = "0.58"
 __changelog__ = {
     "unreleased": '''
+    ''',
+    "0.58": '''
     - handle not established/broken websockets connection during getting obfuscated IP
     - fix all achievements import stuck on 0% when having old version achievements unlocked e.g. in Train Simulator (#114 thanks @Tauron93!)
     - translate eresult 5 (`EResult.InvalidPassword`) to `InvalidCredentials` instead of `BackendError` on login key authorization (#103 thanks @SparrowBrain!)
-      this change should cause lost authentication in Galaxy instead of plugin going "Offline" disposing of need for further plugin reconnection
+      this change should cause "Connection Lost" in Galaxy instead of plugin going "Offline" disposing of need for further plugin reconnection
     - remove old code leftovers from backend.py
     ''',
     "0.57": '''

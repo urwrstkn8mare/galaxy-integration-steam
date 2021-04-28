@@ -118,7 +118,7 @@ class ProtobufClient:
         def sanitize_password(password):
             return ''.join([i if ord(i) < 128 else '' for i in password])
 
-        message = self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
+        message = await self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
         message.password = sanitize_password(password)
         if two_factor:
             if two_factor_type == 'email':
@@ -129,13 +129,13 @@ class ProtobufClient:
         await self._send(EMsg.ClientLogon, message)
 
     async def log_on_token(self, account_name, token, used_server_cell_id, machine_id, os_value, sentry):
-        message = self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
+        message = await self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
         message.cell_id = used_server_cell_id
         message.login_key = token
         logger.info("Sending log on message using token")
         await self._send(EMsg.ClientLogon, message)
 
-    def _prepare_log_on_msg(self, account_name: str, machine_id: bytes, os_value: int, sentry) -> "steammessages_clientserver_login_pb2.CMsgClientLogon":
+    async def _prepare_log_on_msg(self, account_name: str, machine_id: bytes, os_value: int, sentry) -> "steammessages_clientserver_login_pb2.CMsgClientLogon":
         message = steammessages_clientserver_login_pb2.CMsgClientLogon()
         message.account_name = account_name
         message.protocol_version = self._MSG_PROTOCOL_VERSION
@@ -144,7 +144,7 @@ class ProtobufClient:
         message.should_remember_password = True
         message.supports_rate_limit_response = True
         message.steamguard_dont_remember_computer = False
-        message.obfuscated_private_ip.v4 = self._get_obfuscated_private_ip()
+        message.obfuscated_private_ip.v4 = await self._get_obfuscated_private_ip()
         message.qos_level = 3
         message.machine_name = socket.gethostname()
         message.client_os_type = os_value if os_value >= 0 else 0
@@ -159,7 +159,9 @@ class ProtobufClient:
 
         return message
 
-    def _get_obfuscated_private_ip(self) -> int:
+    async def _get_obfuscated_private_ip(self) -> int:
+        logger.info('Websocket state is: %s' % self._socket.state.name)
+        await self._socket.ensure_open()
         host, port = self._socket.local_address
         ip = int(ipaddress.IPv4Address(host))
         obfuscated_ip = ip ^ self._IP_OBFUSCATION_MASK

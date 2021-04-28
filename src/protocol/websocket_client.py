@@ -103,6 +103,11 @@ class WebSocketClient:
                 await self._close_socket()
                 await self._close_protocol_client()
                 continue
+            except websockets.InvalidState as error:
+                logger.warning("WebSocket is trying to connect...", error.code, error.reason)
+                await self._close_socket()
+                await self._close_protocol_client()
+                continue
             except (BackendNotAvailable, BackendTimeout, BackendError, NetworkError):
                 logger.exception(
                     "Failed to establish authenticated WebSocket connection, retrying after %d seconds",

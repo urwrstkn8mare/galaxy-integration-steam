@@ -191,7 +191,7 @@ class SteamPlugin(Plugin):
                 logging.info(f"Unable to keep connection with steam backend {repr(e)}")
                 raise
             except InvalidCredentials:
-                logging.info(f"Invalid credentials during authentication")
+                logging.info("Invalid credentials during authentication")
                 raise
             except Exception as e:
                 logging.info(f"Internal websocket exception caught during auth {repr(e)}")

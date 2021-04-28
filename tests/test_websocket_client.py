@@ -144,7 +144,6 @@ async def test_websocket_close_reconnect(client, protocol_client, websocket_list
     websocket.wait_closed.return_value = async_return_value(None)
 
     client._user_info_cache = MagicMock()
-    client._user_info_cache.old_flow = False
     with pytest.raises(AssertionError):
         await client.run()
 

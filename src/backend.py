@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, timezone
 from typing import List
 from urllib.parse import urlparse
 
@@ -71,31 +70,6 @@ class AuthenticatedHttpClient(HttpClient):
 class SteamHttpClient:
     def __init__(self, http_client):
         self._http_client = http_client
-
-
-    @staticmethod
-    def parse_date(text_time):
-        def try_parse(text, date_format):
-            d = datetime.strptime(text, date_format)
-            return datetime.combine(d.date(), d.time(), timezone.utc)
-
-        formats = (
-            "Unlocked %d %b, %Y @ %I:%M%p",
-            "Unlocked %d %b @ %I:%M%p",
-            "Unlocked %b %d, %Y @ %I:%M%p",
-            "Unlocked %b %d @ %I:%M%p"
-        )
-        for date_format in formats:
-            try:
-                date = try_parse(text_time, date_format)
-                if date.year == 1900:
-                    date = date.replace(year=datetime.utcnow().year)
-                return date
-            except ValueError:
-                continue
-
-        logger.error("Unexpected date format: {}. Please report to the developers".format(text_time))
-        raise UnknownBackendResponse()
 
     async def get_servers(self, cell_id) -> List[str]:
         url = f"http://api.steampowered.com/ISteamDirectory/GetCMList/v1/?cellid={cell_id}"

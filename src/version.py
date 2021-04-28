@@ -1,11 +1,18 @@
 __version__ = "0.57"
 __changelog__ = {
+    "unreleased": '''
+    - handle not established/broken websockets connection during getting obfuscated IP
+    - fix all achievements import stuck on 0% when having old version achievements unlocked e.g. in Train Simulator (#114 thanks @Tauron93!)
+    - translate eresult 5 (`EResult.InvalidPassword`) to `InvalidCredentials` instead of `BackendError` on login key authorization (#103 thanks @SparrowBrain!)
+      this change should cause lost authentication in Galaxy instead of plugin going "Offline" disposing of need for further plugin reconnection
+    - remove old code leftovers from backend.py
+    ''',
     "0.57": '''
     - added helper script for injecting Nethook (for devs)
     - improved login auth protobuf message for following attributes: client_package_version, machine_id, client_language, qos_level, machine_name, client_os_type
     ''',
     "0.56": '''
-    - fixed handling if libraryfolders.vdf was not found
+    - fix handling if libraryfolders.vdf was not found
     - connection stability improvement (no longer connects to servers from different regions) (#108 thanks @SparrowBrain!)
     ''',
     "0.55": '''

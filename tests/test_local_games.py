@@ -178,7 +178,7 @@ def test_get_app_id_success(tmp_path):
     assert os.path.basename(path)[12:-4] == "92700"
 
 
-def test_get_custom_library_folders(tmp_path):
+def test_get_custom_library_folders_old_format(tmp_path):
     data = """\
         "LibraryFolders"
         {
@@ -186,6 +186,36 @@ def test_get_custom_library_folders(tmp_path):
             "ContentStatsID"		"313251607278753000"
             "1"		"D:\\Steam"
             "2"		"E:\\Games\\Steam"
+        }
+    """
+    path = tmp_path / "libraryfolders.vdf"
+    path.write_text(dedent(data))
+    library_folders = get_custom_library_folders(path)
+    assert library_folders == [
+        os.path.join(r"D:\Steam", "steamapps"),
+        os.path.join(r"E:\Games\Steam", "steamapps")
+    ]
+
+
+def test_get_custom_library_folders_new_format(tmp_path):
+    data = """\
+        "LibraryFolders"
+        {
+            "ContentStatsID"		"313251607278753000"
+            "1"
+            {
+                "path"		"D:\\Steam"
+                "label"		"Games"
+                "mounted"		"1"
+                "contentid"		"24707729912644713069"
+            }
+            "2"
+            {
+                "path"		"E:\\Games\\Steam"
+                "label"		"Extras"
+                "mounted"		"2"
+                "contentid"		"24307526915614213469"
+            }
         }
     """
     path = tmp_path / "libraryfolders.vdf"

@@ -212,7 +212,11 @@ def get_custom_library_folders(config_path: str) -> Optional[List[str]]:
             library_folder = library_folders.get(numerical_vdf_key)
             if library_folder is None:
                 break
-            result.append(os.path.join(library_folder, "steamapps"))
+            if "path" in library_folder:
+                library_path = library_folder.get("path")
+            else:
+                library_path = library_folder
+            result.append(os.path.join(library_path, "steamapps"))
         return result
     except (OSError, SyntaxError, KeyError):
         logger.exception("Failed to parse %s", config_path)

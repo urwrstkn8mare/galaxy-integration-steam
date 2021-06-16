@@ -178,7 +178,7 @@ def test_get_app_id_success(tmp_path):
     assert os.path.basename(path)[12:-4] == "92700"
 
 
-def test_get_custom_library_folders_old_format(tmp_path):
+def test_get_custom_library_folders(tmp_path):
     data = """\
         "LibraryFolders"
         {
@@ -216,6 +216,7 @@ def test_get_custom_library_folders_new_format(tmp_path):
                 "mounted"		"2"
                 "contentid"		"24307526915614213469"
             }
+            "3"		"F:\\path_in_name"
         }
     """
     path = tmp_path / "libraryfolders.vdf"
@@ -223,7 +224,8 @@ def test_get_custom_library_folders_new_format(tmp_path):
     library_folders = get_custom_library_folders(path)
     assert library_folders == [
         os.path.join(r"D:\Steam", "steamapps"),
-        os.path.join(r"E:\Games\Steam", "steamapps")
+        os.path.join(r"E:\Games\Steam", "steamapps"),
+        os.path.join(r"F:\path_in_name", "steamapps")
     ]
 
 

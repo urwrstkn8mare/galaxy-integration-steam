@@ -1,6 +1,7 @@
-__version__ = "0.58"
+__version__ = "0.59"
 __changelog__ = {
-    "unreleased": '''
+    "0.59": '''
+    - fix not showing installed games due to changed Steam libraryfolders.vdf format (#122 thanks @tfredett and all from #121!)
     ''',
     "0.58": '''
     - handle not established/broken websockets connection during getting obfuscated IP

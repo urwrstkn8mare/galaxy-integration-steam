@@ -1,5 +1,11 @@
-__version__ = "0.59"
+__version__ = "0.60"
 __changelog__ = {
+    "unreleased": '''''',
+    "0.60": '''
+    - add html fixes
+    - add css visual fixes
+    - handle eresult 48: `TryWithDifferentCM` and similar cases to blacklist a server temporarily
+    ''',
     "0.59": '''
     - fix not showing installed games due to changed Steam libraryfolders.vdf format (#122 thanks @tfredett and all from #121!)
     ''',

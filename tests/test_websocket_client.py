@@ -4,7 +4,7 @@ import asyncio
 import pytest
 import websockets
 from galaxy.api.errors import AccessDenied, BackendNotAvailable, BackendTimeout, BackendError, NetworkError
-from galaxy.unittest.mock import async_return_value, skip_loop, AsyncMock
+from galaxy.unittest.mock import async_return_value, async_raise, AsyncMock
 
 from protocol.websocket_client import WebSocketClient, RECONNECT_INTERVAL_SECONDS
 from friends_cache import FriendsCache
@@ -22,10 +22,14 @@ PASSWORD = "testing123"
 TWO_FACTOR = "AbCdEf"
 
 
-async def async_raise(error, loop_iterations_delay=0):
-    if loop_iterations_delay > 0:
-        await skip_loop(loop_iterations_delay)
-    raise error
+async def aiter(seq):
+    for i in seq:
+        yield i
+
+
+async def aiter_raise(exc):
+    raise exc
+    yield
 
 
 @pytest.fixture
@@ -39,6 +43,8 @@ def protocol_client(mocker):
     protocol_client = mocker.patch("protocol.websocket_client.ProtocolClient").return_value
     protocol_client.get_steam_app_ownership_ticket = AsyncMock(return_value=async_return_value(None))
     protocol_client.register_auth_ticket_with_cm = AsyncMock(return_value=async_return_value(None))
+    protocol_client.close.return_value = async_return_value(None)
+    protocol_client.wait_closed.return_value = async_return_value(None)
     return protocol_client
 
 
@@ -91,7 +97,7 @@ async def client(backend_client, websocket_list, protocol_client, friends_cache,
 
 @pytest.mark.asyncio
 async def test_connect_authenticate(client, protocol_client, websocket_list, websocket):
-    websocket_list.get.return_value = async_return_value(["wss://abc.com/websocket"])
+    websocket_list.get.return_value = aiter(["wss://abc.com/websocket"])
     protocol_client.run.return_value = async_raise(AssertionError)
     credentials_mock = {'password': PASSWORD, "two_factor": TWO_FACTOR}
     plugin_queue_mock = AsyncMock()
@@ -120,8 +126,8 @@ async def test_connect_authenticate(client, protocol_client, websocket_list, web
 @pytest.mark.asyncio
 async def test_websocket_close_reconnect(client, protocol_client, websocket_list, websocket):
     websocket_list.get.side_effect = [
-        async_return_value(["wss://abc.com/websocket"]),
-        async_return_value(["wss://abc.com/websocket"])
+        aiter(["wss://abc.com/websocket"]),
+        aiter(["wss://abc.com/websocket"])
     ]
     protocol_client.run.side_effect = [
         async_raise(websockets.ConnectionClosedError(1002, ""), 10),
@@ -154,14 +160,14 @@ async def test_websocket_close_reconnect(client, protocol_client, websocket_list
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("exception", [
-    BackendNotAvailable(), BackendTimeout(), BackendError(), NetworkError()
+    NetworkError()
 ])
 async def test_servers_cache_retry(
     client, protocol_client, websocket_list, mocker, exception, websocket
 ):
     websocket_list.get.side_effect = [
-        async_raise(exception),
-        async_return_value(["wss://abc.com/websocket"])
+        aiter_raise(exception),
+        aiter(["wss://abc.com/websocket"])
     ]
     protocol_client.run.return_value = async_raise(AssertionError)
     sleep = mocker.patch("protocol.websocket_client.asyncio.sleep", side_effect=lambda x: async_return_value(None))
@@ -172,9 +178,10 @@ async def test_servers_cache_retry(
     assert websocket_list.get.call_count == 2
     sleep.assert_any_call(RECONNECT_INTERVAL_SECONDS)
 
+
 @pytest.mark.asyncio
 async def test_servers_cache_failure(client, protocol_client, backend_client, websocket_list):
-    websocket_list.get.return_value = async_raise(AccessDenied())
+    websocket_list.get.return_value = aiter_raise(AccessDenied())
     with pytest.raises(AccessDenied):
         await client.run()
     websocket_list.get.assert_called_once_with(0)
@@ -188,9 +195,7 @@ async def test_servers_cache_failure(client, protocol_client, backend_client, we
     asyncio.TimeoutError(), IOError(), websockets.InvalidURI("wss://websocket_1"), websockets.InvalidHandshake()
 ])
 async def test_connect_error(client, protocol_client, websocket_list, mocker, exception):
-    websocket_list.get.side_effect = [
-        async_return_value(["wss://websocket_1", "wss://websocket_2"])
-    ]
+    websocket_list.get.return_value = aiter(["wss://websocket_1", "wss://websocket_2"])
     connect = mocker.patch(
         "protocol.websocket_client.websockets.connect",
         side_effect=[
@@ -211,8 +216,8 @@ async def test_connect_error(client, protocol_client, websocket_list, mocker, ex
 ])
 async def test_connect_error_all_servers(client, protocol_client, websocket_list, mocker, exception):
     websocket_list.get.side_effect = [
-        async_return_value(["wss://websocket_1"]),
-        async_return_value(["wss://websocket_1"]),
+        aiter(["wss://websocket_1"]),
+        aiter(["wss://websocket_1"]),
     ]
     connect = mocker.patch(
         "protocol.websocket_client.websockets.connect",
@@ -228,3 +233,44 @@ async def test_connect_error_all_servers(client, protocol_client, websocket_list
         await client.run()
     connect.assert_has_calls([call("wss://websocket_1", max_size=ANY, ssl=ANY), call("wss://websocket_1", max_size=ANY, ssl=ANY)])
     sleep.assert_any_call(RECONNECT_INTERVAL_SECONDS)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("exception", [
+    BackendNotAvailable(), BackendError(), BackendTimeout()
+])
+
+async def test_handling_backend_not_available(client, protocol_client, websocket_list, backend_client, mocker, exception):
+    """
+    Usecase: eg. when receiving `ERestult.TryWithDifferentCM` or `EResult.ServiceUnavailable` from LogonResponse
+    """
+    unavailable_socket = 'wss://cm1-lax1.cm.steampowered.com:27036'
+    next_socket = 'wss:/cm2-ord1.cm.steampowered.com:27010'
+    websocket_list.get.return_value = aiter(
+        [
+            unavailable_socket,
+            next_socket,
+        ]
+    )
+    connect = mocker.patch(
+        "protocol.websocket_client.websockets.connect", side_effect=lambda *args, **kwargs: async_return_value(AsyncMock())
+    )
+    protocol_client.authenticate_token.side_effect = [
+        async_raise(exception),
+        async_return_value(MagicMock(), loop_iterations_delay=5)
+    ]
+    # breaks from infinite loop after job is done before authentication task
+    protocol_client.run.side_effect = lambda: async_return_value(None, loop_iterations_delay=2)
+
+    await client.run()
+    
+    blacklisting_timeout = 300
+    websocket_list.add_server_to_ignored.assert_called_once_with(
+        unavailable_socket, timeout_sec=blacklisting_timeout
+    )
+    connect.assert_has_calls(
+        [
+            call(f"{unavailable_socket}", max_size=ANY, ssl=ANY),
+            call(f"{next_socket}", max_size=ANY, ssl=ANY),
+        ]
+    )

@@ -24,6 +24,11 @@ logging.getLogger("websockets").setLevel(logging.WARNING)
 
 RECONNECT_INTERVAL_SECONDS = 20
 MAX_INCOMING_MESSAGE_SIZE = 2**24
+BLACKLISTED_CM_EXPIRATION_SEC = 300
+
+
+async def sleep(seconds: int):
+    await asyncio.sleep(seconds)
 
 
 class WebSocketClient:
@@ -59,6 +64,8 @@ class WebSocketClient:
         self._times_cache = times_cache
         self.used_server_cell_id = 0
 
+        self._current_ws_address: Optional[str] = None
+
     async def run(self):
         loop = asyncio.get_running_loop()
         while True:
@@ -90,35 +97,30 @@ class WebSocketClient:
                     raise
             except asyncio.CancelledError as e:
                 logger.warning(f"Websocket task cancelled {repr(e)}")
-                await self._close_socket()
-                await self._close_protocol_client()
                 raise
             except websockets.ConnectionClosedOK:
                 logger.debug("Expected WebSocket disconnection")
-                await self._close_socket()
-                await self._close_protocol_client()
-                continue
             except websockets.ConnectionClosedError as error:
                 logger.warning("WebSocket disconnected (%d: %s), reconnecting...", error.code, error.reason)
-                await self._close_socket()
-                await self._close_protocol_client()
-                continue
             except websockets.InvalidState as error:
                 logger.warning("WebSocket is trying to connect...", error.code, error.reason)
-                await self._close_socket()
-                await self._close_protocol_client()
-                continue
-            except (BackendNotAvailable, BackendTimeout, BackendError, NetworkError):
+            except (BackendNotAvailable, BackendTimeout, BackendError) as e:
+                logger.warning(f"{repr(e)}. Trying with different CM...")
+                self._websocket_list.add_server_to_ignored(self._current_ws_address, timeout_sec=BLACKLISTED_CM_EXPIRATION_SEC)
+            except NetworkError:
                 logger.exception(
                     "Failed to establish authenticated WebSocket connection, retrying after %d seconds",
                     RECONNECT_INTERVAL_SECONDS
                 )
-                await asyncio.sleep(RECONNECT_INTERVAL_SECONDS)
+                await sleep(RECONNECT_INTERVAL_SECONDS)
                 continue
             except Exception as e:
                 logger.exception(f"Failed to establish authenticated WebSocket connection {repr(e)}")
                 await self.communication_queues['errors'].put(e)
                 raise
+
+            await self._close_socket()
+            await self._close_protocol_client()
 
     async def _close_socket(self):
         if self._websocket is not None:
@@ -182,20 +184,22 @@ class WebSocketClient:
             return  # already connected
 
         while True:
-            for server in await self._websocket_list.get(self.used_server_cell_id):
+            async for ws_address in self._websocket_list.get(self.used_server_cell_id):
+                self._current_ws_address = ws_address
                 try:
-                    self._websocket = await asyncio.wait_for(websockets.connect(server, ssl=self._ssl_context, max_size=MAX_INCOMING_MESSAGE_SIZE), 5)
+                    self._websocket = await asyncio.wait_for(websockets.connect(ws_address, ssl=self._ssl_context, max_size=MAX_INCOMING_MESSAGE_SIZE), 5)
                     self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self._local_machine_cache, self._steam_app_ownership_ticket_cache, self.used_server_cell_id)
-                    logger.info(f'Connected to Steam on CM {server} on cell_id {self.used_server_cell_id}')
+                    logger.info(f'Connected to Steam on CM {ws_address} on cell_id {self.used_server_cell_id}')
                     return
                 except (asyncio.TimeoutError, OSError, websockets.InvalidURI, websockets.InvalidHandshake):
+                    self._websocket_list.add_server_to_ignored(self._current_ws_address, timeout_sec=BLACKLISTED_CM_EXPIRATION_SEC)
                     continue
 
             logger.exception(
                 "Failed to connect to any server, reconnecting in %d seconds...",
                 RECONNECT_INTERVAL_SECONDS
             )
-            await asyncio.sleep(RECONNECT_INTERVAL_SECONDS)
+            await sleep(RECONNECT_INTERVAL_SECONDS)
 
     async def _authenticate(self, auth_lost_future):
         async def auth_lost_handler(error):

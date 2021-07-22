@@ -152,14 +152,6 @@ class SteamPlugin(Plugin):
             await self._update_owned_games_task
             await self._pushing_cache_task
 
-    async def _authenticate(self, username=None, password=None, two_factor=None):
-        if two_factor:
-            return await self._steam_client.communication_queues['websocket'].put({'password': password, 'two_factor': two_factor})
-        if not username or not password:
-            raise UnknownBackendResponse()
-        self._user_info_cache.account_username = username
-        await self._steam_client.communication_queues['websocket'].put({'password': password})
-
     async def cancel_task(self, task):
         try:
             task.cancel()

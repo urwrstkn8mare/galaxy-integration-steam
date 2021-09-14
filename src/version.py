@@ -1,6 +1,12 @@
-__version__ = "0.60"
+__version__ = "1.0.0"
 __changelog__ = {
-    "unreleased": '''''',
+    "1.0.0": '''
+    - refactor high-level code to support multi-backend architecture
+    - add `fallback backend` functionality in case the `initial backend` loses connection
+    - add PublicProfiles `backend` that rely on publicly visible user data
+    - add user configuration at `../steam_plugin_config.ini`
+      (default: SteamNetwork as `initial backend` and PublicProfiles as a `fallback backend`)
+    ''',
     "0.60": '''
     - add html fixes
     - add css visual fixes
@@ -17,7 +23,7 @@ __changelog__ = {
     - remove old code leftovers from backend.py
     ''',
     "0.57": '''
-    - added helper script for injecting Nethook (for devs)
+    - add helper script for injecting Nethook (for devs)
     - improved login auth protobuf message for following attributes: client_package_version, machine_id, client_language, qos_level, machine_name, client_os_type
     ''',
     "0.56": '''

@@ -40,7 +40,7 @@ async def create_pp_plugin(
     def function(cache, patches=default_patches):
         for patch_kwargs in patches:
             mocker.patch(**patch_kwargs)
-        plugin = create_plugin_with_backend(BackendMode.PublicProfiles, cache)
+        plugin = create_plugin_with_backend(BackendMode.PublicProfiles, cache=cache)
         return plugin
 
     return function

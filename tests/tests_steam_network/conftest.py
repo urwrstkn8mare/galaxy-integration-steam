@@ -26,7 +26,7 @@ def create_sn_plugin(create_plugin_with_backend, mocker, websocket_client):
     """sn stands for SteamNetwork"""
     async def function(cache):
         mocker.patch('backend_steam_network.WebSocketClient', return_value=websocket_client)
-        plugin = create_plugin_with_backend(BackendMode.SteamNetwork, cache)
+        plugin = create_plugin_with_backend(BackendMode.SteamNetwork, cache=cache)
         return plugin
 
     return function
@@ -34,7 +34,7 @@ def create_sn_plugin(create_plugin_with_backend, mocker, websocket_client):
 
 @pytest.fixture
 async def plugin(create_sn_plugin):
-    return await create_sn_plugin({})
+    return await create_sn_plugin(cache={})
 
 
 @pytest.fixture

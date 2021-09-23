@@ -236,6 +236,10 @@ body {
     margin-right: 10px;
 }
 
+.error-icon--aligned-top {
+    margin-top: 3px;
+}
+
 /* FORM */
 
 .main-form legend {
@@ -343,11 +347,16 @@ body {
     align-items: end;
     font-size: 13px;
     line-height: 19px;
-    color: #f74638;
+    font-weight: 700;
+    color: rgb(255, 94, 81);
 }
 
 .error-message--centered {
     align-items: center;
+}
+
+.error-message--start {
+    align-items: start;
 }
 
 .resend-code {

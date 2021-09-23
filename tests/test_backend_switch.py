@@ -28,10 +28,11 @@ async def test_create_plugin_with_backend_fixture(
 @pytest.mark.parametrize("error", [
     InvalidCredentials,
     AccessDenied,
-    # Catching those errors was needed as a consequence of a project decision
-    # NOT to cache current backend state ALWAYS trying to connect to `initial` one instead.
-    # This way we avoid being trapped in not-working backend, 
-    # but may reveal incosisencies between backends by temporal switching between them.
+    # Catching all unexpected errors is needed as a consequence of a project decision NOT to cache
+    # current backend state and ALWAYS try to connect to `initial` backend on plugin start instead.
+    # This way we avoid being trapped in not-working backend on plugin start,
+    # but it may reveal incosistencies between backends when switching between them 
+    # in case of temporal problems with the `initial` one.
     BackendError,
     pytest.param(Exception, id="Any other unexpected exception")
 ])
@@ -195,7 +196,7 @@ def public_profiles_backend(register_mock_backend):
 def persona_name():
     return "steam persona name"
 
-    
+
 async def test_failed_authentication_on_default_mode_with_default_fallback(
     create_plugin_with_backend,
     steam_network_backend,

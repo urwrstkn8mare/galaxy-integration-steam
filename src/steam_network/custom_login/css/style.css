@@ -44,12 +44,6 @@ body.windows::-webkit-resizer {
     height: 100%;
 }
 
-/* ICONS */
-
-.error-icon--aligned-top {
-    margin-top: 3px;
-}
-
 /* FORM */
 
 .main-form legend.prompt-legend {
@@ -58,6 +52,7 @@ body.windows::-webkit-resizer {
 
 .main-form legend.centered {
     display: flex;
+    align-items: center;
 }
 
 /* COMMONS */

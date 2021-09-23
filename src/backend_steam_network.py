@@ -3,7 +3,7 @@ import logging
 import ssl
 from contextlib import suppress
 from distutils.util import strtobool
-from typing import Callable, List, Any, Dict
+from typing import Callable, List, Any, Dict, Union
 from urllib import parse
 
 from galaxy.api.errors import (
@@ -27,7 +27,7 @@ from galaxy.api.types import (
     Achievement,
     GameLibrarySettings,
     GameTime,
-    Authentication,
+    Authentication, NextStep,
 )
 
 from backend_interface import BackendInterface
@@ -46,8 +46,7 @@ from steam_network.times_cache import TimesCache
 from steam_network.user_info_cache import UserInfoCache
 from steam_network.websocket_client import WebSocketClient, UserActionRequired
 from steam_network.websocket_list import WebSocketList
-from user_profile import UserProfileChecker, ProfileIsNotPublic, ProfileDoesNotExist, ParseError, \
-    NotPublicGameDetailsOrUserHasNoGames
+from user_profile import UserProfileChecker, ProfileIsNotPublic, ProfileDoesNotExist, NotPublicGameDetailsOrUserHasNoGames
 
 logger = logging.getLogger(__name__)
 
@@ -224,11 +223,7 @@ class SteamNetworkBackend(BackendInterface):
         if result == UserActionRequired.NoActionRequired:
             self._auth_data = None
             self._store_credentials(self._user_info_cache.to_dict())
-            if not await self._is_public_profile():
-                return next_step_response(StartUri.PUBLIC_PROFILE_PROMPT, EndUri.PUBLIC_PROMPT_FINISHED)
-            return Authentication(
-                self._user_info_cache.steam_id, self._user_info_cache.persona_name
-            )
+            return await self._check_public_profile()
         if result == UserActionRequired.EmailTwoFactorInputRequired:
             return next_step_response(StartUri.TWO_FACTOR_MAIL, EndUri.TWO_FACTOR_MAIL_FINISHED)
         if result == UserActionRequired.PhoneTwoFactorInputRequired:
@@ -251,11 +246,7 @@ class SteamNetworkBackend(BackendInterface):
         else:
             self._auth_data = None
             self._store_credentials(self._user_info_cache.to_dict())
-            if not await self._is_public_profile():
-                return next_step_response(StartUri.PUBLIC_PROFILE_PROMPT, EndUri.PUBLIC_PROMPT_FINISHED)
-            return Authentication(
-                self._user_info_cache.steam_id, self._user_info_cache.persona_name
-            )
+            return await self._check_public_profile()
 
     async def _handle_two_step_mobile_finished(self, credentials):
         parsed_url = parse.urlsplit(credentials["end_uri"])
@@ -283,24 +274,31 @@ class SteamNetworkBackend(BackendInterface):
         parsed_url = parse.urlsplit(credentials["end_uri"])
         params = dict(parse.parse_qsl(parsed_url.query))
         user_wants_pp_fallback = strtobool(params.get("public_profile_fallback"))
-        if user_wants_pp_fallback and not await self._is_public_profile():
-            return next_step_response(StartUri.PUBLIC_PROFILE_PROMPT, EndUri.PUBLIC_PROMPT_FINISHED)
+        if user_wants_pp_fallback:
+            return await self._check_public_profile()
         return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
 
-    async def _is_public_profile(self) -> bool:
+    async def _check_public_profile(self) -> Union[Authentication, NextStep]:
         try:
-            return await self._user_profile_checker.check_is_public_by_steam_id(self._user_info_cache.steam_id)
+            await self._user_profile_checker.check_is_public_by_steam_id(self._user_info_cache.steam_id)
         except ProfileIsNotPublic:
             logger.debug(f"Profile with Steam64 ID: `{self._user_info_cache.steam_id}` is not public")
-        except ProfileDoesNotExist:
-            logger.warning(f"Profile with provided Steam64 ID: `{self._user_info_cache.steam_id}` does not exist")
-        except ValueError:
-            logger.warning(f"Incorrect provided Steam64 ID: `{self._user_info_cache.steam_id}`")
+            return next_step_response(StartUri.PP_PROMPT__PROFILE_IS_NOT_PUBLIC, EndUri.PUBLIC_PROMPT_FINISHED)
         except NotPublicGameDetailsOrUserHasNoGames:
             logger.debug(f"Profile with Steam64 ID: `{self._user_info_cache.steam_id}` has private games library or has no games")
-        except ParseError:
+            return next_step_response(StartUri.PP_PROMPT__NOT_PUBLIC_GAME_DETAILS_OR_USER_HAS_NO_GAMES, EndUri.PUBLIC_PROMPT_FINISHED)
+        except ProfileDoesNotExist:
+            logger.warning(f"Profile with provided Steam64 ID: `{self._user_info_cache.steam_id}` does not exist")
             raise UnknownBackendResponse()
-        return False
+        except ValueError:
+            logger.warning(f"Incorrect provided Steam64 ID: `{self._user_info_cache.steam_id}`")
+            raise UnknownBackendResponse()
+        except Exception:
+            return next_step_response(StartUri.PP_PROMPT__UNKNOWN_ERROR, EndUri.PUBLIC_PROMPT_FINISHED)
+        else:
+            return Authentication(
+                self._user_info_cache.steam_id, self._user_info_cache.persona_name
+            )
 
     async def authenticate(self, stored_credentials=None):
         if not stored_credentials:

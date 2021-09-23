@@ -1,7 +1,6 @@
-import json
 import logging
+import json
 import re
-from typing import List
 
 import aiohttp
 from bs4 import BeautifulSoup, Tag
@@ -33,7 +32,7 @@ class UserProfileChecker:
     async def _verify_is_public(self, url: str) -> bool:
         profile_data = await self._fetch_profile_data(url)
 
-        if not self._parse_user_games(str(profile_data.string)):
+        if not self._has_user_games(str(profile_data.string)):
             raise NotPublicGameDetailsOrUserHasNoGames
         return True
 
@@ -52,11 +51,12 @@ class UserProfileChecker:
         return page.find("script", language="javascript")
 
     @staticmethod
-    def _parse_user_games(profile_data: str) -> List:
-        pattern = re.compile('var rgGames = (.*?);')
-        js_games = pattern.search(profile_data)
-        games = json.loads(js_games.groups()[0])
-        return games
+    def _has_user_games(profile_data: str) -> bool:
+        pattern = re.compile(r'var rgGames = (\[.+\])')
+        match = pattern.search(profile_data)
+        if match is None:
+            return False
+        return len(json.loads(match.groups()[0])) > 0
 
 
 class ProfileDoesNotExist(Exception):

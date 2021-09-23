@@ -59,6 +59,7 @@ logger = logging.getLogger(__name__)
 Timestamp = NewType("Timestamp", int)
 
 COOLDOWN_TIME = 5
+AUTH_SETUP_ON_VERSION__CACHE_KEY = "auth_setup_on_version"
 
 BACKEND_MAP = {
     BackendMode.PublicProfiles: PublicProfilesBackend,
@@ -113,10 +114,12 @@ class SteamPlugin(Plugin):
         with suppress(OSError):
             self._backend_config.regenerate_user_config(USER_CONFIG_LOCATION)
 
-    def _switch_backend(self, backend: BackendMode):
+    def _switch_backend(self, backend: Optional[BackendMode]):
+        logger.info(f"Requested backend switch from {self.__backend_mode} to {backend}")
+        if backend is None:
+            raise ValueError("Backend switch stopped as requested.")
         if backend == self.__backend_mode:
-            raise ValueError(f"Backend switch refused: already on ({backend})")
-        logger.info(f"Setting backend mode from {self.__backend_mode} to {backend}")
+            raise ValueError(f"Backend switch refused: alredy on {backend}.")
         self._load_backend(backend)
 
     def _load_backend(self, backend_mode: BackendMode):
@@ -139,16 +142,27 @@ class SteamPlugin(Plugin):
         except KeyError:
             raise ValueError(f"Unknown backend mode: {backend_mode}")
         self.__backend_mode = backend_mode
-        
+    
     async def pass_login_credentials(self, step, credentials, cookies):
-        return await self._backend.pass_login_credentials(step, credentials, cookies)
+        result = await self._backend.pass_login_credentials(step, credentials, cookies)
+        self.__store_current_version_in_cache(key=AUTH_SETUP_ON_VERSION__CACHE_KEY)
+        return result
 
+    def __store_current_version_in_cache(self, key: str):
+        if self.persistent_cache.get(key) != __version__:
+            self.persistent_cache[key] = __version__
+            self.push_cache()
+        
     async def authenticate(self, stored_credentials=None):
-        def credentials_problem_handler(on_immediete_failure: Callable = self.lost_authentication):
+
+        def credentials_problem_handler(fallback: Callable = self.lost_authentication):
             try:
                 self._switch_backend(self._backend_config.fallback_mode) 
             except ValueError:
-                on_immediete_failure()
+                fallback()
+            except Exception as e:
+                logger.error(f"Unexpected problem during backend switch: {e!r}")
+                fallback()
             else:
                 self._backend.register_auth_lost_callback(credentials_problem_handler)
 
@@ -157,13 +171,14 @@ class SteamPlugin(Plugin):
 
         try:
             auth = await self._backend.authenticate(stored_credentials)
-        except NetworkError:
-            raise  # casuses "Offline. Retry"
+        except NetworkError:  # casuses "Offline. Retry"
+            raise
         except (
             InvalidCredentials, AccessDenied,  # re-raised would cause "Connection Lost"
             Exception  # re-raised would cause "Offline. Retry"
-        ) as err:
-            credentials_problem_handler(partial(raise_exception, err))
+        ) as e:
+            logger.warning(f"Authentication for initial backend failed with {e!r}")
+            credentials_problem_handler(partial(raise_exception, e))
             auth = await self._backend.authenticate(stored_credentials)
         else:
             self._backend.register_auth_lost_callback(credentials_problem_handler)

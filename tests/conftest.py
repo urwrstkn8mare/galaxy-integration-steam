@@ -4,8 +4,9 @@ from unittest.mock import MagicMock, PropertyMock, Mock, sentinel
 import pytest
 from galaxy.unittest.mock import AsyncMock, async_return_value
 
-from plugin import SteamPlugin
+from plugin import SteamPlugin, AUTH_SETUP_ON_VERSION__CACHE_KEY
 from backend_interface import BackendInterface
+from version import __version__
 
 
 @pytest.fixture
@@ -81,12 +82,16 @@ async def plugin(create_plugin):
     return create_plugin()
 
 
-
 @pytest.fixture
 def create_plugin_with_backend(mocker, create_plugin):
     DONT_PATCH = sentinel
 
-    def fn(initial_mode=DONT_PATCH, *args, fallback_mode=DONT_PATCH, **kwargs):
+    def fn(initial_mode=DONT_PATCH, fallback_mode=DONT_PATCH, connected_on_version: str = __version__, **kwargs):
+        """
+        :param connected_on_version     Version on which plugin was connected for the first time.
+                                        Required to emulate stored state.
+        """
+
         if initial_mode != DONT_PATCH:
             mocker.patch("plugin.BackendConfiguration.initial_mode",
                 new_callable=PropertyMock(return_value=initial_mode))
@@ -94,7 +99,11 @@ def create_plugin_with_backend(mocker, create_plugin):
             mocker.patch("plugin.BackendConfiguration.fallback_mode",
                 new_callable=PropertyMock(return_value=fallback_mode))
 
-        plugin = create_plugin(*args, **kwargs)
+        if connected_on_version and not connected_on_version.startswith('0'):
+            cache = kwargs.setdefault("cache", {})
+            cache.setdefault(AUTH_SETUP_ON_VERSION__CACHE_KEY, connected_on_version)
+
+        plugin = create_plugin(**kwargs)
         plugin.handshake_complete()  # loads initial backend
         return plugin
     return fn

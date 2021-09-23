@@ -58,7 +58,7 @@
                             <span class="tooltip password-tooltip">Show password</span>
                         </div>
                     </div>
-                    <p class="error-message">
+                    <p class="error-message error-message--start">
                         <img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon error-icon--aligned-top"> You have entered your password or account name incorrectly. Please check your password and account name and try again.
                     </p>
                     <div class="note">
@@ -107,12 +107,31 @@
                         <img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon"> Invalid code
                     </p>
                 </fieldset>
-                <fieldset id="publicProfilePromptFieldset" style="display: none;">
+                <fieldset id="ppPromptProfileIsNotPublicFieldset" style="display: none;">
                     <legend class="prompt-legend centered"><img src="../../commonWeb/img/icon-warning.svg" alt="" class="error-icon"> <span  class="warning">Your steam profile settings are set to private</span></legend>
                     <p class="prompt-text">
                         We're using public Steam profiles as a fallback to ensure that you keep your information about games and achievements in sync. Switch your profile to public to improve the stability of this integration. <a class="learn-how" href="https://support.steampowered.com/kb_article.php?ref=4113-YUDH-6401" target="_blank">See how.</a>
                     </p>
                 </fieldset>
+                <fieldset id="ppPromptNotPublicGameDetailsOrUserHasNoGamesFieldset" style="display: none;">
+                    <legend class="prompt-legend centered"><img src="../../commonWeb/img/icon-warning.svg" alt="" class="error-icon"> <span  class="warning">We couldn't read the list of your games</span></legend>
+                    <p class="prompt-text">
+                        Make sure that the Game Details section in Privacy Settings is also set to public.
+                    </p>
+                    <p class="prompt-text">
+                        We're using public Steam profiles as a fallback to ensure that you keep your information about games and achievements in sync. Switch your profile to public to improve the stability of this integration. <a class="learn-how" href="https://support.steampowered.com/kb_article.php?ref=4113-YUDH-6401" target="_blank">See how.</a>
+                    </p>
+                </fieldset>
+                <fieldset id="ppPromptUnknownErrorFieldset" style="display: none;">
+                    <legend class="prompt-legend centered"><img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon"> <span  class="error-message">We couldn't fetch information from your profile</span></legend>
+                    <p class="prompt-text">
+                        An error has occurred when validating your profile privacy settings.
+                    </p>
+                    <p class="prompt-text">
+                        We're using public Steam profiles as a fallback to ensure that you keep your information about games and achievements in sync. Make sure your profile privacy is set to public to improve the stability of this integration. <a class="learn-how" href="https://support.steampowered.com/kb_article.php?ref=4113-YUDH-6401" target="_blank">See how.</a>
+                    </p>
+                </fieldset>
+
             </form>
         </section>
         <footer class="main-footer">
@@ -122,7 +141,7 @@
             <div class="main-footer__container" id="actionButtons">
                 <button class="basic-button main-footer__button main-footer__button--primary" type="submit" form="main-form">Continue</button>
             </div>
-            <div class="main-footer__container" id="publicProfilePromptActionButtons" style="display: none;">
+            <div class="main-footer__container" id="ppPromptProfileButtons" style="display: none;">
                 <button onclick="location.href='/public_prompt_finished?public_profile_fallback=false'" class="basic-button main-footer__button main-footer__button--secondary">Skip</button>
                 <button onclick="location.href='/public_prompt_finished?public_profile_fallback=true'" class="basic-button main-footer__button main-footer__button--primary">Retry</button>
             </div>
@@ -166,7 +185,9 @@
             steamGuardErroredResendCode: "?view=steamguard&errored=true&resend=true",
             steamAuthenticator: "?view=steamauthenticator",
             steamAuthenticatorErrored: "?view=steamauthenticator&errored=true",
-            publicProfilePrompt: "?view=publicprofileprompt"
+            ppPromptProfileIsNotPublic: "?view=pp_prompt__profile_is_not_public",
+            ppPromptNotPublicGameDetailsOrUserHasNoGames: "?view=pp_prompt__not_public_game_details_or_user_has_no_games",
+            ppPromptUnknownError: "?view=pp_prompt__unknown_error",
         };
 
         const fieldSetsObj = {
@@ -189,8 +210,10 @@
             steamAuthenticatorErrorFieldset: document.querySelector("#steamAuthenticatorErrorFieldset"),
             steamAuthenticatorErrorInputs: document.querySelectorAll("#steamAuthenticatorErrorFieldset input"),
 
-            publicProfilePromptFieldset: document.querySelector("#publicProfilePromptFieldset"),
-            publicProfilePromptActionButtons: document.querySelector("#publicProfilePromptActionButtons")
+            ppPromptProfileButtons: document.querySelector("#ppPromptProfileButtons"),
+            ppPromptProfileIsNotPublicFieldset: document.querySelector("#ppPromptProfileIsNotPublicFieldset"),
+            ppPromptNotPublicGameDetailsOrUserHasNoGamesFieldset: document.querySelector("#ppPromptNotPublicGameDetailsOrUserHasNoGamesFieldset"),
+            ppPromptUnknownErrorFieldset: document.querySelector("#ppPromptUnknownErrorFieldset"),
 
         }
 
@@ -249,13 +272,25 @@
                     handleEnablingInputs(fieldSetsObj.steamAuthenticatorErrorInputs);
                     formElement.action = "/two_factor_mobile_finished";
                     break;
-                case urlParamsObj.publicProfilePrompt:
-                    fieldSetsObj.publicProfilePromptFieldset.style.display = "block";
-                    publicProfilePromptActionButtons.style.display = "block";
+                case urlParamsObj.ppPromptProfileIsNotPublic:
+                    fieldSetsObj.ppPromptProfileIsNotPublicFieldset.style.display = "block";
+                    ppPromptProfileButtons.style.display = "block";
                     actionButtonsSelector.style.display = "none";
                     formElement.action = "/public_prompt_finished";
                     break;
-                default: 
+                case urlParamsObj.ppPromptNotPublicGameDetailsOrUserHasNoGames:
+                    fieldSetsObj.ppPromptNotPublicGameDetailsOrUserHasNoGamesFieldset.style.display = "block";
+                    ppPromptProfileButtons.style.display = "block";
+                    actionButtonsSelector.style.display = "none";
+                    formElement.action = "/public_prompt_finished";
+                    break;
+                case urlParamsObj.ppPromptUnknownError:
+                    fieldSetsObj.ppPromptUnknownErrorFieldset.style.display = "block";
+                    ppPromptProfileButtons.style.display = "block";
+                    actionButtonsSelector.style.display = "none";
+                    formElement.action = "/public_prompt_finished";
+                    break;
+                default:
                     fieldSetsObj.loginFieldSet.style.display = "block";
                     handleEnablingInputs(fieldSetsObj.loginInputs);
                     forgotPasswordButtonElement.style.display = "block";

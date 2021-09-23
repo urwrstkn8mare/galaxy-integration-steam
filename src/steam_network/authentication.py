@@ -11,13 +11,15 @@ DIRNAME = yarl.URL(pathlib.Path(os.path.dirname(os.path.realpath(__file__))).as_
 class StartUri:
     __INDEX = DIRNAME / 'custom_login' / 'index.html'  
 
-    LOGIN =                    __INDEX % {'view': 'login'}
-    LOGIN_FAILED =             __INDEX % {'view': 'login', 'errored': 'true'}
-    TWO_FACTOR_MAIL =          __INDEX % {'view': 'steamguard'}
-    TWO_FACTOR_MAIL_FAILED =   __INDEX % {'view': 'steamguard', 'errored': 'true'}
-    TWO_FACTOR_MOBILE =        __INDEX % {'view': 'steamauthenticator'}
-    TWO_FACTOR_MOBILE_FAILED = __INDEX % {'view': 'steamauthenticator', 'errored': 'true'}
-    PUBLIC_PROFILE_PROMPT =    __INDEX % {'view': 'publicprofileprompt'}
+    LOGIN =                                                   __INDEX % {'view': 'login'}
+    LOGIN_FAILED =                                            __INDEX % {'view': 'login', 'errored': 'true'}
+    TWO_FACTOR_MAIL =                                         __INDEX % {'view': 'steamguard'}
+    TWO_FACTOR_MAIL_FAILED =                                  __INDEX % {'view': 'steamguard', 'errored': 'true'}
+    TWO_FACTOR_MOBILE =                                       __INDEX % {'view': 'steamauthenticator'}
+    TWO_FACTOR_MOBILE_FAILED =                                __INDEX % {'view': 'steamauthenticator', 'errored': 'true'}
+    PP_PROMPT__PROFILE_IS_NOT_PUBLIC =                        __INDEX % {'view': 'pp_prompt__profile_is_not_public'}
+    PP_PROMPT__NOT_PUBLIC_GAME_DETAILS_OR_USER_HAS_NO_GAMES = __INDEX % {'view': 'pp_prompt__not_public_game_details_or_user_has_no_games'}
+    PP_PROMPT__UNKNOWN_ERROR =                                __INDEX % {'view': 'pp_prompt__unknown_error'}
 
 
 class EndUri:

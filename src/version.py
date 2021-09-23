@@ -1,11 +1,18 @@
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __changelog__ = {
+    "1.0.1": """
+    - added browser window for handling external error during checking profile's privacy
+    - added browser window for case when user has private game details or has no games
+    - fixed an issue with plugin incorrectly reporting the steam profile as private (or "Incorrect Steam64 ID")
+      if a game with for example ";" in its title is owned
+    """,
     "1.0.0": '''
     - refactor high-level code to support multi-backend architecture
     - add `fallback backend` functionality in case the `initial backend` loses connection
     - add PublicProfiles `backend` that rely on publicly visible user data
     - add user configuration at `../steam_plugin_config.ini`
       (default: SteamNetwork as `initial backend` and PublicProfiles as a `fallback backend`)
+      NOTE: plugin reconnection is required to use fallback functionality
     ''',
     "0.60": '''
     - add html fixes

@@ -33,6 +33,7 @@ from galaxy.api.types import (
 from backend_interface import BackendInterface
 from http_client import HttpClient
 from persistent_cache_state import PersistentCacheState
+from user_profile import UserProfileChecker, ProfileIsNotPublic, ProfileDoesNotExist, NotPublicGameDetailsOrUserHasNoGames
 from steam_network.authentication import StartUri, EndUri, next_step_response
 from steam_network.friends_cache import FriendsCache
 from steam_network.games_cache import GamesCache
@@ -46,7 +47,12 @@ from steam_network.times_cache import TimesCache
 from steam_network.user_info_cache import UserInfoCache
 from steam_network.websocket_client import WebSocketClient, UserActionRequired
 from steam_network.websocket_list import WebSocketList
-from user_profile import UserProfileChecker, ProfileIsNotPublic, ProfileDoesNotExist, NotPublicGameDetailsOrUserHasNoGames
+from steam_network.w3_hack import (
+    WITCHER_3_DLCS_APP_IDS,
+    WITCHER_3_GOTY_APP_ID,
+    WITCHER_3_GOTY_TITLE,
+    does_witcher_3_dlcs_set_resolve_to_GOTY
+)
 
 logger = logging.getLogger(__name__)
 
@@ -343,23 +349,17 @@ class SteamNetworkBackend(BackendInterface):
     # features implementation
 
     async def get_owned_games(self) -> List[Game]:
-        WITCHER_3_APP_ID = "292030"
-        WITCHER_3_GAME_OF_THE_YEAR_APP_ID = "499450"
-        WITCHER_3_EXPANSION_PASS_APP_ID = "355880"
-        WITCHER_3_BLOOD_AND_WINE_APP_ID = "378648"
-        WITCHER_3_HEARTS_AND_STONE_APP_ID = "378649"
-
         if self._user_info_cache.steam_id is None:
             raise AuthenticationRequired()
+
         await self._games_cache.wait_ready(TIME_TO_GAME_CACHE_IS_READY)
-        owned_games = []
         self._games_cache.add_game_lever = True
 
+        owned_games = []
+        owned_witcher_3_dlcs = set()
+
         try:
-            temp_title = None
             async for app in self._games_cache.get_owned_games():
-                if str(app.appid) == WITCHER_3_APP_ID:
-                    temp_title = app.title
                 owned_games.append(
                     Game(
                         str(app.appid),
@@ -368,21 +368,18 @@ class SteamNetworkBackend(BackendInterface):
                         LicenseInfo(LicenseType.SinglePurchase, None),
                     )
                 )
+                if app.appid in WITCHER_3_DLCS_APP_IDS:
+                    owned_witcher_3_dlcs.add(app.appid)
 
-            if temp_title:
-                dlcs = []
-                async for dlc in self._games_cache.get_dlcs():
-                    dlcs.append(str(dlc.appid))
-                if WITCHER_3_EXPANSION_PASS_APP_ID in dlcs or \
-                        (WITCHER_3_BLOOD_AND_WINE_APP_ID in dlcs and WITCHER_3_HEARTS_AND_STONE_APP_ID in dlcs):
-                    owned_games.append(
-                        Game(
-                            WITCHER_3_GAME_OF_THE_YEAR_APP_ID,
-                            temp_title,
-                            [],
-                            LicenseInfo(LicenseType.SinglePurchase, None),
-                        )
+            if does_witcher_3_dlcs_set_resolve_to_GOTY(owned_witcher_3_dlcs):
+                owned_games.append(
+                    Game(
+                        WITCHER_3_GOTY_APP_ID,
+                        WITCHER_3_GOTY_TITLE,
+                        [],
+                        LicenseInfo(LicenseType.SinglePurchase, None),
                     )
+                )
 
         except (KeyError, ValueError):
             logger.exception("Cannot parse backend response")
@@ -390,7 +387,8 @@ class SteamNetworkBackend(BackendInterface):
 
         finally:
             self._owned_games_parsed = True
-        self._persistent_cache["games"] = self._games_cache.dump()
+
+        self._persistent_cache['games'] = self._games_cache.dump()
         self._persistent_storage_state.modified = True
 
         return owned_games

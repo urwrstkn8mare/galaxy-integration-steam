@@ -10,9 +10,6 @@ from galaxy.api.errors import (
     AuthenticationRequired,
     UnknownBackendResponse,
     UnknownError,
-    AccessDenied,
-    BackendError,
-    InvalidCredentials,
     BackendTimeout,
 )
 from galaxy.api.types import (
@@ -57,24 +54,20 @@ from steam_network.w3_hack import (
 logger = logging.getLogger(__name__)
 
 
-NO_AVATAR_SET = "0000000000000000000000000000000000000000"
-AVATAR_URL_PREFIX = "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/"
-AVATAR_URL_SUFIX = "_full.jpg"
-DEFAULT_AVATAR = "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/fe/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg"
-STEAMCOMMUNITY_PROFILE_LINK = "https://steamcommunity.com/profiles/"
+GAME_CACHE_IS_READY_TIMEOUT = 90
+USER_INFO_CACHE_INITIALIZED_TIMEOUT = 30
 
-TIME_TO_GAME_CACHE_IS_READY = 90
 GAME_DOES_NOT_SUPPORT_LAST_PLAYED_VALUE = 86400
+STEAMCOMMUNITY_PROFILE_BASE_URL = "https://steamcommunity.com/profiles/"
+AVATAR_URL_TEMPLATE = "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/{}/{}_full.jpg"
+NO_AVATAR_SET = "0000000000000000000000000000000000000000"
+DEFAULT_AVATAR_HASH = "fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb"
 
 
-def galaxy_user_info_from_user_info(user_id, user_info):
-    avatar_url = user_info.avatar_hash.hex()
-    if avatar_url == NO_AVATAR_SET:
-        avatar_url = DEFAULT_AVATAR
-    else:
-        avatar_url = AVATAR_URL_PREFIX + avatar_url[0:2] + "/" + avatar_url + AVATAR_URL_SUFIX
-    profile_link = STEAMCOMMUNITY_PROFILE_LINK + user_id
-    return UserInfo(user_id, user_info.name, avatar_url, profile_link)
+def avatar_url_from_avatar_hash(a_hash: str):
+    if a_hash == NO_AVATAR_SET:
+        a_hash = DEFAULT_AVATAR_HASH
+    return AVATAR_URL_TEMPLATE.format(a_hash[0:2], a_hash)
 
 
 class SteamNetworkBackend(BackendInterface):
@@ -137,14 +130,15 @@ class SteamNetworkBackend(BackendInterface):
         self._update_owned_games_task = asyncio.create_task(asyncio.sleep(0))
         self._owned_games_parsed = None
         self._auth_data = None
+        
+        self._load_persistent_cache()
+    
+    def _load_persistent_cache(self):
+        if "games" in self._persistent_cache:
+            self._games_cache.loads(self._persistent_cache["games"])
     
     def register_auth_lost_callback(self, callback: Callable):
         self._websocket_client.authentication_lost_handler = callback
-
-    async def _cancel_task(self, task):
-        with suppress(asyncio.CancelledError):
-            task.cancel()
-            await task
 
     async def shutdown(self):
         await self._websocket_client.close()
@@ -152,6 +146,11 @@ class SteamNetworkBackend(BackendInterface):
 
         await self._cancel_task(self._update_owned_games_task)
         await self._cancel_task(self._steam_run_task)
+
+    async def _cancel_task(self, task):
+        with suppress(asyncio.CancelledError):
+            task.cancel()
+            await task
 
     # periodic tasks
 
@@ -184,24 +183,14 @@ class SteamNetworkBackend(BackendInterface):
 
     # authentication
 
-    def _raise_websocket_errors(self):
-        try:
-            result = self._websocket_client.communication_queues["errors"].get_nowait()
-            if result and isinstance(result, Exception):
-                raise result
-        except asyncio.queues.QueueEmpty:
-            pass
-
     async def _get_websocket_auth_step(self):
         try:
             result = await asyncio.wait_for(
                 self._websocket_client.communication_queues["plugin"].get(), 60
             )
-            result = result["auth_result"]
+            return result["auth_result"]
         except asyncio.TimeoutError:
-            self.raise_websocket_errors()
             raise BackendTimeout()
-        return result
 
     async def pass_login_credentials(self, step, credentials, cookies):
         if "login_finished" in credentials["end_uri"]:
@@ -307,44 +296,40 @@ class SteamNetworkBackend(BackendInterface):
             )
 
     async def authenticate(self, stored_credentials=None):
-        if not stored_credentials:
+        if stored_credentials is None:
             self._steam_run_task = asyncio.create_task(self._websocket_client.run())
             return next_step_response(StartUri.LOGIN, EndUri.LOGIN_FINISHED)
-
-        if stored_credentials.get("cookies", []):
-            logger.error("Old http login flow is not unsupported. Please reconnect the plugin")
-            raise AccessDenied()
-
+        return await self._authenticate_with_stored_credentials(stored_credentials)
+    
+    async def _authenticate_with_stored_credentials(self, stored_credentials):
         self._user_info_cache.from_dict(stored_credentials)
-        if "games" in self._persistent_cache:
-            self._games_cache.loads(self._persistent_cache["games"])
 
         self._steam_run_task = asyncio.create_task(self._websocket_client.run())
-        connection_timeout = 30
-        try:
-            await asyncio.wait_for(self._user_info_cache.initialized.wait(), connection_timeout)
-        except asyncio.TimeoutError:
+        user_info_ready_task = asyncio.create_task(self._user_info_cache.initialized.wait())
+
+        done, _ = await asyncio.wait(
+            {self._steam_run_task, user_info_ready_task},
+            timeout = USER_INFO_CACHE_INITIALIZED_TIMEOUT,
+            return_when = asyncio.FIRST_COMPLETED
+        )
+        
+        if user_info_ready_task in done:
+            self._store_credentials(self._user_info_cache.to_dict())
+            return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
+        elif self._steam_run_task in done:
             try:
-                self._raise_websocket_errors()
-            except BackendError as e:
-                logging.info(f"Unable to keep connection with steam backend {repr(e)}")
-                raise
-            except InvalidCredentials:
-                logging.info("Invalid credentials during authentication")
-                raise
+                await self._steam_run_task   
             except Exception as e:
-                logging.info(f"Internal websocket exception caught during auth {repr(e)}")
+                logger.exception(f"Unable to authenticate to steam backend: {repr(e)}")
                 raise
             else:
-                logging.info(
-                    f"Failed to initialize connection with steam client within {connection_timeout} seconds"
-                )
-                raise BackendTimeout()
-            finally:
-                await self._cancel_task(self._steam_run_task)
-
-        self._store_credentials(self._user_info_cache.to_dict())
-        return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
+                raise UnknownError("Unexcpeted, silent websocket close.")
+        else:
+            logger.warning(
+                f"Failed to login on steam server within {USER_INFO_CACHE_INITIALIZED_TIMEOUT} seconds."
+            )
+            await self._cancel_task(self._steam_run_task)
+            raise BackendTimeout()
 
     # features implementation
 
@@ -352,7 +337,7 @@ class SteamNetworkBackend(BackendInterface):
         if self._user_info_cache.steam_id is None:
             raise AuthenticationRequired()
 
-        await self._games_cache.wait_ready(TIME_TO_GAME_CACHE_IS_READY)
+        await self._games_cache.wait_ready(GAME_CACHE_IS_READY_TIMEOUT)
         self._games_cache.add_game_lever = True
 
         owned_games = []
@@ -388,7 +373,7 @@ class SteamNetworkBackend(BackendInterface):
         finally:
             self._owned_games_parsed = True
 
-        self._persistent_cache['games'] = self._games_cache.dump()
+        self._persistent_cache["games"] = self._games_cache.dump()
         self._persistent_storage_state.modified = True
 
         return owned_games
@@ -500,11 +485,17 @@ class SteamNetworkBackend(BackendInterface):
 
         friends = []
         for friend_id in friends_infos:
-            friend = galaxy_user_info_from_user_info(str(friend_id), friends_infos[friend_id])
+            friend = self._galaxy_user_info_from_user_info(str(friend_id), friends_infos[friend_id])
             if str(friend_id) in friends_nicknames:
                 friend.user_name += f" ({friends_nicknames[friend_id]})"
             friends.append(friend)
         return friends
+
+    @staticmethod
+    def _galaxy_user_info_from_user_info(user_id, user_info):
+        avatar_url = avatar_url_from_avatar_hash(user_info.avatar_hash.hex())
+        profile_link = STEAMCOMMUNITY_PROFILE_BASE_URL + user_id
+        return UserInfo(user_id, user_info.name, avatar_url, profile_link)
 
     async def prepare_user_presence_context(self, user_ids: List[str]) -> Any:
         return await self._websocket_client.get_friends_info(user_ids)

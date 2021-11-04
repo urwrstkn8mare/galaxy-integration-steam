@@ -67,7 +67,7 @@ class WebSocketClient:
         self._times_cache = times_cache
 
         self.authentication_lost_handler: Optional[Callable] = None
-        self.communication_queues = {'plugin': asyncio.Queue(), 'websocket': asyncio.Queue(), 'errors': asyncio.Queue()}
+        self.communication_queues = {'plugin': asyncio.Queue(), 'websocket': asyncio.Queue(),}
         self.used_server_cell_id: int = 0
         self._current_ws_address: Optional[str] = None
 
@@ -116,20 +116,19 @@ class WebSocketClient:
             except websockets.ConnectionClosedError as error:
                 logger.warning("WebSocket disconnected (%d: %s), reconnecting...", error.code, error.reason)
             except websockets.InvalidState as error:
-                logger.warning("WebSocket is trying to connect...", error.code, error.reason)
-            except (BackendNotAvailable, BackendTimeout, BackendError) as e:
-                logger.warning(f"{repr(e)}. Trying with different CM...")
+                logger.warning(f"WebSocket is trying to connect... {repr(error)}")
+            except (BackendNotAvailable, BackendTimeout, BackendError) as error:
+                logger.warning(f"{repr(error)}. Trying with different CM...")
                 self._websocket_list.add_server_to_ignored(self._current_ws_address, timeout_sec=BLACKLISTED_CM_EXPIRATION_SEC)
-            except NetworkError:
-                logger.exception(
-                    "Failed to establish authenticated WebSocket connection, retrying after %d seconds",
+            except NetworkError as error:
+                logger.error(
+                    f"Failed to establish authenticated WebSocket connection: {repr(error)}, retrying after %d seconds",
                     RECONNECT_INTERVAL_SECONDS
                 )
                 await sleep(RECONNECT_INTERVAL_SECONDS)
                 continue
             except Exception as e:
-                logger.exception(f"Failed to establish authenticated WebSocket connection {repr(e)}")
-                await self.communication_queues['errors'].put(e)
+                logger.error(f"Failed to establish authenticated WebSocket connection {repr(e)}")
                 raise
 
             await self._close_socket()
@@ -146,14 +145,14 @@ class WebSocketClient:
         is_socket_connected = True if self._websocket else False
         if self._protocol_client is not None:
             logger.info("Closing protocol client")
-            await self._protocol_client.close(is_socket_connected)
+            await self._protocol_client.close(send_log_off=is_socket_connected)
             await self._protocol_client.wait_closed()
             self._protocol_client = None
 
     async def close(self):
         is_socket_connected = True if self._websocket else False
         if self._protocol_client is not None:
-            await self._protocol_client.close(is_socket_connected)
+            await self._protocol_client.close(send_log_off=is_socket_connected)
         if self._websocket is not None:
             await self._websocket.close()
 
@@ -219,33 +218,28 @@ class WebSocketClient:
             logger.warning("WebSocket client authentication lost")
             auth_lost_future.set_exception(error)
 
-        try:
-            if self._steam_app_ownership_ticket_cache.ticket:
-                await self._protocol_client.register_auth_ticket_with_cm(self._steam_app_ownership_ticket_cache.ticket)
+        if self._steam_app_ownership_ticket_cache.ticket:
+            await self._protocol_client.register_auth_ticket_with_cm(self._steam_app_ownership_ticket_cache.ticket)
 
-            if self._user_info_cache.token:
-                ret_code = await self._protocol_client.authenticate_token(self._user_info_cache.steam_id, self._user_info_cache.account_username, self._user_info_cache.token, auth_lost_handler)
-            else:
-                ret_code = None
-                while ret_code != UserActionRequired.NoActionRequired:
-                    if ret_code != None:
-                        await self.communication_queues['plugin'].put({'auth_result': ret_code})
-                        logger.info(f"Put {ret_code} in the queue, waiting for other side to receive")
-                    response = await self.communication_queues['websocket'].get()
-                    logger.info(f" Got {response.keys()} from queue")
-                    password = response.get('password', None)
-                    two_factor = response.get('two_factor', None)
-                    logger.info(f'Authenticating with {"username" if self._user_info_cache.account_username else ""}, {"password" if password else ""}, {"two_factor" if two_factor else ""}')
-                    ret_code = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, password, two_factor, self._user_info_cache.two_step, auth_lost_handler)
-                    logger.info(f"Response from auth {ret_code}")
-            logger.info("Finished authentication")
-            await self.communication_queues['plugin'].put({'auth_result': ret_code})
+        if self._user_info_cache.token:
+            ret_code = await self._protocol_client.authenticate_token(self._user_info_cache.steam_id, self._user_info_cache.account_username, self._user_info_cache.token, auth_lost_handler)
+        else:
+            ret_code = None
+            while ret_code != UserActionRequired.NoActionRequired:
+                if ret_code != None:
+                    await self.communication_queues['plugin'].put({'auth_result': ret_code})
+                    logger.info(f"Put {ret_code} in the queue, waiting for other side to receive")
+                response = await self.communication_queues['websocket'].get()
+                logger.info(f" Got {response.keys()} from queue")
+                password = response.get('password', None)
+                two_factor = response.get('two_factor', None)
+                logger.info(f'Authenticating with {"username" if self._user_info_cache.account_username else ""}, {"password" if password else ""}, {"two_factor" if two_factor else ""}')
+                ret_code = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, password, two_factor, self._user_info_cache.two_step, auth_lost_handler)
+                logger.info(f"Response from auth {ret_code}")
+        logger.info("Finished authentication")
+        await self.communication_queues['plugin'].put({'auth_result': ret_code})
 
-            # request new steam app ownership ticket
-            await self._protocol_client.get_steam_app_ownership_ticket()
-
-        except Exception as e:
-            await self.communication_queues['errors'].put(e)
-            raise e
+        # request new steam app ownership ticket
+        await self._protocol_client.get_steam_app_ownership_ticket()
 
 

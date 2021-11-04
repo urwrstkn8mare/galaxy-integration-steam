@@ -1,5 +1,15 @@
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 __changelog__ = {
+    "unreleased": '''
+    ''',
+    "1.0.2": """
+    - refreshed python generated protobuf files
+    - handle eresult 48: `TryWithDifferentCM` on every login attempt
+    - fix timeout problems when importing bigger libraries (#129 thanks @nbrochu!)
+    - amend and cleanup authentication process error handling so that it gives immediate feedback
+    - add some unit tests for achievement parser + refactor
+    - fix some unit tests for storing plugin version on which user logged in and test for default backend switch
+    """,
     "1.0.1": """
     - added browser window for handling external error during checking profile's privacy
     - added browser window for case when user has private game details or has no games

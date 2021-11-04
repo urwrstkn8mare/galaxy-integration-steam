@@ -11,12 +11,12 @@ from typing import Awaitable, Callable, Dict, Optional, Any
 from typing import List, NamedTuple
 
 import vdf
-from galaxy.api.errors import UnknownBackendResponse
 
 from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
 from .messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, steammessages_player_pb2, \
-    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, steamui_libraryroot_pb2, \
-    steammessages_clientserver_2_pb2
+    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, steammessages_chat_pb2, \
+    steammessages_clientserver_2_pb2, steammessages_clientserver_userstats_pb2, \
+    steammessages_clientserver_appinfo_pb2, steammessages_webui_friends_pb2, service_cloudconfigstore_pb2
 from .types import SteamId, ProtoUserInfo
 
 logger = logging.getLogger(__name__)
@@ -64,8 +64,8 @@ class ProtobufClient:
         self.collections = {'event': asyncio.Event(),
                             'collections': dict()}
 
-    async def close(self, is_socket_connected):
-        if is_socket_connected:
+    async def close(self, send_log_off):
+        if send_log_off:
             await self.send_log_off_message()
         if self._heartbeat_task is not None:
             self._heartbeat_task.cancel()
@@ -170,14 +170,14 @@ class ProtobufClient:
 
     async def _import_game_stats(self, game_id):
         logger.info(f"Importing game stats for {game_id}")
-        message = steammessages_clientserver_pb2.CMsgClientGetUserStats()
+        message = steammessages_clientserver_userstats_pb2.CMsgClientGetUserStats()
         message.game_id = int(game_id)
         await self._send(EMsg.ClientGetUserStats, message)
 
     async def _import_game_time(self):
         logger.info("Importing game times")
         job_id = next(self._job_id_iterator)
-        message = steammessages_player_pb2.CPlayer_CustomGetLastPlayedTimes_Request()
+        message = steammessages_player_pb2.CPlayer_GetLastPlayedTimes_Request()
         message.min_last_played = 0
         await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, "Player.ClientGetLastPlayedTimes#1")
 
@@ -188,7 +188,7 @@ class ProtobufClient:
 
     async def get_friends_statuses(self):
         job_id = next(self._job_id_iterator)
-        message = steamui_libraryroot_pb2.CChat_RequestFriendPersonaStates_Request()
+        message = steammessages_chat_pb2.CChat_RequestFriendPersonaStates_Request()
         await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, "Chat.RequestFriendPersonaStates#1")
 
     async def get_user_infos(self, users, flags):
@@ -199,15 +199,15 @@ class ProtobufClient:
 
     async def _import_collections(self):
         job_id = next(self._job_id_iterator)
-        message = steamui_libraryroot_pb2.CCloudConfigStore_Download_Request()
-        message_inside = steamui_libraryroot_pb2.CCloudConfigStore_NamespaceVersion()
+        message = service_cloudconfigstore_pb2.CCloudConfigStore_Download_Request()
+        message_inside = service_cloudconfigstore_pb2.CCloudConfigStore_NamespaceVersion()
         message_inside.enamespace = 1
         message.versions.append(message_inside)
         await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, "CloudConfigStore.Download#1")
 
     async def get_packages_info(self, steam_licenses: List[SteamLicense]):
         logger.info("Sending call %s with %d package_ids", repr(EMsg.PICSProductInfoRequest), len(steam_licenses))
-        message = steammessages_clientserver_pb2.CMsgClientPICSProductInfoRequest()
+        message = steammessages_clientserver_appinfo_pb2.CMsgClientPICSProductInfoRequest()
 
         for steam_license in steam_licenses:
             info = message.packages.add()
@@ -218,7 +218,7 @@ class ProtobufClient:
 
     async def get_apps_info(self, app_ids):
         logger.info("Sending call %s with %d app_ids", repr(EMsg.PICSProductInfoRequest), len(app_ids))
-        message = steammessages_clientserver_pb2.CMsgClientPICSProductInfoRequest()
+        message = steammessages_clientserver_appinfo_pb2.CMsgClientPICSProductInfoRequest()
 
         for app_id in app_ids:
             info = message.apps.add()
@@ -228,7 +228,7 @@ class ProtobufClient:
 
     async def get_presence_localization(self, appid, language='english'):
         logger.info(f"Sending call for rich presence localization with {appid}, {language}")
-        message = steamui_libraryroot_pb2.CCommunity_GetAppRichPresenceLocalization_Request()
+        message = steammessages_webui_friends_pb2.CCommunity_GetAppRichPresenceLocalization_Request()
 
         message.appid = appid
         message.language = language
@@ -386,7 +386,7 @@ class ProtobufClient:
         message = steammessages_clientserver_login_pb2.CMsgClientLogonResponse()
         message.ParseFromString(body)
         result = message.eresult
-
+        
         if result == EResult.AccountLogonDenied:
             if message.email_domain:
                 await self.user_authentication_handler('two_step', 'email')
@@ -539,7 +539,7 @@ class ProtobufClient:
 
     async def _process_product_info_response(self, body):
         logger.debug("Processing message PICSProductInfoResponse")
-        message = steammessages_clientserver_pb2.CMsgClientPICSProductInfoResponse()
+        message = steammessages_clientserver_appinfo_pb2.CMsgClientPICSProductInfoResponse()
         message.ParseFromString(body)
         apps_to_parse = []
 
@@ -583,7 +583,7 @@ class ProtobufClient:
             await self.get_apps_info(apps_to_parse)
 
     async def _process_rich_presence_translations(self, body):
-        message = steamui_libraryroot_pb2.CCommunity_GetAppRichPresenceLocalization_Response()
+        message = steammessages_webui_friends_pb2.CCommunity_GetAppRichPresenceLocalization_Response()
         message.ParseFromString(body)
 
         # keeping info log for further rich presence improvements
@@ -592,51 +592,18 @@ class ProtobufClient:
 
     async def _process_user_stats_response(self, body):
         logger.debug("Processing message ClientGetUserStatsResponse")
-        message = steammessages_clientserver_pb2.CMsgClientGetUserStatsResponse()
+        message = steammessages_clientserver_userstats_pb2.CMsgClientGetUserStatsResponse()
         message.ParseFromString(body)
-        game_id = message.game_id
+
+        game_id = str(message.game_id)
         stats = message.stats
-        achievs = message.achievement_blocks
+        achievement_blocks = message.achievement_blocks
+        achievements_schema = vdf.binary_loads(message.schema, merge_duplicate_keys=False)
 
-        logger.debug(f"Processing user stats response for {message.game_id}")
-        achievements_schema = vdf.binary_loads(message.schema,merge_duplicate_keys=False)
-        achievements_unlocked = []
-
-        for achievement_block in achievs:
-            achi_block_enum = 32 * (achievement_block.achievement_id - 1)
-            for index, unlock_time in enumerate(achievement_block.unlock_time):
-                if unlock_time > 0:
-                    try:
-                        if 'bits' not in achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]:
-                            logger.warning("'bits' not found in achievements_schema while parsing achievement %d for game %s", index, game_id)
-                            logger.info(achievements_schema)
-                            continue
-
-                        if str(achievement_block.achievement_id) not in achievements_schema[str(game_id)]['stats'] or \
-                                str(index) not in achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits']:
-                            logger.warning("Non existent achievement unlocked")
-                            continue
-
-                        if 'english' in achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits'][str(index)]['display']['name']:
-                            name = achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits'][str(index)]['display']['name']['english']
-                        else:
-                            name = achievements_schema[str(game_id)]['stats'][str(achievement_block.achievement_id)]['bits'][str(index)]['display']['name']
-                        achievements_unlocked.append({'id': achi_block_enum+index,
-                                                      'unlock_time': unlock_time,
-                                                     'name': name})
-                    except Exception as e:
-                        logger.error("Unable to parse achievement %d for game %s from block %s : %s",
-                            index, game_id, str(achievement_block.achievement_id), repr(e)
-                        )
-                        logger.info(achievs)
-                        logger.info(achievements_schema)
-                        logger.info(message.schema)
-                        raise UnknownBackendResponse(f"Achievements parser error: {e.__class__}")
-
-        await self.stats_handler(game_id, stats, achievements_unlocked)
+        self.stats_handler(game_id, stats, achievement_blocks, achievements_schema)
 
     async def _process_user_time_response(self, body):
-        message = steammessages_player_pb2.CPlayer_CustomGetLastPlayedTimes_Response()
+        message = steammessages_player_pb2.CPlayer_GetLastPlayedTimes_Response()
         message.ParseFromString(body)
         for game in message.games:
             logger.debug(f"Processing game times for game {game.appid}, playtime: {game.playtime_forever} last time played: {game.last_playtime}")
@@ -644,7 +611,7 @@ class ProtobufClient:
         await self.times_import_finished_handler(True)
 
     async def _process_collections_response(self, body):
-        message = steamui_libraryroot_pb2.CCloudConfigStore_Download_Response()
+        message = service_cloudconfigstore_pb2.CCloudConfigStore_Download_Response()
         message.ParseFromString(body)
 
         for data in message.data:

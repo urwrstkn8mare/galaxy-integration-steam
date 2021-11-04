@@ -198,6 +198,7 @@ def persona_name():
 
 
 async def test_failed_authentication_on_default_mode_with_default_fallback(
+    patch_config_location,
     create_plugin_with_backend,
     steam_network_backend,
     public_profiles_backend,
@@ -207,6 +208,7 @@ async def test_failed_authentication_on_default_mode_with_default_fallback(
     """
     On loosing access with default SteamNetwork mode, we switch to PublicProfiles
     """
+    patch_config_location()  # ensure no real config is loaded
     steam_network_backend.authenticate.side_effect = InvalidCredentials("eresult: 5")
     public_profiles_backend.authenticate.return_value = Authentication(steam_id, persona_name)
 

@@ -7,6 +7,9 @@ from async_mock import AsyncMock
 FIRST_SETUP_VERSION_CACHE = "auth_setup_on_version"
 
 
+pytestmark = pytest.mark.asyncio
+
+
 @pytest.mark.parametrize("initial_version", [
     "0.53",
     "1.53",

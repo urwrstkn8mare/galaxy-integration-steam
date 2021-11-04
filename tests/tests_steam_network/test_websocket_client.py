@@ -91,7 +91,11 @@ def translations_cache():
 
 @pytest.fixture
 def user_info_cache():
-    return MagicMock(UserInfoCache)
+    user_info_cache = MagicMock(UserInfoCache)
+    user_info_cache.old_flow = False
+    user_info_cache.account_username = ACCOUNT_NAME
+    user_info_cache.two_step = None
+    return user_info_cache
 
 
 @pytest.fixture
@@ -142,7 +146,7 @@ def patch_connect(mocker):
 
 @pytest.mark.asyncio
 async def test_connect_authenticate(
-    client, patch_connect, protocol_client, websocket_list
+    client, patch_connect, protocol_client, websocket_list, user_info_cache
 ):
     patch_connect(autospec=True)
     websocket_list.get.return_value = aiter(["wss://abc.com/websocket"])
@@ -153,16 +157,11 @@ async def test_connect_authenticate(
     websocket_queue_mock.get.return_value = credentials_mock
     error_queue_mock = AsyncMock()
     error_queue_mock.get.return_value = MagicMock()
+    user_info_cache.token = None
     client.communication_queues = {
         "plugin": plugin_queue_mock,
         "websocket": websocket_queue_mock,
-        "errors": error_queue_mock,
     }
-    client._user_info_cache = MagicMock()
-    client._user_info_cache.old_flow = False
-    client._user_info_cache.token = False
-    client._user_info_cache.account_username = ACCOUNT_NAME
-    client._user_info_cache.two_step = None
 
     protocol_client.authenticate_password.return_value = async_return_value(
         UserActionRequired.NoActionRequired
@@ -198,8 +197,7 @@ async def test_websocket_close_reconnect(
     error_queue_mock.get.return_value = MagicMock()
     client.communication_queues = {
         "plugin": plugin_queue_mock,
-        "websocket": websocket_queue_mock,
-        "errors": error_queue_mock,
+        "websocket": websocket_queue_mock
     }
 
     protocol_client.close.return_value = async_return_value(None)
@@ -241,8 +239,10 @@ async def test_servers_cache_retry(
 @pytest.mark.asyncio
 async def test_servers_cache_failure(client, protocol_client, websocket_list):
     websocket_list.get.return_value = aiter_raise(AccessDenied())
+
     with pytest.raises(AccessDenied):
         await client.run()
+
     websocket_list.get.assert_called_once_with(0)
     protocol_client.authenticate.assert_not_called()
     protocol_client.run.assert_not_called()
@@ -316,7 +316,7 @@ async def test_connect_error_all_servers(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("exception", [InvalidCredentials, AccessDenied])
+@pytest.mark.parametrize("exception", [InvalidCredentials(), AccessDenied()])
 async def test_auth_lost_handler(
     client,
     protocol_client,
@@ -343,7 +343,7 @@ async def test_auth_lost_handler(
 @pytest.mark.parametrize(
     "exception", [BackendNotAvailable(), BackendError(), BackendTimeout()]
 )
-async def test_handling_backend_not_available(
+async def test_handling_backend_not_available_during_token_auth(
     client, protocol_client, websocket_list, exception, patch_connect
 ):
     """
@@ -363,6 +363,59 @@ async def test_handling_backend_not_available(
     protocol_client.authenticate_token.side_effect = [
         async_raise(exception),
         async_return_value(MagicMock(), loop_iterations_delay=5),
+    ]
+    # breaks from infinite loop after job is done before authentication task
+    protocol_client.run.side_effect = lambda: async_return_value(
+        None, loop_iterations_delay=2
+    )
+
+    await client.run()
+
+    blacklisting_timeout = 300
+    websocket_list.add_server_to_ignored.assert_called_once_with(
+        unavailable_socket, timeout_sec=blacklisting_timeout
+    )
+    connect.assert_has_calls(
+        [
+            call(f"{unavailable_socket}", max_size=ANY, ssl=ANY),
+            call(f"{next_socket}", max_size=ANY, ssl=ANY),
+        ]
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "exception", [BackendNotAvailable(), BackendError(), BackendTimeout()]
+)
+async def test_handling_backend_not_available_during_password_auth(
+    client, protocol_client, websocket_list, exception, patch_connect, user_info_cache
+):
+    """
+    Usecase: eg. when receiving `ERestult.TryWithDifferentCM` or `EResult.ServiceUnavailable` from LogonResponse
+    """
+    unavailable_socket = "wss://cm1-lax1.cm.steampowered.com:27036"
+    next_socket = "wss:/cm2-ord1.cm.steampowered.com:27010"
+    websocket_list.get.return_value = aiter(
+        [
+            unavailable_socket,
+            next_socket,
+        ]
+    )
+    connect = patch_connect(
+        side_effect=lambda *args, **kwargs: async_return_value(AsyncMock()),
+    )
+    credentials_mock = {"password": PASSWORD, "two_factor": TWO_FACTOR}
+    plugin_queue_mock = AsyncMock()
+    websocket_queue_mock = AsyncMock()
+    websocket_queue_mock.get.return_value = credentials_mock
+    user_info_cache.token = None
+    client.communication_queues = {
+        "plugin": plugin_queue_mock,
+        "websocket": websocket_queue_mock,
+    }
+    protocol_client.authenticate_password.side_effect = [
+        async_raise(exception),
+        async_return_value(UserActionRequired.NoActionRequired, loop_iterations_delay=5),
     ]
     # breaks from infinite loop after job is done before authentication task
     protocol_client.run.side_effect = lambda: async_return_value(

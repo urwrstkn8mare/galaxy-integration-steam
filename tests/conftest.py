@@ -99,8 +99,8 @@ def create_plugin_with_backend(mocker, create_plugin):
             mocker.patch("plugin.BackendConfiguration.fallback_mode",
                 new_callable=PropertyMock(return_value=fallback_mode))
 
+        cache = kwargs.setdefault("cache", {})
         if connected_on_version and not connected_on_version.startswith('0'):
-            cache = kwargs.setdefault("cache", {})
             cache.setdefault(AUTH_SETUP_ON_VERSION__CACHE_KEY, connected_on_version)
 
         plugin = create_plugin(**kwargs)

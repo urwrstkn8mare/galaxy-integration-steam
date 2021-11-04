@@ -2,9 +2,10 @@ import asyncio
 import logging
 import enum
 import platform
+import secrets
+from typing import List, TYPE_CHECKING
 
 import galaxy.api.errors
-import secrets
 
 from .local_machine_cache import LocalMachineCache
 from .protocol.protobuf_client import ProtobufClient, SteamLicense
@@ -16,7 +17,8 @@ from .user_info_cache import UserInfoCache
 from .times_cache import TimesCache
 from .ownership_ticket_cache import OwnershipTicketCache
 
-from typing import List
+if TYPE_CHECKING:
+    from protocol.messages import steammessages_clientserver_pb2
 
 
 logger = logging.getLogger(__name__)
@@ -180,8 +182,8 @@ class ProtocolClient:
     def _generate_machine_id():
         return secrets.token_bytes()
 
-    async def close(self, is_socket_connected):
-        await self._protobuf_client.close(is_socket_connected)
+    async def close(self, send_log_off):
+        await self._protobuf_client.close(send_log_off)
 
     async def wait_closed(self):
         await self._protobuf_client.wait_closed()
@@ -266,8 +268,12 @@ class ProtocolClient:
         return collections
 
     async def _log_on_handler(self, result: EResult):
-        assert self._login_future is not None
-        self._login_future.set_result(result)
+        if self._login_future is not None:
+            self._login_future.set_result(result)
+        else:
+            # sometimes Steam sends LogOnResponse message even if plugin didn't send LogOnRequest
+            # known example is LogOnResponse with result=EResult.TryAnotherCM
+            raise translate_error(result)
 
     async def _log_off_handler(self, result):
         logger.warning("Logged off, result: %d", result)
@@ -362,8 +368,47 @@ class ProtocolClient:
             self._translations_cache[appid] = None
             await self._protobuf_client.get_presence_localization(appid)
 
-    async def _stats_handler(self, game_id, stats, achievements):
-        self._stats_cache.update_stats(str(game_id), stats, achievements)
+    def _stats_handler(self,
+        game_id: str,
+        stats: "steammessages_clientserver_pb2.CMsgClientGetUserStatsResponse.Stats",
+        achievement_blocks: "steammessages_clientserver_pb2.CMsgClientGetUserStatsResponse.AchievementBlocks",
+        schema: dict
+    ):
+        def get_achievement_name(achievements_block_schema: dict, bit_no: int) -> str:
+            name = achievements_block_schema['bits'][str(bit_no)]['display']['name']
+            try:
+                return name['english']
+            except TypeError:
+                return name
+
+        logger.debug(f"Processing user stats response for {game_id}")
+        achievements_unlocked = []
+
+        for achievement_block in achievement_blocks:
+            block_id = str(achievement_block.achievement_id)
+            try:
+                stats_block_schema = schema[game_id]['stats'][block_id]
+            except KeyError:
+                logger.warning("No stat schema for block %s for game: %s", block_id, game_id)
+                continue
+
+            for i, unlock_time in enumerate(achievement_block.unlock_time):
+                if unlock_time > 0:
+                    try:
+                        display_name = get_achievement_name(stats_block_schema, i)
+                    except KeyError:
+                        logger.warning("Unexpected schema for achievement bit %d from block %s for game %s: %s",
+                            i, block_id, game_id, stats_block_schema
+                        )
+                        continue
+
+                    achievements_unlocked.append({
+                        'id': 32 * (achievement_block.achievement_id - 1) + i,
+                        'unlock_time': unlock_time,
+                        'name': display_name
+                    })
+
+        self._stats_cache.update_stats(game_id, stats, achievements_unlocked)
 
     async def _user_authentication_handler(self, key, value):
         logger.info(f"Updating user info cache with new {key}")

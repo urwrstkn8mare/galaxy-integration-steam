@@ -13,10 +13,12 @@ from typing import List, NamedTuple
 import vdf
 
 from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
-from .messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, steammessages_player_pb2, \
-    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, steammessages_chat_pb2, \
+from .messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, \
+    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, \
     steammessages_clientserver_2_pb2, steammessages_clientserver_userstats_pb2, \
-    steammessages_clientserver_appinfo_pb2, steammessages_webui_friends_pb2, service_cloudconfigstore_pb2
+    steammessages_clientserver_appinfo_pb2, service_community_pb2, service_cloudconfigstore_pb2
+from .messages.steammessages_player import steamclient_pb2 as steammessages_player_pb2
+from .messages.steammessages_chat import steamclient_pb2 as steammessages_chat_pb2
 from .types import SteamId, ProtoUserInfo
 
 logger = logging.getLogger(__name__)
@@ -228,7 +230,7 @@ class ProtobufClient:
 
     async def get_presence_localization(self, appid, language='english'):
         logger.info(f"Sending call for rich presence localization with {appid}, {language}")
-        message = steammessages_webui_friends_pb2.CCommunity_GetAppRichPresenceLocalization_Request()
+        message = service_community_pb2.CCommunity_GetAppRichPresenceLocalization_Request()
 
         message.appid = appid
         message.language = language
@@ -583,7 +585,7 @@ class ProtobufClient:
             await self.get_apps_info(apps_to_parse)
 
     async def _process_rich_presence_translations(self, body):
-        message = steammessages_webui_friends_pb2.CCommunity_GetAppRichPresenceLocalization_Response()
+        message = service_community_pb2.CCommunity_GetAppRichPresenceLocalization_Response()
         message.ParseFromString(body)
 
         # keeping info log for further rich presence improvements

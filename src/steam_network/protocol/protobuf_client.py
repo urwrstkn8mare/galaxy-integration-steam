@@ -17,15 +17,13 @@ from websockets.client import WebSocketClientProtocol
 from pprint import pformat
 
 from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
-from .messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, steammessages_auth_pb2, \
-    steammessages_player_pb2, steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, \
-    steammessages_chat_pb2, steammessages_clientserver_2_pb2, steammessages_clientserver_userstats_pb2, \
-    steammessages_clientserver_appinfo_pb2, steammessages_webui_friends_pb2, service_cloudconfigstore_pb2, \
-    enums_pb2
-
-from .steam_types import SteamId, ProtoUserInfo
-
-from pprint import pformat
+from .messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, \
+    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, \
+    steammessages_clientserver_2_pb2, steammessages_clientserver_userstats_pb2, \
+    steammessages_clientserver_appinfo_pb2, service_community_pb2, service_cloudconfigstore_pb2
+from .messages.steammessages_player import steamclient_pb2 as steammessages_player_pb2
+from .messages.steammessages_chat import steamclient_pb2 as steammessages_chat_pb2
+from .types import SteamId, ProtoUserInfo
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -290,7 +288,7 @@ class ProtobufClient:
 
     async def get_presence_localization(self, appid, language='english'):
         logger.info(f"Sending call for rich presence localization with {appid}, {language}")
-        message = steammessages_webui_friends_pb2.CCommunity_GetAppRichPresenceLocalization_Request()
+        message = service_community_pb2.CCommunity_GetAppRichPresenceLocalization_Request()
 
         message.appid = appid
         message.language = language
@@ -448,7 +446,7 @@ class ProtobufClient:
         message = steammessages_clientserver_login_pb2.CMsgClientLogonResponse()
         message.ParseFromString(body)
         result = message.eresult
-        
+
         if result == EResult.AccountLogonDenied:
             if message.email_domain:
                 await self.user_authentication_handler('two_step', 'email')
@@ -456,7 +454,7 @@ class ProtobufClient:
             await self.user_authentication_handler('two_step', 'mobile')
 
         if result == EResult.OK:
-            interval = message.out_of_game_heartbeat_seconds
+            interval = message.heartbeat_seconds
             self.steam_id = message.client_supplied_steamid
             await self.user_authentication_handler('steam_id', self.steam_id)
             await self.user_authentication_handler('account_id', message.client_supplied_steamid - self._ACCOUNT_ID_MASK)
@@ -645,7 +643,7 @@ class ProtobufClient:
             await self.get_apps_info(apps_to_parse)
 
     async def _process_rich_presence_translations(self, body):
-        message = steammessages_webui_friends_pb2.CCommunity_GetAppRichPresenceLocalization_Response()
+        message = service_community_pb2.CCommunity_GetAppRichPresenceLocalization_Response()
         message.ParseFromString(body)
 
         # keeping info log for further rich presence improvements

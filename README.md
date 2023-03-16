@@ -2,6 +2,29 @@
 
 GOG Galaxy 2.0 Community integration for Steam.
 
+## Dev env setup
+* Download Python 3.7.9 32-bit
+* Install it with the defaults
+* Create a new virtual env:
+  `python.exe -m virtualenv .venv -p "C:\Users\<your username>\AppData\Local\Programs\Python\Python37-32\python.exe" --pip 22.0.4`
+* Activate the virtual env:
+  `.\.venv\Scripts\activate.ps1`
+* Install the dev dependencies:
+  `pip install -r requirements/dev.txt`
+* Make your edits
+* Update the protobufs (See README_UPDATE_PROTOBUF_FILES.md for sources)
+  Take notice of the initial diff between the files in `protobuf_files` and `protobuf_files/orig`
+  Generating the python files is done via:
+  `inv generate-protobuf-messages`
+* Build your edits:
+  `inv build`
+* Test your edits:
+  `inv test`
+* Install your edits for a local test:
+  `inv install`
+* Build a release package (zip):
+  `inv pack`
+
 ## Installation
 
 *The latest release should be available for download via the "Connect" button in Galaxy*

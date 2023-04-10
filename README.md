@@ -2,9 +2,13 @@
 
 GOG Galaxy 2.0 Community integration for Steam.
 
+This is a fork of the repository from FriendsOfGalaxy, intended to continue development until they resume their work.
+
+**This is unofficial and purely maintained by fans!**
+
 ## Installation
 
-*The latest release should be available for download via the "Connect" button in Galaxy*
+*~~The latest release should be available for download via the "Connect" button in Galaxy~~*
 
 ### To install a custom build:
 * make sure Galaxy is closed
@@ -48,6 +52,8 @@ The behavior is configurable using a `config file`.
 Initial `backend` (with the login window) is set to use `Steam Network` and switches to `Public Profiles` automatically when stored token become invalid (for the main reason see #74).
 
 ## Credits
+
+This is a fork of https://github.com/FriendsOfGalaxy/galaxy-integration-steam
 
 Based on work and research done by others:
 * https://github.com/prncc/steam-scraper

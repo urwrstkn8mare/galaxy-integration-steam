@@ -2,6 +2,9 @@ import asyncio
 import base64
 import logging as log
 
+from rsa import PublicKey
+
+from typing import Optional
 
 class UserInfoCache:
     def __init__(self):
@@ -9,8 +12,10 @@ class UserInfoCache:
         self._account_id = None
         self._account_username = None
         self._persona_name = None
+        self._rsa_public_key : Optional[PublicKey] = None
+        self._rsa_timestamp : Optional[int] = None
         self._token = None
-        self._two_step = None
+        self._two_step : Optional[str] = None
         self._sentry = b''
         self._changed = False
         self.old_flow = False
@@ -60,6 +65,30 @@ class UserInfoCache:
             self._changed = False
             return True
         return False
+
+    @property
+    def rsa_public_key(self):
+        return self._rsa_public_key
+
+    @rsa_public_key.setter
+    def rsa_public_key(self, val: PublicKey):
+        if self.rsa_public_key != val and self.initialized.is_set():
+            self._changed = True
+        self.rsa_public_key = val
+        if not self.initialized.is_set():
+            self._check_initialized()
+
+    @property
+    def rsa_timestamp(self):
+        return self._rsa_timestamp
+
+    @rsa_timestamp.setter
+    def rsa_timestamp(self, val: int):
+        if self.rsa_timestamp != val and self.initialized.is_set():
+            self._changed = True
+        self.rsa_timestamp = val
+        if not self.initialized.is_set():
+            self._check_initialized()
 
     @property
     def steam_id(self):

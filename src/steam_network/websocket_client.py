@@ -3,7 +3,7 @@ from asyncio.futures import Future
 import logging
 import ssl
 from contextlib import suppress
-from typing import Callable, Optional
+from typing import Callable, Optional, Any, Dict
 
 import websockets
 from galaxy.api.errors import BackendNotAvailable, BackendTimeout, BackendError, InvalidCredentials, NetworkError, AccessDenied
@@ -17,7 +17,9 @@ from .protocol_client import ProtocolClient, UserActionRequired
 from .stats_cache import StatsCache
 from .times_cache import TimesCache
 from .user_info_cache import UserInfoCache
+from .authentication import AuthCall
 
+from traceback import format_exc
 
 logger = logging.getLogger(__name__)
 # do not log low level events from websockets
@@ -78,7 +80,7 @@ class WebSocketClient:
 
                 run_task = asyncio.create_task(self._protocol_client.run())
                 auth_lost = create_future_factory()
-                auth_task = asyncio.create_task(self._authenticate(auth_lost))
+                auth_task = asyncio.create_task(self._all_auth_calls(auth_lost))
                 pending = None
                 try:
                     done, pending = await asyncio.wait({run_task, auth_task}, return_when=asyncio.FIRST_COMPLETED)
@@ -111,7 +113,8 @@ class WebSocketClient:
             except asyncio.CancelledError as e:
                 logger.warning(f"Websocket task cancelled {repr(e)}")
                 raise
-            except websockets.ConnectionClosedOK:
+            except websockets.ConnectionClosedOK as e:
+                logger.debug(format_exc())
                 logger.debug("Expected WebSocket disconnection")
             except websockets.ConnectionClosedError as error:
                 logger.warning("WebSocket disconnected (%d: %s), reconnecting...", error.code, error.reason)
@@ -191,7 +194,7 @@ class WebSocketClient:
     async def retrieve_collections(self):
         return await self._protocol_client.retrieve_collections()
 
-    async def _ensure_connected(self):
+    async def _ensure_connected(self) -> websockets.WebSocketCommonProtocol:
         if self._protocol_client is not None:
             return  # already connected
 
@@ -213,7 +216,7 @@ class WebSocketClient:
             )
             await sleep(RECONNECT_INTERVAL_SECONDS)
 
-    async def _authenticate(self, auth_lost_future):
+    async def _all_auth_calls(self, auth_lost_future):
         async def auth_lost_handler(error):
             logger.warning("WebSocket client authentication lost")
             auth_lost_future.set_exception(error)
@@ -229,12 +232,26 @@ class WebSocketClient:
                 if ret_code != None:
                     await self.communication_queues['plugin'].put({'auth_result': ret_code})
                     logger.info(f"Put {ret_code} in the queue, waiting for other side to receive")
-                response = await self.communication_queues['websocket'].get()
+
+
+                response : Dict[str,Any] = await self.communication_queues['websocket'].get()
                 logger.info(f" Got {response.keys()} from queue")
-                password = response.get('password', None)
-                two_factor = response.get('two_factor', None)
-                logger.info(f'Authenticating with {"username" if self._user_info_cache.account_username else ""}, {"password" if password else ""}, {"two_factor" if two_factor else ""}')
-                ret_code = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, password, two_factor, self._user_info_cache.two_step, auth_lost_handler)
+                #change the way the code is done here. Since the workflow changed, on call on the protocol client isn't going to work anymore. we need to do a bunch of shit. 
+                mode = response.get('mode', 'rsa');
+                if (mode == AuthCall.RSA):
+                    logger.info(f'Retrieving RSA Public Key for {"username" if self._user_info_cache.account_username else ""}')
+                    ret_code = await self._protocol_client.get_rsa_public_key(self._user_info_cache.account_username, auth_lost_handler)
+                elif (mode == AuthCall.LOGIN):
+                    password = response.get('password', None)
+                    logger.info(f'Authenticating with {"username" if self._user_info_cache.account_username else ""}, {"password" if password else ""}')
+                    ret_code = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, password, auth_lost_handler)
+                elif (mode == AuthCall.TWO_FACTOR):
+                    code = response.get('two-factor', None)
+                    logger.info(f'Updating with {"two-factor" if code else ""}{"using " + self._user_info_cache.two_step + " authentication"if self._user_info_cache.two_step else ""}')
+                    ret_code = await self._protocol_client.update_two_factor(code, self._user_info_cache.two_step, auth_lost_handler)
+                else:
+                    ret_code = UserActionRequired.InvalidAuthData
+
                 logger.info(f"Response from auth {ret_code}")
         logger.info("Finished authentication")
         await self.communication_queues['plugin'].put({'auth_result': ret_code})

@@ -1,8 +1,6 @@
 import asyncio
-from base64 import encode
 import logging
 import enum
-from optparse import Option
 import platform
 import secrets
 from typing import List, TYPE_CHECKING, Optional
@@ -177,7 +175,6 @@ class ProtocolClient:
         self._times_cache = times_cache
         self._ownership_ticket_cache = ownership_ticket_cache
         self._auth_lost_handler = None
-        #we probably can reuse _login_future for this but i'd rather not risk it.
         self._rsa_future: Optional[Future] = None
         self._login_future: Optional[Future] = None
         self._used_server_cell_id = used_server_cell_id
@@ -185,10 +182,6 @@ class ProtocolClient:
         if not self._local_machine_cache.machine_id:
             self._local_machine_cache.machine_id = self._generate_machine_id()
         self._machine_id = self._local_machine_cache.machine_id
-
-        #do not use this directly. call _get_rsa_key() instead. This is only set once we actually need it because we need to go to Steam for it.
-        #we store this here so we don't need to keep going to Steam, because it will not change. (aka memoization)
-        self._rsa_key: Optional[PublicKey] = None
 
     @staticmethod
     def _generate_machine_id():
@@ -209,37 +202,38 @@ class ProtocolClient:
     async def register_auth_ticket_with_cm(self, ticket: bytes):
         await self._protobuf_client.register_auth_ticket_with_cm(ticket)
 
-    async def _get_rsa_key(self, account_name:str) -> PublicKey:
-        if (self._rsa_key is None):
-            loop = asyncio.get_running_loop()
-            self._rsa_future = loop.create_future()
-            await self._protobuf_client.get_rsa_public_key(account_name)
-            result = await self._rsa_future()
-            self._rsa_key = PublicKey(result["modulo"],result["exponent"])
-        return self._rsa_key
-
-
-    async def _rsa_handler(self, modulo:str, exponent: str):
-        if self._rsa_future is not None:
-            res = {
-                "modulo" : int(modulo),
-                "exponent": int(exponent)
-            }
-            self._rsa_future.set_result(res)
+    async def get_rsa_public_key(self, username:str, auth_lost_handler) -> UserActionRequired:
+        loop = asyncio.get_running_loop()
+        self._rsa_future = loop.create_future()
+        await self._protobuf_client.get_rsa_public_key(username)
+        result = await self._rsa_future
+        if (result == EResult.OK):
+            self._auth_lost_handler = auth_lost_handler
+            return UserActionRequired.PasswordRequired
+        #elif (result == EResult.): #TODO: FIX ME! If you enter an improper username an error should pop but idk what eresult it is yet.
+        #    self._auth_lost_handler = auth_lost_handler
+        #    return UserActionRequired.InvalidAuthData
         else:
-            #do nothing? idk
+            logger.warning(f"Received unknown error, code: {result}")
+            raise translate_error(result)
+
+    async def _rsa_handler(self, result: EResult, mod: int, exp: int, timestamp: int):
+        if (result == EResult.OK):
+            self._user_info_cache.rsa_public_key = PublicKey(mod, exp)
+            self._user_info_cache.rsa_timestamp = timestamp
+        if self._rsa_future is not None:
+            self._rsa_future.set_result(result)
+        else:
             pass
 
-    async def authenticate_password(self, account_name, password:str, two_factor, two_factor_type, auth_lost_handler):
+    async def authenticate_password(self, account_name, password, auth_lost_handler):
         loop = asyncio.get_running_loop()
         self._login_future = loop.create_future()
         os_value = get_os()
         sentry = await self._get_sentry()
-        key = self._get_rsa_key(account_name)
-        enciphered_password = encrypt(password.encode("utf-8"), key)
-        #if we get here, everything has worked up to this point. the following call is wrong but one step at a time.
+        #TODO: FIX ME!
         await self._protobuf_client.log_on_password(
-            account_name, enciphered_password, two_factor, two_factor_type, self._machine_id, os_value, sentry
+            account_name, password, None, None, self._machine_id, os_value, sentry
         )
         result = await self._login_future
         logger.info(result)
@@ -267,6 +261,9 @@ class ProtocolClient:
         await self._protobuf_client.account_info_retrieved.wait()
         await self._protobuf_client.login_key_retrieved.wait()
         return UserActionRequired.NoActionRequired
+
+    async def update_two_factor(self, code: str, method: str):
+        pass
 
     async def authenticate_token(self, steam_id, account_name, token, auth_lost_handler):
         loop = asyncio.get_running_loop()

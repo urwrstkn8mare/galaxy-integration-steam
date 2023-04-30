@@ -7,10 +7,21 @@ import yarl
 
 DIRNAME = yarl.URL(pathlib.Path(os.path.dirname(os.path.realpath(__file__))).as_uri())
 
+#defines the modes we will send to the 'websocket' queue
+class AuthCall:
+
+    RSA =          'rsa'
+    LOGIN =        'login'
+    TWO_FACTOR =   'two-factor'
+
+
+
 
 class StartUri:
     __INDEX = DIRNAME / 'custom_login' / 'index.html'  
 
+    GET_USER =                                                __INDEX % {'view': 'user'}
+    GET_USER_FAILED =                                         __INDEX % {'view': 'user', 'errored': 'true'}
     LOGIN =                                                   __INDEX % {'view': 'login'}
     LOGIN_FAILED =                                            __INDEX % {'view': 'login', 'errored': 'true'}
     TWO_FACTOR_MAIL =                                         __INDEX % {'view': 'steamguard'}
@@ -22,12 +33,19 @@ class StartUri:
     PP_PROMPT__UNKNOWN_ERROR =                                __INDEX % {'view': 'pp_prompt__unknown_error'}
 
 
-class EndUri:
+class EndUriRegex:
+    USER_FINISHED =              '.*user_finished.*'
     LOGIN_FINISHED =             '.*login_finished.*'
     TWO_FACTOR_MAIL_FINISHED =   '.*two_factor_mail_finished.*'
     TWO_FACTOR_MOBILE_FINISHED = '.*two_factor_mobile_finished.*'
     PUBLIC_PROMPT_FINISHED =     '.*public_prompt_finished.*'
 
+class EndUriConst:
+    USER_FINISHED =              'user_finished'
+    LOGIN_FINISHED =             'login_finished'
+    TWO_FACTOR_MAIL_FINISHED =   'two_factor_mail_finished'
+    TWO_FACTOR_MOBILE_FINISHED = 'two_factor_mobile_finished'
+    PUBLIC_PROMPT_FINISHED =     'public_prompt_finished'
 
 _NEXT_STEP = {
     "window_title": "Login to Steam",
@@ -38,7 +56,7 @@ _NEXT_STEP = {
 }
 
 
-def next_step_response(start_uri, end_uri_regex=EndUri.LOGIN_FINISHED):
+def next_step_response(start_uri, end_uri_regex=EndUriRegex.LOGIN_FINISHED):
     next_step = _NEXT_STEP
     next_step['start_uri'] = str(start_uri)
     next_step['end_uri_regex'] = end_uri_regex

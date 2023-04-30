@@ -177,7 +177,6 @@ class ProtocolClient:
         self._times_cache = times_cache
         self._ownership_ticket_cache = ownership_ticket_cache
         self._auth_lost_handler = None
-        #we probably can reuse _login_future for this but i'd rather not risk it.
         self._rsa_future: Optional[Future] = None
         self._login_future: Optional[Future] = None
         self._used_server_cell_id = used_server_cell_id
@@ -189,6 +188,7 @@ class ProtocolClient:
         #do not use this directly. call _get_rsa_key() instead. This is only set once we actually need it because we need to go to Steam for it.
         #we store this here so we don't need to keep going to Steam, because it will not change. (aka memoization)
         self._rsa_key: Optional[PublicKey] = None
+        self._rsa_timestamp: Optional[int] = None
 
     @staticmethod
     def _generate_machine_id():
@@ -216,14 +216,16 @@ class ProtocolClient:
             await self._protobuf_client.get_rsa_public_key(account_name)
             result = await self._rsa_future()
             self._rsa_key = PublicKey(result["modulo"],result["exponent"])
+            self._rsa_timestamp = result["timestamp"]
         return self._rsa_key
 
 
-    async def _rsa_handler(self, modulo:str, exponent: str):
+    async def _rsa_handler(self, modulo:str, exponent: str, timestamp: int):
         if self._rsa_future is not None:
             res = {
                 "modulo" : int(modulo),
-                "exponent": int(exponent)
+                "exponent": int(exponent),
+                "timestamp": timestamp
             }
             self._rsa_future.set_result(res)
         else:
@@ -231,11 +233,13 @@ class ProtocolClient:
             pass
 
     async def authenticate_password(self, account_name, password:str, two_factor, two_factor_type, auth_lost_handler):
-        loop = asyncio.get_running_loop()
-        self._login_future = loop.create_future()
+        #reorder these so the key gen is done before the loop and login future is created, in case they conflict. 
         os_value = get_os()
         sentry = await self._get_sentry()
-        key = self._get_rsa_key(account_name)
+        key = await self._get_rsa_key(account_name)
+
+        loop = asyncio.get_running_loop()
+        self._login_future = loop.create_future()
         enciphered_password = encrypt(password.encode("utf-8"), key)
         #if we get here, everything has worked up to this point. the following call is wrong but one step at a time.
         await self._protobuf_client.log_on_password(

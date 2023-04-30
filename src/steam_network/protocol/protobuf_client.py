@@ -16,7 +16,8 @@ from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaSt
 from .messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, steammessages_auth_pb2, \
     steammessages_player_pb2, steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, \
     steammessages_chat_pb2, steammessages_clientserver_2_pb2, steammessages_clientserver_userstats_pb2, \
-    steammessages_clientserver_appinfo_pb2, steammessages_webui_friends_pb2, service_cloudconfigstore_pb2
+    steammessages_clientserver_appinfo_pb2, steammessages_webui_friends_pb2, service_cloudconfigstore_pb2, \
+    enums_pb2
 from .types import SteamId, ProtoUserInfo
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ class ProtobufClient:
 
     def __init__(self, set_socket):
         self._socket = set_socket
-        self.rsa_handler: Optional[Callable[[str, str], Awaitable[None]]] = None
+        self.rsa_handler: Optional[Callable[[str, str, int], Awaitable[None]]] = None
         self.log_on_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
         self.log_off_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
         self.app_ownership_ticket_handler: Optional[Callable[[int, bytes], Awaitable[None]]] = None
@@ -124,26 +125,41 @@ class ProtobufClient:
     async def _process_rsa(self, body):
         message = steammessages_auth_pb2.CAuthentication_GetPasswordRSAPublicKey_Response()
         message.ParseFromString(body)
+
         mod = message.publickey_mod
         exp = message.publickey_exp
+        timestamp = message.timestamp
 
-        self.rsa_handler(mod, exp)
+        self.rsa_handler(mod, exp, timestamp)
 
+    async def log_on_password(self, account_name, enciphered_password, public_key_timestamp, two_factor, two_factor_type, machine_id, os_value, sentry):
+        message = steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Request()
+        message.account_name = account_name
+        message.encrypted_password = enciphered_password
+        message.website_id = "Client"
+        message.device_friendly_name = socket.gethostname() + " (GOG Galaxy)"
+        message.encryption_timestamp = public_key_timestamp
+        message.platform_type = steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient #no idea if this line will work.
+        message.persistence = enums_pb2.ESessionPersistence.
 
-    async def log_on_password(self, account_name, enciphered_password, two_factor, two_factor_type, machine_id, os_value, sentry):
-        #def sanitize_password(password):
-        #    return ''.join([i if ord(i) < 128 else '' for i in password])
+	optional .ESessionPersistence persistence = 7 [default = k_ESessionPersistence_Persistent, (description) = "whether we are requesting a persistent or an ephemeral session"];
+	optional .CAuthentication_DeviceDetails device_details = 9 [(description) = "User-supplied details about the device attempting to sign in"];
+	optional string guard_data = 10 [(description) = "steam guard data for client login"];
+            
+    #async def log_on_password(self, account_name, enciphered_password, two_factor, two_factor_type, machine_id, os_value, sentry):
+    #    #def sanitize_password(password):
+    #    #    return ''.join([i if ord(i) < 128 else '' for i in password])
 
-        message = await self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
-        #message.password = sanitize_password(enciphered_password)
-        message.password = enciphered_password
-        if two_factor:
-            if two_factor_type == 'email':
-                message.auth_code = two_factor
-            elif two_factor_type == 'mobile':
-                message.two_factor_code = two_factor
-        logger.info("Sending log on message using credentials")
-        await self._send(EMsg.ClientLogon, message)
+    #    message = await self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
+    #    #message.password = sanitize_password(enciphered_password)
+    #    message.password = enciphered_password
+    #    if two_factor:
+    #        if two_factor_type == 'email':
+    #            message.auth_code = two_factor
+    #        elif two_factor_type == 'mobile':
+    #            message.two_factor_code = two_factor
+    #    logger.info("Sending log on message using credentials")
+    #    await self._send(EMsg.ClientLogon, message)
 
     async def log_on_token(self, account_name, token, used_server_cell_id, machine_id, os_value, sentry):
         message = await self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)

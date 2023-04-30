@@ -1,12 +1,15 @@
 import asyncio
+from base64 import encode
 import logging
 import enum
+from optparse import Option
 import platform
 import secrets
-from typing import List, TYPE_CHECKING
+from typing import List, TYPE_CHECKING, Optional
 
 import galaxy.api.errors
 
+from asyncio import Future
 from .local_machine_cache import LocalMachineCache
 from .protocol.protobuf_client import ProtobufClient, SteamLicense
 from .protocol.consts import EResult, EFriendRelationship, EPersonaState, STEAM_CLIENT_APP_ID, EOSType
@@ -16,6 +19,8 @@ from .stats_cache import StatsCache
 from .user_info_cache import UserInfoCache
 from .times_cache import TimesCache
 from .ownership_ticket_cache import OwnershipTicketCache
+
+from rsa import PublicKey, encrypt
 
 if TYPE_CHECKING:
     from protocol.messages import steammessages_clientserver_pb2
@@ -148,6 +153,7 @@ class ProtocolClient:
     ):
 
         self._protobuf_client = ProtobufClient(socket)
+        self._protobuf_client.rsa_handler = self._rsa_handler
         self._protobuf_client.log_on_handler = self._log_on_handler
         self._protobuf_client.log_off_handler = self._log_off_handler
         self._protobuf_client.relationship_handler = self._relationship_handler
@@ -171,12 +177,18 @@ class ProtocolClient:
         self._times_cache = times_cache
         self._ownership_ticket_cache = ownership_ticket_cache
         self._auth_lost_handler = None
-        self._login_future = None
+        #we probably can reuse _login_future for this but i'd rather not risk it.
+        self._rsa_future: Optional[Future] = None
+        self._login_future: Optional[Future] = None
         self._used_server_cell_id = used_server_cell_id
         self._local_machine_cache = local_machine_cache
         if not self._local_machine_cache.machine_id:
             self._local_machine_cache.machine_id = self._generate_machine_id()
         self._machine_id = self._local_machine_cache.machine_id
+
+        #do not use this directly. call _get_rsa_key() instead. This is only set once we actually need it because we need to go to Steam for it.
+        #we store this here so we don't need to keep going to Steam, because it will not change. (aka memoization)
+        self._rsa_key: Optional[PublicKey] = None
 
     @staticmethod
     def _generate_machine_id():
@@ -197,13 +209,37 @@ class ProtocolClient:
     async def register_auth_ticket_with_cm(self, ticket: bytes):
         await self._protobuf_client.register_auth_ticket_with_cm(ticket)
 
-    async def authenticate_password(self, account_name, password, two_factor, two_factor_type, auth_lost_handler):
+    async def _get_rsa_key(self, account_name:str) -> PublicKey:
+        if (self._rsa_key is None):
+            loop = asyncio.get_running_loop()
+            self._rsa_future = loop.create_future()
+            await self._protobuf_client.get_rsa_public_key(account_name)
+            result = await self._rsa_future()
+            self._rsa_key = PublicKey(result["modulo"],result["exponent"])
+        return self._rsa_key
+
+
+    async def _rsa_handler(self, modulo:str, exponent: str):
+        if self._rsa_future is not None:
+            res = {
+                "modulo" : int(modulo),
+                "exponent": int(exponent)
+            }
+            self._rsa_future.set_result(res)
+        else:
+            #do nothing? idk
+            pass
+
+    async def authenticate_password(self, account_name, password:str, two_factor, two_factor_type, auth_lost_handler):
         loop = asyncio.get_running_loop()
         self._login_future = loop.create_future()
         os_value = get_os()
         sentry = await self._get_sentry()
+        key = self._get_rsa_key(account_name)
+        enciphered_password = encrypt(password.encode("utf-8"), key)
+        #if we get here, everything has worked up to this point. the following call is wrong but one step at a time.
         await self._protobuf_client.log_on_password(
-            account_name, password, two_factor, two_factor_type, self._machine_id, os_value, sentry
+            account_name, enciphered_password, two_factor, two_factor_type, self._machine_id, os_value, sentry
         )
         result = await self._login_future
         logger.info(result)

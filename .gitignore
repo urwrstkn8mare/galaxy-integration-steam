@@ -12,3 +12,7 @@ build/
 output/
 *.log
 *.log.[1-9]
+/.vs
+/env
+*.pyproj
+*.sln

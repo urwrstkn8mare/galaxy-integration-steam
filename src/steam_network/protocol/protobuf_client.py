@@ -13,9 +13,9 @@ from typing import List, NamedTuple
 import vdf
 
 from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
-from .messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, steammessages_player_pb2, \
-    steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, steammessages_chat_pb2, \
-    steammessages_clientserver_2_pb2, steammessages_clientserver_userstats_pb2, \
+from .messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, steammessages_auth_pb2, \
+    steammessages_player_pb2, steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, \
+    steammessages_chat_pb2, steammessages_clientserver_2_pb2, steammessages_clientserver_userstats_pb2, \
     steammessages_clientserver_appinfo_pb2, steammessages_webui_friends_pb2, service_cloudconfigstore_pb2
 from .types import SteamId, ProtoUserInfo
 
@@ -38,6 +38,7 @@ class ProtobufClient:
 
     def __init__(self, set_socket):
         self._socket = set_socket
+        self.rsa_handler: Optional[Callable[[str, str], Awaitable[None]]] = None
         self.log_on_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
         self.log_off_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
         self.app_ownership_ticket_handler: Optional[Callable[[int, bytes], Awaitable[None]]] = None
@@ -114,12 +115,28 @@ class ProtobufClient:
         message.protocol_version = self._MSG_PROTOCOL_VERSION
         await self._send(EMsg.ClientRegisterAuthTicketWithCM, message)
 
-    async def log_on_password(self, account_name, password, two_factor, two_factor_type, machine_id, os_value, sentry):
-        def sanitize_password(password):
-            return ''.join([i if ord(i) < 128 else '' for i in password])
+    async def get_rsa_public_key(self, account_name: str) -> steammessages_auth_pb2.CAuthentication_GetPasswordRSAPublicKey_Response:
+        emsg = EMsg.ServiceMethodCallFromClientNonAuthed if self.steam_id is None else EMsg.ServiceMethodCallFromClient;
+        message = steammessages_auth_pb2.CAuthentication_GetPasswordRSAPublicKey_Request()
+        message.account_name = account_name
+        await self._send(emsg, message, target_job_name="Authentication.GetPasswordRSAPublicKey#1") #parsed from SteamKit's gobbledygook   
+
+    async def _process_rsa(self, body):
+        message = steammessages_auth_pb2.CAuthentication_GetPasswordRSAPublicKey_Response()
+        message.ParseFromString(body)
+        mod = message.publickey_mod
+        exp = message.publickey_exp
+
+        self.rsa_handler(mod, exp)
+
+
+    async def log_on_password(self, account_name, enciphered_password, two_factor, two_factor_type, machine_id, os_value, sentry):
+        #def sanitize_password(password):
+        #    return ''.join([i if ord(i) < 128 else '' for i in password])
 
         message = await self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
-        message.password = sanitize_password(password)
+        #message.password = sanitize_password(enciphered_password)
+        message.password = enciphered_password
         if two_factor:
             if two_factor_type == 'email':
                 message.auth_code = two_factor
@@ -631,3 +648,5 @@ class ProtobufClient:
             await self._process_user_time_response(body)
         if target_job_name == 'CloudConfigStore.Download#1':
             await self._process_collections_response(body)
+        if target_job_name == 'Authentication.GetPasswordRSAPublicKey#1':
+            await self._process_rsa(body)

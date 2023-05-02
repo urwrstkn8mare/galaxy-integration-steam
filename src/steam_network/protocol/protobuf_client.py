@@ -18,6 +18,7 @@ from .messages import steammessages_base_pb2, steammessages_clientserver_login_p
     steammessages_chat_pb2, steammessages_clientserver_2_pb2, steammessages_clientserver_userstats_pb2, \
     steammessages_clientserver_appinfo_pb2, steammessages_webui_friends_pb2, service_cloudconfigstore_pb2, \
     enums_pb2
+
 from .types import SteamId, ProtoUserInfo
 
 logger = logging.getLogger(__name__)
@@ -39,8 +40,8 @@ class ProtobufClient:
 
     def __init__(self, set_socket):
         self._socket = set_socket
-        self.rsa_handler: Optional[Callable[[str, str, int], Awaitable[None]]] = None
-        self.log_on_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
+        self.rsa_handler: Optional[Callable[[EResult, int, int, int], Awaitable[None]]] = None
+        self.log_on_handler: Optional[Callable[[steammessages_clientserver_login_pb2.CMsgClientLogonResponse], Awaitable[None]]] = None
         self.log_off_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
         self.app_ownership_ticket_handler: Optional[Callable[[int, bytes], Awaitable[None]]] = None
         self.relationship_handler: Optional[Callable[[bool, Dict[int, EFriendRelationship]], Awaitable[None]]] = None
@@ -116,21 +117,28 @@ class ProtobufClient:
         message.protocol_version = self._MSG_PROTOCOL_VERSION
         await self._send(EMsg.ClientRegisterAuthTicketWithCM, message)
 
-    async def get_rsa_public_key(self, account_name: str) -> steammessages_auth_pb2.CAuthentication_GetPasswordRSAPublicKey_Response:
+    async def _send_service_method_with_name(self, message, target_job_name: str):
         emsg = EMsg.ServiceMethodCallFromClientNonAuthed if self.steam_id is None else EMsg.ServiceMethodCallFromClient;
+        await self._send(emsg, message, target_job_name= target_job_name)
+
+    #new workflow: get rsa public key -> log on with password -> handle steam guard -> confirm login
+    #each is getting a dedicated function so i don't go insane.
+    #confirm login is the old log_on_token call.
+
+
+    #send the get rsa key request
+    #imho we should just do a send and receive back to back instead of this bouncing around, but whatever. 
+    async def get_rsa_public_key(self, account_name: str):
         message = steammessages_auth_pb2.CAuthentication_GetPasswordRSAPublicKey_Request()
         message.account_name = account_name
-        await self._send(emsg, message, target_job_name="Authentication.GetPasswordRSAPublicKey#1") #parsed from SteamKit's gobbledygook   
+        await self._send_service_method_with_name(message, "Authentication.GetPasswordRSAPublicKey#1") #parsed from SteamKit's gobbledygook   
 
+    #process the received the rsa key response. Because we will need all the information about this process, we send the entire message up the chain.
     async def _process_rsa(self, body):
         message = steammessages_auth_pb2.CAuthentication_GetPasswordRSAPublicKey_Response()
         message.ParseFromString(body)
-
-        mod = message.publickey_mod
-        exp = message.publickey_exp
-        timestamp = message.timestamp
-
-        self.rsa_handler(mod, exp, timestamp)
+        if (self.rsa_handler is not None):
+            self.rsa_handler(message.eresult, message.publickey_mod, message.publickey_exp, message.timestamp)
 
     async def log_on_password(self, account_name, enciphered_password, public_key_timestamp, two_factor, two_factor_type, machine_id, os_value, sentry):
         message = steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Request()
@@ -140,11 +148,13 @@ class ProtobufClient:
         message.device_friendly_name = socket.gethostname() + " (GOG Galaxy)"
         message.encryption_timestamp = public_key_timestamp
         message.platform_type = steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient #no idea if this line will work.
-        message.persistence = enums_pb2.ESessionPersistence.
+        raise NotImplementedError
+        #message.persistence = enums_pb2.ESessionPersistence.
 
-	optional .ESessionPersistence persistence = 7 [default = k_ESessionPersistence_Persistent, (description) = "whether we are requesting a persistent or an ephemeral session"];
-	optional .CAuthentication_DeviceDetails device_details = 9 [(description) = "User-supplied details about the device attempting to sign in"];
-	optional string guard_data = 10 [(description) = "steam guard data for client login"];
+	    #TODO: Finish merging these. These changes were apparently lost.
+        #optional .ESessionPersistence persistence = 7 [default = k_ESessionPersistence_Persistent, (description) = "whether we are requesting a persistent or an ephemeral session"];
+	#optional .CAuthentication_DeviceDetails device_details = 9 [(description) = "User-supplied details about the device attempting to sign in"];
+	#optional string guard_data = 10 [(description) = "steam guard data for client login"];
             
     #async def log_on_password(self, account_name, enciphered_password, two_factor, two_factor_type, machine_id, os_value, sentry):
     #    #def sanitize_password(password):

@@ -1,4 +1,7 @@
 /* WINDOWS SCROLLBARS */
+.no-error {
+	display: none;
+}
 
 body.windows::-webkit-scrollbar {
     width: 12px;

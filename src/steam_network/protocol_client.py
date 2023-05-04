@@ -202,11 +202,15 @@ class ProtocolClient:
     async def register_auth_ticket_with_cm(self, ticket: bytes):
         await self._protobuf_client.register_auth_ticket_with_cm(ticket)
 
+    async def finish_handshake(self):
+        await self._protobuf_client.say_hello()
+
     async def get_rsa_public_key(self, username:str, auth_lost_handler) -> UserActionRequired:
         loop = asyncio.get_running_loop()
         self._rsa_future = loop.create_future()
         await self._protobuf_client.get_rsa_public_key(username)
         result = await self._rsa_future
+        logger.info ("GOT RSA KEY IN PROTOCOL_CLIENT")
         if (result == EResult.OK):
             self._auth_lost_handler = auth_lost_handler
             return UserActionRequired.PasswordRequired
@@ -218,13 +222,17 @@ class ProtocolClient:
             raise translate_error(result)
 
     async def _rsa_handler(self, result: EResult, mod: int, exp: int, timestamp: int):
+        logger.info("In Protocol_Client RSA Handler")
         if (result == EResult.OK):
             self._user_info_cache.rsa_public_key = PublicKey(mod, exp)
             self._user_info_cache.rsa_timestamp = timestamp
+        else:
+            self._user_info_cache.rsa_public_key = None
+            self._user_info_cache.rsa_timestamp = None
         if self._rsa_future is not None:
             self._rsa_future.set_result(result)
         else:
-            pass
+            logger.warning("NO FUTURE SET")
 
     async def authenticate_password(self, account_name, password, auth_lost_handler):
         loop = asyncio.get_running_loop()

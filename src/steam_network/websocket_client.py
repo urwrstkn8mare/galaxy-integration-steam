@@ -132,6 +132,7 @@ class WebSocketClient:
                 continue
             except Exception as e:
                 logger.error(f"Failed to establish authenticated WebSocket connection {repr(e)}")
+                logger.error(format_exc())
                 raise
 
             await self._close_socket()
@@ -194,9 +195,10 @@ class WebSocketClient:
     async def retrieve_collections(self):
         return await self._protocol_client.retrieve_collections()
 
-    async def _ensure_connected(self) -> websockets.WebSocketCommonProtocol:
+
+    async def _ensure_connected(self):
         if self._protocol_client is not None:
-            return  # already connected
+            return # already connected
 
         while True:
             async for ws_address in self._websocket_list.get(self.used_server_cell_id):
@@ -204,7 +206,8 @@ class WebSocketClient:
                 try:
                     self._websocket = await asyncio.wait_for(websockets.connect(ws_address, ssl=self._ssl_context, max_size=MAX_INCOMING_MESSAGE_SIZE), 5)
                     self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self._local_machine_cache, self._steam_app_ownership_ticket_cache, self.used_server_cell_id)
-                    logger.info(f'Connected to Steam on CM {ws_address} on cell_id {self.used_server_cell_id}')
+                    logger.info(f'Connected to Steam on CM {ws_address} on cell_id {self.used_server_cell_id}. Sending Hello')
+                    await self._protocol_client.finish_handshake()
                     return
                 except (asyncio.TimeoutError, OSError, websockets.InvalidURI, websockets.InvalidHandshake):
                     self._websocket_list.add_server_to_ignored(self._current_ws_address, timeout_sec=BLACKLISTED_CM_EXPIRATION_SEC)
@@ -241,6 +244,8 @@ class WebSocketClient:
                 if (mode == AuthCall.RSA):
                     logger.info(f'Retrieving RSA Public Key for {"username" if self._user_info_cache.account_username else ""}')
                     ret_code = await self._protocol_client.get_rsa_public_key(self._user_info_cache.account_username, auth_lost_handler)
+                    logger.info("Retrieved RSA Key! Mod = " + self._user_info_cache.rsa_public_key.n + ", Exp = " + self._user_info_cache.rsa_public_key.e + ", Timestamp = " + str(self._user_info_cache.rsa_timestamp))
+                    logger.info("!!!YATTA!!!")
                 elif (mode == AuthCall.LOGIN):
                     password = response.get('password', None)
                     logger.info(f'Authenticating with {"username" if self._user_info_cache.account_username else ""}, {"password" if password else ""}')

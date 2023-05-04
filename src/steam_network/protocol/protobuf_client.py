@@ -27,6 +27,11 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 LOG_SENSITIVE_DATA = False
 
+GET_APP_RICH_PRESENCE = "Community.GetAppRichPresenceLocalization#1"
+GET_LAST_PLAYED_TIMES = 'Player.ClientGetLastPlayedTimes#1'
+CLOUD_CONFIG_DOWNLOAD = 'CloudConfigStore.Download#1'
+REQUEST_FRIEND_PERSONA_STATES = "Chat.RequestFriendPersonaStates#1"
+GET_RSA_KEY = "Authentication.GetPasswordRSAPublicKey#1"
 
 class SteamLicense(NamedTuple):
     license: steammessages_clientserver_pb2.CMsgClientLicenseList.License  # type: ignore[name-defined]
@@ -129,22 +134,31 @@ class ProtobufClient:
     #each is getting a dedicated function so i don't go insane.
     #confirm login is the old log_on_token call.
 
+    async def say_hello(self):
+        """Say Hello to the server. Necessary before sending non-authed calls.
+            
+            If we don't do this, they will just shut down the websocket connection gracefully with "OK", which is most definitely not "OK"
+        """
+        message = steammessages_clientserver_login_pb2.CMsgClientHello()
+        message.protocol_version = self._MSG_PROTOCOL_VERSION
+        await self._send(EMsg.ClientHello,message)
 
     #send the get rsa key request
     #imho we should just do a send and receive back to back instead of this bouncing around, but whatever. 
     async def get_rsa_public_key(self, account_name: str):
         message = steammessages_auth_pb2.CAuthentication_GetPasswordRSAPublicKey_Request()
         message.account_name = account_name
-        await self._send_service_method_with_name(message, "Authentication.GetPasswordRSAPublicKey#1") #parsed from SteamKit's gobbledygook   
+        await self._send_service_method_with_name(message, GET_RSA_KEY) #parsed from SteamKit's gobbledygook   
 
     #process the received the rsa key response. Because we will need all the information about this process, we send the entire message up the chain.
-    async def _process_rsa(self, body):
+    async def _process_rsa(self, result, body):
         message = steammessages_auth_pb2.CAuthentication_GetPasswordRSAPublicKey_Response()
         message.ParseFromString(body)
-        logger.debuf("Received RSA KEY: MESSAGE = ")
-        logger.debug(pformat(message))
+        logger.info("Received RSA KEY")
         if (self.rsa_handler is not None):
-            self.rsa_handler(message.eresult, message.publickey_mod, message.publickey_exp, message.timestamp)
+            await self.rsa_handler(result, message.publickey_mod, message.publickey_exp, message.timestamp)
+        else:
+            logger.warning("NO HANDLER SET!")
 
     async def log_on_password(self, account_name, password, two_factor, two_factor_type, machine_id, os_value, sentry):
         def sanitize_password(password):
@@ -244,7 +258,7 @@ class ProtobufClient:
         job_id = next(self._job_id_iterator)
         message = steammessages_player_pb2.CPlayer_GetLastPlayedTimes_Request()
         message.min_last_played = 0
-        await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, "Player.ClientGetLastPlayedTimes#1")
+        await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, GET_LAST_PLAYED_TIMES)
 
     async def set_persona_state(self, state):
         message = steammessages_clientserver_friends_pb2.CMsgClientChangeStatus()
@@ -254,7 +268,7 @@ class ProtobufClient:
     async def get_friends_statuses(self):
         job_id = next(self._job_id_iterator)
         message = steammessages_chat_pb2.CChat_RequestFriendPersonaStates_Request()
-        await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, "Chat.RequestFriendPersonaStates#1")
+        await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, REQUEST_FRIEND_PERSONA_STATES)
 
     async def get_user_infos(self, users, flags):
         message = steammessages_clientserver_friends_pb2.CMsgClientRequestFriendData()
@@ -268,10 +282,10 @@ class ProtobufClient:
         message_inside = service_cloudconfigstore_pb2.CCloudConfigStore_NamespaceVersion()
         message_inside.enamespace = 1
         message.versions.append(message_inside)
-        await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, "CloudConfigStore.Download#1")
+        await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, CLOUD_CONFIG_DOWNLOAD)
 
     async def get_packages_info(self, steam_licenses: List[SteamLicense]):
-        logger.info("Sending call %s with %d package_ids", repr(EMsg.PICSProductInfoRequest), len(steam_licenses))
+        logger.info("Sending call %s with %d package_ids", repr(EMsg.ClientPICSProductInfoRequest), len(steam_licenses))
         message = steammessages_clientserver_appinfo_pb2.CMsgClientPICSProductInfoRequest()
 
         for steam_license in steam_licenses:
@@ -279,17 +293,17 @@ class ProtobufClient:
             info.packageid = steam_license.license.package_id
             info.access_token = steam_license.license.access_token
 
-        await self._send(EMsg.PICSProductInfoRequest, message)
+        await self._send(EMsg.ClientPICSProductInfoRequest, message)
 
     async def get_apps_info(self, app_ids):
-        logger.info("Sending call %s with %d app_ids", repr(EMsg.PICSProductInfoRequest), len(app_ids))
+        logger.info("Sending call %s with %d app_ids", repr(EMsg.ClientPICSProductInfoRequest), len(app_ids))
         message = steammessages_clientserver_appinfo_pb2.CMsgClientPICSProductInfoRequest()
 
         for app_id in app_ids:
             info = message.apps.add()
             info.appid = app_id
 
-        await self._send(EMsg.PICSProductInfoRequest, message)
+        await self._send(EMsg.ClientPICSProductInfoRequest, message)
 
     async def get_presence_localization(self, appid, language='english'):
         logger.info(f"Sending call for rich presence localization with {appid}, {language}")
@@ -300,7 +314,7 @@ class ProtobufClient:
 
         job_id = next(self._job_id_iterator)
         await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None,
-                         target_job_name='Community.GetAppRichPresenceLocalization#1')
+                         target_job_name= GET_APP_RICH_PRESENCE)
 
     async def accept_update_machine_auth(self, jobid_target, sha_hash, offset, filename, cubtowrite):
         message = steammessages_clientserver_2_pb2.CMsgClientUpdateMachineAuthResponse()
@@ -396,7 +410,7 @@ class ProtobufClient:
             await self._process_client_persona_state(body)
         elif emsg == EMsg.ClientLicenseList:
             await self._process_license_list(body)
-        elif emsg == EMsg.PICSProductInfoResponse:
+        elif emsg == EMsg.ClientPICSProductInfoResponse:
             await self._process_product_info_response(body)
         elif emsg == EMsg.ClientGetUserStatsResponse:
             await self._process_user_stats_response(body)
@@ -409,9 +423,9 @@ class ProtobufClient:
         elif emsg == EMsg.ClientPlayerNicknameList:
             await self._process_user_nicknames(body)
         elif emsg == EMsg.ServiceMethod:
-            await self._process_service_method_response(header.target_job_name, header.jobid_target, body)
+            await self._process_service_method_response(header.target_job_name, header.jobid_target, header.eresult, body)
         elif emsg == EMsg.ServiceMethodResponse:
-            await self._process_service_method_response(header.target_job_name, header.jobid_target, body)
+            await self._process_service_method_response(header.target_job_name, header.jobid_target, header.eresult, body)
         else:
             logger.warning("Ignored message %d", emsg)
 
@@ -603,7 +617,7 @@ class ProtobufClient:
         await self.license_import_handler(licenses_to_check)
 
     async def _process_product_info_response(self, body):
-        logger.debug("Processing message PICSProductInfoResponse")
+        logger.debug("Processing message ClientPICSProductInfoResponse")
         message = steammessages_clientserver_appinfo_pb2.CMsgClientPICSProductInfoResponse()
         message.ParseFromString(body)
         apps_to_parse = []
@@ -688,11 +702,18 @@ class ProtobufClient:
                     pass
         self.collections['event'].set()
 
-    async def _process_service_method_response(self, target_job_name, target_job_id, body):
+    async def _process_service_method_response(self, target_job_name, target_job_id, eresult, body):
         logger.info("Processing message ServiceMethodResponse %s", target_job_name)
-        if target_job_name == 'Community.GetAppRichPresenceLocalization#1':
+        if target_job_name == GET_APP_RICH_PRESENCE:
             await self._process_rich_presence_translations(body)
-        if target_job_name == 'Player.ClientGetLastPlayedTimes#1':
+        elif target_job_name == GET_LAST_PLAYED_TIMES:
             await self._process_user_time_response(body)
-        if target_job_name == 'CloudConfigStore.Download#1':
+        elif target_job_name == CLOUD_CONFIG_DOWNLOAD:
             await self._process_collections_response(body)
+        #elif target_job_name == REQUEST_FRIEND_PERSONA_STATES:
+            #pass #no idea what to do here. for now, having it error will let me know when it's called so i can see wtf to do with it.
+        elif target_job_name == GET_RSA_KEY:
+            await self._process_rsa(eresult, body)
+        else:
+            logger.warning("Unparsed message, no idea what it is. Tell me")
+            logger.warning("job name: \"" + target_job_name + "\"")

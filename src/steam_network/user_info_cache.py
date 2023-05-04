@@ -74,7 +74,7 @@ class UserInfoCache:
     def rsa_public_key(self, val: PublicKey):
         if self.rsa_public_key != val and self.initialized.is_set():
             self._changed = True
-        self.rsa_public_key = val
+        self._rsa_public_key = val
         if not self.initialized.is_set():
             self._check_initialized()
 
@@ -86,7 +86,7 @@ class UserInfoCache:
     def rsa_timestamp(self, val: int):
         if self.rsa_timestamp != val and self.initialized.is_set():
             self._changed = True
-        self.rsa_timestamp = val
+        self._rsa_timestamp = val
         if not self.initialized.is_set():
             self._check_initialized()
 

@@ -12,6 +12,8 @@ from typing import List, NamedTuple
 
 import vdf
 
+from websockets import WebSocketCommonProtocol
+
 from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
 from .messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, steammessages_auth_pb2, \
     steammessages_player_pb2, steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, \
@@ -38,8 +40,8 @@ class ProtobufClient:
     _MSG_PROTOCOL_VERSION = 65580
     _MSG_CLIENT_PACKAGE_VERSION = 1561159470
 
-    def __init__(self, set_socket):
-        self._socket = set_socket
+    def __init__(self, set_socket : WebSocketCommonProtocol):
+        self._socket : WebSocketCommonProtocol = set_socket
         self.rsa_handler: Optional[Callable[[EResult, int, int, int], Awaitable[None]]] = None
         self.log_on_handler: Optional[Callable[[steammessages_clientserver_login_pb2.CMsgClientLogonResponse], Awaitable[None]]] = None
         self.log_off_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
@@ -119,7 +121,8 @@ class ProtobufClient:
 
     async def _send_service_method_with_name(self, message, target_job_name: str):
         emsg = EMsg.ServiceMethodCallFromClientNonAuthed if self.steam_id is None else EMsg.ServiceMethodCallFromClient;
-        await self._send(emsg, message, target_job_name= target_job_name)
+        job_id = next(self._job_id_iterator)
+        await self._send(emsg, message, source_job_id=job_id, target_job_name= target_job_name)
 
     #new workflow: get rsa public key -> log on with password -> handle steam guard -> confirm login
     #each is getting a dedicated function so i don't go insane.

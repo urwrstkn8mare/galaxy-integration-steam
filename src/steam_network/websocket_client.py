@@ -19,6 +19,7 @@ from .times_cache import TimesCache
 from .user_info_cache import UserInfoCache
 from .authentication import AuthCall
 
+from traceback import format_exc
 
 logger = logging.getLogger(__name__)
 # do not log low level events from websockets
@@ -112,7 +113,8 @@ class WebSocketClient:
             except asyncio.CancelledError as e:
                 logger.warning(f"Websocket task cancelled {repr(e)}")
                 raise
-            except websockets.ConnectionClosedOK:
+            except websockets.ConnectionClosedOK as e:
+                logger.debug(format_exc())
                 logger.debug("Expected WebSocket disconnection")
             except websockets.ConnectionClosedError as error:
                 logger.warning("WebSocket disconnected (%d: %s), reconnecting...", error.code, error.reason)
@@ -192,7 +194,7 @@ class WebSocketClient:
     async def retrieve_collections(self):
         return await self._protocol_client.retrieve_collections()
 
-    async def _ensure_connected(self):
+    async def _ensure_connected(self) -> websockets.WebSocketCommonProtocol:
         if self._protocol_client is not None:
             return  # already connected
 

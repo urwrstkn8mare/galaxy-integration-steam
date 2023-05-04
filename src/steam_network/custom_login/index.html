@@ -40,11 +40,14 @@
 						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon error-icon--aligned-top"> The username does not exist or cannot be found. Try ensuring the user name is valid.
 					</p>
 				</fieldset>
-				<fieldset id="getPassword">
+				<fieldset id="getPassword" style="display:none;">
 					<legend id="say-hello">Please Enter your password to finish logging in.</legend> <!--TODO: Change this to say: "Welcome <user name>. Please Enter your password to finish logging in"-->
 					<div class="field-group">
 						<label for="step-1-password">Password</label>
 						<input class="basic-input login-input" type="password" id="step-1-password" name="password" disabled="disabled">
+						<div class="show-password">
+			                            <span class="tooltip password-tooltip">Show password</span>
+                        			</div>
 					</div>
 					<p class="resend-code">
 						Not you?
@@ -54,7 +57,7 @@
 						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon error-icon--aligned-top"> You have entered your password incorrectly. Please check your password and try again.
 					</p>
 				</fieldset>
-				<fieldset id="steamGuardEmail">
+				<fieldset id="steamGuardEmail" style="display:none;">
 					<legend>Enter a special access code (Steam Guard) that was sent to your email address from Steam Support.</legend>
 					<div class="field-group field-group--no-justify">
 						<label for="step-1-code">Steam Guard code</label>
@@ -68,7 +71,7 @@
 						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon"> Invalid code
 					</p>
 				</fieldset>
-				<fieldset id="steamGuardPhone">
+				<fieldset id="steamGuardPhone" style="display:none;">
 					<legend>
 						As an additional security measure, you’ll need to enter the current Steam Guard code from the Steam
 						Mobile Authenticator on your phone.
@@ -112,10 +115,14 @@
 		const actionButtonsSelector = document.querySelector("#actionButtons");
 		const input = document.getElementById("step-2-password-errored");
 
-		function togglePasswordVisibility() {
-			if (input.type === "password") {
+		function togglePasswordVisibility() 
+		{
+			if (input.type === "password") 
+			{
 				input.type = "text";
-			} else {
+			} 
+			else 
+			{
 				input.type = "password"
 			}
 		}
@@ -150,8 +157,9 @@
 			steamAuthenticatorError: document.querySelectorAll("#steamGuardPhone .no-error"),
 		}
 
-		function handleEnablingInputs(inputs) {
-			for (input of inputs) 
+		function handleEnablingInputs(inputs) 
+		{
+			for (let input of inputs) 
 			{
 				input.disabled = false;
 			}
@@ -205,6 +213,7 @@
 
 			formElement.action = act;
 			handleEnablingInputs(inp);
+
 			//if we have set err, un-hide all the error members. 
 			if (err)
 			{
@@ -213,6 +222,7 @@
 					errorField.classList.remove("no-error");
 				}
 			}
+
 			loc.style.display = "block";
 
 			//parse the user name if it's there and we're on the login page

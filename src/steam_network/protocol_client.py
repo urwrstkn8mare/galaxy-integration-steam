@@ -206,7 +206,7 @@ class ProtocolClient:
         loop = asyncio.get_running_loop()
         self._rsa_future = loop.create_future()
         await self._protobuf_client.get_rsa_public_key(username)
-        result = await self._rsa_future()
+        result = await self._rsa_future
         if (result == EResult.OK):
             self._auth_lost_handler = auth_lost_handler
             return UserActionRequired.PasswordRequired

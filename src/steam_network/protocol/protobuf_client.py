@@ -12,7 +12,7 @@ from typing import List, NamedTuple
 
 import vdf
 
-from websockets import WebSocketCommonProtocol
+from pprint import pformat
 
 from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
 from .messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, steammessages_auth_pb2, \
@@ -40,8 +40,8 @@ class ProtobufClient:
     _MSG_PROTOCOL_VERSION = 65580
     _MSG_CLIENT_PACKAGE_VERSION = 1561159470
 
-    def __init__(self, set_socket : WebSocketCommonProtocol):
-        self._socket : WebSocketCommonProtocol = set_socket
+    def __init__(self, set_socket):
+        self._socket = set_socket
         self.rsa_handler: Optional[Callable[[EResult, int, int, int], Awaitable[None]]] = None
         self.log_on_handler: Optional[Callable[[steammessages_clientserver_login_pb2.CMsgClientLogonResponse], Awaitable[None]]] = None
         self.log_off_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
@@ -95,6 +95,7 @@ class ProtobufClient:
                     logger.warning(f'Unknown job {job}')
             try:
                 packet = await asyncio.wait_for(self._socket.recv(), 0.1)
+                logger.info("Received Packet" + str(packet))
                 await self._process_packet(packet)
             except asyncio.TimeoutError:
                 pass
@@ -122,9 +123,9 @@ class ProtobufClient:
     async def _send_service_method_with_name(self, message, target_job_name: str):
         emsg = EMsg.ServiceMethodCallFromClientNonAuthed if self.steam_id is None else EMsg.ServiceMethodCallFromClient;
         job_id = next(self._job_id_iterator)
-        await self._send(emsg, message, source_job_id=job_id, target_job_name= target_job_name)
+        await self._send(emsg, message, source_job_id=job_id, target_job_name= target_job_name)        
 
-    #new workflow: get rsa public key -> log on with password -> handle steam guard -> confirm login
+    #new workflow:  say hello -> get rsa public key -> log on with password -> handle steam guard -> confirm login
     #each is getting a dedicated function so i don't go insane.
     #confirm login is the old log_on_token call.
 
@@ -140,39 +141,57 @@ class ProtobufClient:
     async def _process_rsa(self, body):
         message = steammessages_auth_pb2.CAuthentication_GetPasswordRSAPublicKey_Response()
         message.ParseFromString(body)
+        logger.debuf("Received RSA KEY: MESSAGE = ")
+        logger.debug(pformat(message))
         if (self.rsa_handler is not None):
             self.rsa_handler(message.eresult, message.publickey_mod, message.publickey_exp, message.timestamp)
 
-    async def log_on_password(self, account_name, enciphered_password, public_key_timestamp, two_factor, two_factor_type, machine_id, os_value, sentry):
-        message = steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Request()
-        message.account_name = account_name
-        message.encrypted_password = enciphered_password
-        message.website_id = "Client"
-        message.device_friendly_name = socket.gethostname() + " (GOG Galaxy)"
-        message.encryption_timestamp = public_key_timestamp
-        message.platform_type = steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient #no idea if this line will work.
-        raise NotImplementedError
-        #message.persistence = enums_pb2.ESessionPersistence.
+    async def log_on_password(self, account_name, password, two_factor, two_factor_type, machine_id, os_value, sentry):
+        def sanitize_password(password):
+            return ''.join([i if ord(i) < 128 else '' for i in password])
 
-	    #TODO: Finish merging these. These changes were apparently lost.
-        #optional .ESessionPersistence persistence = 7 [default = k_ESessionPersistence_Persistent, (description) = "whether we are requesting a persistent or an ephemeral session"];
-	#optional .CAuthentication_DeviceDetails device_details = 9 [(description) = "User-supplied details about the device attempting to sign in"];
-	#optional string guard_data = 10 [(description) = "steam guard data for client login"];
+        message = await self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
+        message.password = sanitize_password(password)
+        if two_factor:
+            if two_factor_type == 'email':
+                message.auth_code = two_factor
+            elif two_factor_type == 'mobile':
+                message.two_factor_code = two_factor
+        logger.info("Sending log on message using credentials")
+        await self._send(EMsg.ClientLogon, message)
+
+#this is the new code, but first, i'm keeping the old so i can run tests in GOG Galaxy - BaumherA
+
+ #   async def log_on_password(self, account_name, enciphered_password, public_key_timestamp, two_factor, two_factor_type, machine_id, os_value, sentry):
+ #       message = steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Request()
+ #       message.account_name = account_name
+ #       message.encrypted_password = enciphered_password
+ #       message.website_id = "Client"
+ #       message.device_friendly_name = socket.gethostname() + " (GOG Galaxy)"
+ #       message.encryption_timestamp = public_key_timestamp
+ #       message.platform_type = steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient #no idea if this line will work.
+ #       raise NotImplementedError
+ #       #message.persistence = enums_pb2.ESessionPersistence.
+
+	#    #TODO: Finish merging these. These changes were apparently lost.
+ #       #optional .ESessionPersistence persistence = 7 [default = k_ESessionPersistence_Persistent, (description) = "whether we are requesting a persistent or an ephemeral session"];
+	##optional .CAuthentication_DeviceDetails device_details = 9 [(description) = "User-supplied details about the device attempting to sign in"];
+	##optional string guard_data = 10 [(description) = "steam guard data for client login"];
             
-    #async def log_on_password(self, account_name, enciphered_password, two_factor, two_factor_type, machine_id, os_value, sentry):
-    #    #def sanitize_password(password):
-    #    #    return ''.join([i if ord(i) < 128 else '' for i in password])
+ #   #async def log_on_password(self, account_name, enciphered_password, two_factor, two_factor_type, machine_id, os_value, sentry):
+ #   #    #def sanitize_password(password):
+ #   #    #    return ''.join([i if ord(i) < 128 else '' for i in password])
 
-    #    message = await self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
-    #    #message.password = sanitize_password(enciphered_password)
-    #    message.password = enciphered_password
-    #    if two_factor:
-    #        if two_factor_type == 'email':
-    #            message.auth_code = two_factor
-    #        elif two_factor_type == 'mobile':
-    #            message.two_factor_code = two_factor
-    #    logger.info("Sending log on message using credentials")
-    #    await self._send(EMsg.ClientLogon, message)
+ #   #    message = await self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
+ #   #    #message.password = sanitize_password(enciphered_password)
+ #   #    message.password = enciphered_password
+ #   #    if two_factor:
+ #   #        if two_factor_type == 'email':
+ #   #            message.auth_code = two_factor
+ #   #        elif two_factor_type == 'mobile':
+ #   #            message.two_factor_code = two_factor
+ #   #    logger.info("Sending log on message using credentials")
+ #   #    await self._send(EMsg.ClientLogon, message)
 
     async def log_on_token(self, account_name, token, used_server_cell_id, machine_id, os_value, sentry):
         message = await self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
@@ -677,5 +696,3 @@ class ProtobufClient:
             await self._process_user_time_response(body)
         if target_job_name == 'CloudConfigStore.Download#1':
             await self._process_collections_response(body)
-        if target_job_name == 'Authentication.GetPasswordRSAPublicKey#1':
-            await self._process_rsa(body)

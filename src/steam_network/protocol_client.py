@@ -3,7 +3,7 @@ import logging
 import enum
 import platform
 import secrets
-from typing import List, TYPE_CHECKING, Optional, Tuple
+from typing import Callable, List, TYPE_CHECKING, Optional, Tuple
 
 from .steam_public_key import SteamPublicKey
 
@@ -237,14 +237,14 @@ class ProtocolClient:
         else:
             logger.warning("NO FUTURE SET")
 
-    async def authenticate_password(self, account_name, password, auth_lost_handler):
+    async def authenticate_password(self, account_name, enciphered_password : bytes, auth_lost_handler:Callable):
         loop = asyncio.get_running_loop()
         self._login_future = loop.create_future()
         os_value = get_os()
         sentry = await self._get_sentry()
         #TODO: FIX ME!
         await self._protobuf_client.log_on_password(
-            account_name, password, None, None, self._machine_id, os_value, sentry
+            account_name, enciphered_password, None, None, self._machine_id, os_value, sentry
         )
         result = await self._login_future
         logger.info(result)

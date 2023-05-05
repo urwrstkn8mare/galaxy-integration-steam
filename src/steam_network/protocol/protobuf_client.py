@@ -160,19 +160,41 @@ class ProtobufClient:
         else:
             logger.warning("NO HANDLER SET!")
 
-    async def log_on_password(self, account_name, password, two_factor, two_factor_type, machine_id, os_value, sentry):
-        def sanitize_password(password):
-            return ''.join([i if ord(i) < 128 else '' for i in password])
+    async def log_on_password(self, account_name, enciphered_password: str, machine_id, os_value):
+        message = steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Request()
 
-        message = await self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
-        message.password = sanitize_password(password)
-        if two_factor:
-            if two_factor_type == 'email':
-                message.auth_code = two_factor
-            elif two_factor_type == 'mobile':
-                message.two_factor_code = two_factor
-        logger.info("Sending log on message using credentials")
-        await self._send(EMsg.ClientLogon, message)
+        message.account_name = account_name
+        message.encrypted_password = enciphered_password
+        """
+        public string device_friendly_name
+        
+        public string 
+        
+        public ulong encryption_timestamp
+        
+        public bool remember_login
+
+        public EAuthTokenPlatformType platform_type
+        
+        public ESessionPersistence persistence
+        
+        public string website_id
+        
+        public CAuthentication_DeviceDetails device_details { get; set; }
+
+        public string guard_data
+        
+        public uint language
+        
+        public int qos_level
+        """
+        message.encrypted_password = None
+        message.encryption_timestamp = None
+        message.remember_login = None
+        message.persistence = None
+        message.website_id = None
+        message.device_details = None
+        message.guard_data = None
 
 #this is the new code, but first, i'm keeping the old so i can run tests in GOG Galaxy - BaumherA
 

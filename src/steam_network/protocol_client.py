@@ -3,7 +3,7 @@ import logging
 import enum
 import platform
 import secrets
-from typing import List, TYPE_CHECKING, Optional, Tuple
+from typing import Callable, List, TYPE_CHECKING, Optional, Tuple
 
 from .steam_public_key import SteamPublicKey
 
@@ -40,6 +40,8 @@ def get_os() -> EOSType:
             '8': EOSType.Windows8,
             '8.1': EOSType.Windows81,
             '10': EOSType.Windows10,
+            '10': EOSType.Windows10,
+            '11': EOSType.Win11,
         }
         return releases.get(release, EOSType.WinUnknown)
     elif system == 'Darwin':
@@ -58,6 +60,11 @@ def get_os() -> EOSType:
             '10.14': EOSType.MacOS1014,
             '10.15': EOSType.MacOS1015,
             '10.16': EOSType.MacOS1016,
+            '11.0': EOSType.MacOS11,
+            '11.1': EOSType.MacOS111,
+            '10.17': EOSType.MacOS1017,
+            '12.0': EOSType.MacOS12,
+            '13.0': EOSType.MacOS13,
         }
         return releases.get(release, EOSType.MacOSUnknown)
     return EOSType.Unknown
@@ -237,14 +244,14 @@ class ProtocolClient:
         else:
             logger.warning("NO FUTURE SET")
 
-    async def authenticate_password(self, account_name, password, auth_lost_handler):
+    async def authenticate_password(self, account_name, enciphered_password : bytes, auth_lost_handler:Callable):
         loop = asyncio.get_running_loop()
         self._login_future = loop.create_future()
         os_value = get_os()
         sentry = await self._get_sentry()
         #TODO: FIX ME!
         await self._protobuf_client.log_on_password(
-            account_name, password, None, None, self._machine_id, os_value, sentry
+            account_name, enciphered_password, None, None, self._machine_id, os_value, sentry
         )
         result = await self._login_future
         logger.info(result)

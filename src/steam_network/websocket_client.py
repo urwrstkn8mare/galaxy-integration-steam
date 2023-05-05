@@ -254,12 +254,16 @@ class WebSocketClient:
                     ret_code = code
                     logger.info("!!!YATTA!!!" if key else "Dangit!")
                 elif (mode == AuthCall.LOGIN):
-                    password = response.get('password', None)
+                    password :str = response.get('password', None)
                     logger.info(f'Authenticating with {"username" if self._user_info_cache.account_username else ""}, {"password" if password else ""}')
-                    ret_code = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, password, auth_lost_handler)
+                    if (password):
+                        enciphered = encrypt(password.encode('utf-8',errors="ignore"), self._steam_public_key.rsa_public_key)
+                        ret_code = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, enciphered, auth_lost_handler)
+                    else:
+                        ret_code = UserActionRequired.InvalidAuthData
                 elif (mode == AuthCall.TWO_FACTOR):
                     code = response.get('two-factor', None)
-                    logger.info(f'Updating with {"two-factor" if code else ""}{"using " + self._user_info_cache.two_step + " authentication"if self._user_info_cache.two_step else ""}')
+                    logger.info(f'Updating with {"two-factor" if code else ""}{"using " + self._user_info_cache.two_step + " authentication" if self._user_info_cache.two_step else ""}')
                     ret_code = await self._protocol_client.update_two_factor(code, self._user_info_cache.two_step, auth_lost_handler)
                 else:
                     ret_code = UserActionRequired.InvalidAuthData

@@ -10,6 +10,8 @@ from itertools import count
 from typing import Awaitable, Callable, Dict, Optional, Any
 from typing import List, NamedTuple
 
+import base64
+
 import vdf
 
 from pprint import pformat
@@ -32,6 +34,8 @@ GET_LAST_PLAYED_TIMES = 'Player.ClientGetLastPlayedTimes#1'
 CLOUD_CONFIG_DOWNLOAD = 'CloudConfigStore.Download#1'
 REQUEST_FRIEND_PERSONA_STATES = "Chat.RequestFriendPersonaStates#1"
 GET_RSA_KEY = "Authentication.GetPasswordRSAPublicKey#1"
+LOGIN_CREDENTIALS = "Authentication.BeginAuthSessionViaCredentials#1"
+
 
 class SteamLicense(NamedTuple):
     license: steammessages_clientserver_pb2.CMsgClientLicenseList.License  # type: ignore[name-defined]
@@ -158,22 +162,52 @@ class ProtobufClient:
         if (self.rsa_handler is not None):
             await self.rsa_handler(result, message.publickey_mod, message.publickey_exp, message.timestamp)
         else:
-            logger.warning("NO HANDLER SET!")
+            logger.warning("NO RSA HANDLER SET!")
 
-    async def log_on_password(self, account_name, password, two_factor, two_factor_type, machine_id, os_value, sentry):
-        def sanitize_password(password):
-            return ''.join([i if ord(i) < 128 else '' for i in password])
+    async def log_on_password(self, account_name, enciphered_password: str, timestamp: int, os_value):
+        device_details = steammessages_auth_pb2.CAuthentication_DeviceDetails()
+        
+        device_details.device_friendly_name = socket.gethostname() + " (GOG Galaxy)"
+        device_details.os_type = os_value if os_value >= 0 else 0
+        device_details.platform_type= steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient
 
-        message = await self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
-        message.password = sanitize_password(password)
-        if two_factor:
-            if two_factor_type == 'email':
-                message.auth_code = two_factor
-            elif two_factor_type == 'mobile':
-                message.two_factor_code = two_factor
-        logger.info("Sending log on message using credentials")
-        await self._send(EMsg.ClientLogon, message)
+        message = steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Request()
 
+        message.account_name = account_name
+        message.encrypted_password = base64.b64encode(enciphered_password) #i think it needs to be in this format, we can try doing it without after if it doesn't work. 
+        message.website_id = "Client"
+        message.device_friendly_name = socket.gethostname() + " (GOG Galaxy)"
+        message.encryption_timestamp = timestamp
+        message.platform_type = steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient #no idea if this line will work.
+        #message.persistence = enums_pb2.ESessionPersistence.k_ESessionPersistence_Persistent # this is the default value and i have no idea how reflected enums work in python.
+        message.device_details = device_details
+        #message.guard_data = ""
+        logger.info("Sending log on message using credentials in new authorization workflow")
+
+        await self._send_service_method_with_name(message, LOGIN_CREDENTIALS)
+
+    async def _process_login(self, result, body):
+        message = steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Response()
+        message.ParseFromString(body)
+        """
+        client_id : int #the id assigned to us.
+        steamid : int #the id of the user that signed in
+        request_id : bytes #unique request id. needed for the polling function.
+        interval : float #interval to poll on.
+        allowed_confirmations : List[CAuthentication_AllowedConfirmation] #possible ways to authenticate for 2FA if needed. 
+        #    Note: Possible values:
+        #       k_EAuthSessionGuardType_Unknown, k_EAuthSessionGuardType_None, k_EAuthSessionGuardType_EmailCode = 2, k_EAuthSessionGuardType_DeviceCode = 3,
+        #       k_EAuthSessionGuardType_DeviceConfirmation = 4, k_EAuthSessionGuardType_EmailConfirmation = 5, k_EAuthSessionGuardType_MachineToken = 6,
+        #       k_EAuthSessionGuardType_LegacyMachineAuth = 7,
+        #   For the sake of copypasta, we're only supporting EmailCode, DeviceCode, and None. Unknown is expected, somewhat, but it's an error. 
+        weak_token : string
+        agreement_session_url: string
+        extended_error_message : string
+        """
+        if (self.login_handler is not None):
+            await self.login_handler(result, message)
+        else:
+            logger.warning("NO LOGIN HANDLER SET!")
 #this is the new code, but first, i'm keeping the old so i can run tests in GOG Galaxy - BaumherA
 
  #   async def log_on_password(self, account_name, enciphered_password, public_key_timestamp, two_factor, two_factor_type, machine_id, os_value, sentry):

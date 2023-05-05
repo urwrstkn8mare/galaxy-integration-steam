@@ -99,6 +99,7 @@
     <Compile Include="src\steam_network\steam_public_key.py" />
     <Compile Include="src\steam_network\times_cache.py" />
     <Compile Include="src\steam_network\user_info_cache.py" />
+    <Compile Include="src\steam_network\utils.py" />
     <Compile Include="src\steam_network\w3_hack.py" />
     <Compile Include="src\steam_network\websocket_cache_persistence.py" />
     <Compile Include="src\steam_network\websocket_client.py" />

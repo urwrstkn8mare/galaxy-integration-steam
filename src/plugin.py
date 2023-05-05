@@ -10,6 +10,8 @@ from functools import partial
 from contextlib import suppress
 from typing import List, Optional, NewType, Dict, AsyncGenerator, Any, Callable
 
+import traceback
+
 import certifi
 from galaxy.api.plugin import Plugin, create_and_run_plugin
 from galaxy.api.types import (
@@ -162,6 +164,7 @@ class SteamPlugin(Plugin):
                 fallback()
             except Exception as e:
                 logger.error(f"Unexpected problem during backend switch: {e!r}")
+                logger.error(traceback.format_exc())
                 fallback()
             else:
                 self._backend.register_auth_lost_callback(credentials_problem_handler)
@@ -177,6 +180,7 @@ class SteamPlugin(Plugin):
             InvalidCredentials, AccessDenied,  # re-raised would cause "Connection Lost"
             Exception  # re-raised would cause "Offline. Retry"
         ) as e:
+            logger.error(traceback.format_exc())
             logger.warning(f"Authentication for initial backend failed with {e!r}")
             credentials_problem_handler(partial(raise_exception, e))
             auth = await self._backend.authenticate(stored_credentials)

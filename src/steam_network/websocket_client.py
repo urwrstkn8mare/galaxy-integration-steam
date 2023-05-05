@@ -8,6 +8,8 @@ from typing import Callable, Optional, Any, Dict
 import websockets
 from galaxy.api.errors import BackendNotAvailable, BackendTimeout, BackendError, InvalidCredentials, NetworkError, AccessDenied
 
+from rsa import PublicKey, encrypt
+
 from .websocket_list import WebSocketList
 from .friends_cache import FriendsCache
 from .games_cache import GamesCache
@@ -18,6 +20,8 @@ from .stats_cache import StatsCache
 from .times_cache import TimesCache
 from .user_info_cache import UserInfoCache
 from .authentication import AuthCall
+
+from .steam_public_key import SteamPublicKey
 
 from traceback import format_exc
 
@@ -72,6 +76,8 @@ class WebSocketClient:
         self.communication_queues = {'plugin': asyncio.Queue(), 'websocket': asyncio.Queue(),}
         self.used_server_cell_id: int = 0
         self._current_ws_address: Optional[str] = None
+
+        self._steam_public_key : Optional[SteamPublicKey] = None
 
     async def run(self, create_future_factory: Callable[[], Future]=asyncio_future):
         while True:
@@ -243,9 +249,10 @@ class WebSocketClient:
                 mode = response.get('mode', 'rsa');
                 if (mode == AuthCall.RSA):
                     logger.info(f'Retrieving RSA Public Key for {"username" if self._user_info_cache.account_username else ""}')
-                    ret_code = await self._protocol_client.get_rsa_public_key(self._user_info_cache.account_username, auth_lost_handler)
-                    logger.info("Retrieved RSA Key! Mod = " + self._user_info_cache.rsa_public_key.n + ", Exp = " + self._user_info_cache.rsa_public_key.e + ", Timestamp = " + str(self._user_info_cache.rsa_timestamp))
-                    logger.info("!!!YATTA!!!")
+                    (code, key) = await self._protocol_client.get_rsa_public_key(self._user_info_cache.account_username, auth_lost_handler)
+                    self._steam_public_key = key
+                    ret_code = code
+                    logger.info("!!!YATTA!!!" if key else "Dangit!")
                 elif (mode == AuthCall.LOGIN):
                     password = response.get('password', None)
                     logger.info(f'Authenticating with {"username" if self._user_info_cache.account_username else ""}, {"password" if password else ""}')

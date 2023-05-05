@@ -2,7 +2,6 @@ import asyncio
 import logging
 import ssl
 from contextlib import suppress
-from distutils.util import strtobool
 from typing import Callable, List, Any, Dict, Union
 from urllib import parse
 
@@ -31,7 +30,7 @@ from backend_interface import BackendInterface
 from http_client import HttpClient
 from persistent_cache_state import PersistentCacheState
 from user_profile import UserProfileChecker, ProfileIsNotPublic, ProfileDoesNotExist, NotPublicGameDetailsOrUserHasNoGames
-from steam_network.authentication import StartUri, EndUriRegex, next_step_response, AuthCall, EndUriConst
+from steam_network.authentication import StartUri, EndUriRegex, next_step_response, AuthCall, EndUriConst, next_step_response_simple, DisplayUriHelper
 from steam_network.friends_cache import FriendsCache
 from steam_network.games_cache import GamesCache
 from steam_network.local_machine_cache import LocalMachineCache
@@ -194,8 +193,10 @@ class SteamNetworkBackend(BackendInterface):
 
     async def pass_login_credentials(self, step, credentials, cookies):
         end_uri = credentials["end_uri"]
-        if (EndUriConst.USER_FINISHED in end_uri):
+        if (DisplayUriHelper.GET_USER.EndUri() in end_uri):
             return await self._handle_get_user_finished(credentials)
+        elif (DisplayUriHelper.LOGIN.EndUri() in end_uri):
+            return await self._handle_login_finished(credentials)
         else:
             logger.warning("Not reimplemented yet")
             raise BackendTimeout()
@@ -210,11 +211,37 @@ class SteamNetworkBackend(BackendInterface):
         parsed_url = parse.urlsplit(credentials["end_uri"])
         params = parse.parse_qs(parsed_url.query)
         if ("username" not in params):
-            return next_step_response(StartUri.LOGIN_FAILED, EndUriRegex.LOGIN_FINISHED)
+            return next_step_response_simple(DisplayUriHelper.GET_USER, None, True)
         username = params["username"][0]
         self._user_info_cache.account_username = username
         await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.RSA })
         result = await self._get_websocket_auth_step()
+        if (result == UserActionRequired.PasswordRequired):
+            return next_step_response_simple(DisplayUriHelper.LOGIN, self._user_info_cache.account_username)
+        else:
+            #invalid auth means the user name does not exist. any other response at this point would be something unexpected and would mean a bug somewhere. 
+            if (result != UserActionRequired.InvalidAuthData):
+                logger.warning("Unexpected return value optained in Get User Finished. Value: " + str(result))
+            return next_step_response_simple(DisplayUriHelper.GET_USER, None, True)
+
+    async def _handle_login_finished(self, credentials) -> Union[NextStep, Authentication]:
+        parsed_url = parse.urlsplit(credentials["end_uri"])
+        params = parse.parse_qs(parsed_url.query)
+        if ("password" not in params):
+            return next_step_response_simple(DisplayUriHelper.LOGIN, self._user_info_cache.account_username, True)
+        pws = params["password"][0]
+        await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.LOGIN, 'password' : pws })
+        result = await self._get_websocket_auth_step()
+        if (result == UserActionRequired.NoActionRequired):
+            self._auth_data = None
+            self._store_credentials(self._user_info_cache.to_dict())
+            return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
+        elif (result == UserActionRequired.EmailTwoFactorInputRequired):
+            return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MAIL, self._user_info_cache.account_username)
+        if (result == UserActionRequired.PhoneTwoFactorInputRequired):
+            return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MOBILE, self._user_info_cache.account_username)
+        else:
+            return next_step_response_simple(DisplayUriHelper.LOGIN, self._user_info_cache.account_username, True)
         #result here should be password, or unathorized. 
 
 
@@ -284,7 +311,7 @@ class SteamNetworkBackend(BackendInterface):
     async def authenticate(self, stored_credentials=None):
         if stored_credentials is None:
             self._steam_run_task = asyncio.create_task(self._websocket_client.run())
-            return next_step_response(StartUri.LOGIN, EndUriRegex.LOGIN_FINISHED)
+            return next_step_response_simple(DisplayUriHelper.GET_USER, None)
         return await self._authenticate_with_stored_credentials(stored_credentials)
     
     async def _authenticate_with_stored_credentials(self, stored_credentials):

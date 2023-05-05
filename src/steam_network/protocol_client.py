@@ -3,7 +3,9 @@ import logging
 import enum
 import platform
 import secrets
-from typing import List, TYPE_CHECKING, Optional
+from typing import List, TYPE_CHECKING, Optional, Tuple
+
+from .steam_public_key import SteamPublicKey
 
 import galaxy.api.errors
 
@@ -205,32 +207,33 @@ class ProtocolClient:
     async def finish_handshake(self):
         await self._protobuf_client.say_hello()
 
-    async def get_rsa_public_key(self, username:str, auth_lost_handler) -> UserActionRequired:
+    async def get_rsa_public_key(self, username:str, auth_lost_handler) -> Tuple[UserActionRequired, SteamPublicKey]:
         loop = asyncio.get_running_loop()
         self._rsa_future = loop.create_future()
         await self._protobuf_client.get_rsa_public_key(username)
-        result = await self._rsa_future
+        (result, key) = await self._rsa_future
         logger.info ("GOT RSA KEY IN PROTOCOL_CLIENT")
         if (result == EResult.OK):
             self._auth_lost_handler = auth_lost_handler
-            return UserActionRequired.PasswordRequired
-        #elif (result == EResult.): #TODO: FIX ME! If you enter an improper username an error should pop but idk what eresult it is yet.
+            return (UserActionRequired.PasswordRequired, key)
+        elif True: #TODO: FIX ME! If you enter an improper username an error should pop but idk what eresult it is yet.
         #    self._auth_lost_handler = auth_lost_handler
+            return (UserActionRequired.InvalidAuthData, key)
+        #elif (result == EResult.):
         #    return UserActionRequired.InvalidAuthData
         else:
             logger.warning(f"Received unknown error, code: {result}")
             raise translate_error(result)
 
-    async def _rsa_handler(self, result: EResult, mod: int, exp: int, timestamp: int):
+    async def _rsa_handler(self, result: EResult, mod: int, exp: int, timestamp: int) -> Tuple[EResult, SteamPublicKey]:
         logger.info("In Protocol_Client RSA Handler")
+        spk = None
         if (result == EResult.OK):
-            self._user_info_cache.rsa_public_key = PublicKey(mod, exp)
-            self._user_info_cache.rsa_timestamp = timestamp
+            spk = SteamPublicKey(PublicKey(mod, exp), timestamp)
         else:
-            self._user_info_cache.rsa_public_key = None
-            self._user_info_cache.rsa_timestamp = None
+            pass #probably should get the EResult for bad username separetely from the else, but for now this will work. 
         if self._rsa_future is not None:
-            self._rsa_future.set_result(result)
+            self._rsa_future.set_result((result, spk))
         else:
             logger.warning("NO FUTURE SET")
 

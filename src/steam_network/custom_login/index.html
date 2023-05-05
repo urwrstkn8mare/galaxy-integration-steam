@@ -137,8 +137,8 @@
 			steamAuthenticator: "steamauthenticator",
 		};
 
-		//Error members are hidden by default, using the no-error class. Thus we can get all errors using the no-error class. It may be smart to give errors a common class so the queries would work even if the errors are shown
-		//but frankly that's overkill for what we need
+		//HtmlElements that deal with errors are hidden by default, using the no-error class. Therefore, we can simply query the no-error class to get all our errors. 
+		//It may be smart to give errors a common class so we could differentiate between hidden errors and displayed ones, but as of this writing that's not necessary.
 		const fieldSetsObj = {
 			userFieldSet: document.querySelector("#getUserName"),
 			userInputs: document.querySelectorAll("#getUserName input"),

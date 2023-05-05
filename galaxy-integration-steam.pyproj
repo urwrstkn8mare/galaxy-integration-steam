@@ -96,6 +96,7 @@
     <Compile Include="src\steam_network\protocol_client.py" />
     <Compile Include="src\steam_network\stats_cache.py" />
     <Compile Include="src\steam_network\steam_http_client.py" />
+    <Compile Include="src\steam_network\steam_public_key.py" />
     <Compile Include="src\steam_network\times_cache.py" />
     <Compile Include="src\steam_network\user_info_cache.py" />
     <Compile Include="src\steam_network\w3_hack.py" />

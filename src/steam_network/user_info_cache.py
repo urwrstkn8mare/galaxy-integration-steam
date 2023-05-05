@@ -1,9 +1,6 @@
 import asyncio
 import base64
 import logging as log
-
-from rsa import PublicKey
-
 from typing import Optional
 
 class UserInfoCache:
@@ -12,52 +9,49 @@ class UserInfoCache:
         self._account_id = None
         self._account_username = None
         self._persona_name = None
-        self._rsa_public_key : Optional[PublicKey] = None
-        self._rsa_timestamp : Optional[int] = None
-        self._token = None
+        self._refresh_token = None
+        self._access_token = None
         self._two_step : Optional[str] = None
-        self._sentry = b''
+        
         self._changed = False
-        self.old_flow = False
+        
         self.initialized = asyncio.Event()
 
     def _check_initialized(self):
-        if self._steam_id and self._account_id and self._account_username and self._persona_name and self._token:
+        if self._steam_id and self._account_id and self._account_username and self._persona_name and self._refresh_token:
             log.info("User info cache initialized")
             self.initialized.set()
             self._changed = True
 
     def to_dict(self):
-        creds = {'steam_id': base64.b64encode(str(self._steam_id).encode('utf-8')).decode('utf-8'),
-                 'account_id': base64.b64encode(str(self._account_id).encode('utf-8')).decode('utf-8'),
-                 'token': base64.b64encode(str(self._token).encode('utf-8')).decode('utf-8'),
-                 'account_username': base64.b64encode(str(self._account_username).encode('utf-8')).decode('utf-8'),
-                 'persona_name': base64.b64encode(str(self._persona_name).encode('utf-8')).decode('utf-8'),
-                 'sentry': base64.b64encode(self._sentry).decode('utf-8')}
+        creds = {
+            'steam_id': base64.b64encode(str(self._steam_id).encode('utf-8')).decode('utf-8'),
+            'account_id': base64.b64encode(str(self._account_id).encode('utf-8')).decode('utf-8'),
+            'refresh_token': base64.b64encode(str(self._refresh_token).encode('utf-8')).decode('utf-8'),
+            'account_username': base64.b64encode(str(self._account_username).encode('utf-8')).decode('utf-8'),
+            'persona_name': base64.b64encode(str(self._persona_name).encode('utf-8')).decode('utf-8')
+        }
         return creds
 
-    def from_dict(self, dict):
-        for key in dict.keys():
-            if dict[key]:
+    def from_dict(self, lookup):
+        for key in lookup.keys():
+            if lookup[key]:
                 log.info(f"Loaded {key} from stored credentials")
 
-        if 'steam_id' in dict:
-            self._steam_id = int(base64.b64decode(dict['steam_id']).decode('utf-8'))
+        if 'steam_id' in lookup:
+            self._steam_id = int(base64.b64decode(lookup['steam_id']).decode('utf-8'))
 
-        if 'account_id' in dict:
-            self._account_id = int(base64.b64decode(dict['account_id']).decode('utf-8'))
+        if 'account_id' in lookup:
+            self._account_id = int(base64.b64decode(lookup['account_id']).decode('utf-8'))
 
-        if 'account_username' in dict:
-            self._account_username = base64.b64decode(dict['account_username']).decode('utf-8')
+        if 'account_username' in lookup:
+            self._account_username = base64.b64decode(lookup['account_username']).decode('utf-8')
 
-        if 'persona_name' in dict:
-            self._persona_name = base64.b64decode(dict['persona_name']).decode('utf-8')
+        if 'persona_name' in lookup:
+            self._persona_name = base64.b64decode(lookup['persona_name']).decode('utf-8')
 
-        if 'token' in dict:
-            self._token = base64.b64decode(dict['token']).decode('utf-8')
-
-        if 'sentry' in dict:
-            self._sentry = base64.b64decode(dict['sentry'])
+        if 'refresh_token' in lookup:
+            self._token = base64.b64decode(lookup['refresh_token']).decode('utf-8')
 
     @property
     def changed(self):
@@ -65,30 +59,6 @@ class UserInfoCache:
             self._changed = False
             return True
         return False
-
-    @property
-    def rsa_public_key(self):
-        return self._rsa_public_key
-
-    @rsa_public_key.setter
-    def rsa_public_key(self, val: PublicKey):
-        if self.rsa_public_key != val and self.initialized.is_set():
-            self._changed = True
-        self._rsa_public_key = val
-        if not self.initialized.is_set():
-            self._check_initialized()
-
-    @property
-    def rsa_timestamp(self):
-        return self._rsa_timestamp
-
-    @rsa_timestamp.setter
-    def rsa_timestamp(self, val: int):
-        if self.rsa_timestamp != val and self.initialized.is_set():
-            self._changed = True
-        self._rsa_timestamp = val
-        if not self.initialized.is_set():
-            self._check_initialized()
 
     @property
     def steam_id(self):

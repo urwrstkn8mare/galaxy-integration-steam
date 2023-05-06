@@ -1,5 +1,4 @@
 import asyncio
-from asyncio import exceptions
 from asyncio.futures import Future
 import logging
 import ssl
@@ -261,7 +260,7 @@ class WebSocketClient:
                     logger.info(f'Authenticating with {"username" if self._user_info_cache.account_username else ""}, {"password" if password else ""}')
                     if (password):
                         enciphered = encrypt(password.encode('utf-8',errors="ignore"), self._steam_public_key.rsa_public_key)
-                        self._steam_polling_data = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, enciphered, auth_lost_handler)
+                        self._steam_polling_data = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, enciphered, self._steam_public_key.timestamp, auth_lost_handler)
                         ret_code = self._steam_polling_data.confirmation_method if self._steam_polling_data is not None else UserActionRequired.InvalidAuthData
                         if (ret_code != UserActionRequired.InvalidAuthData):
                             logger.info("GOT THE LOGIN DONE! ON TO 2FA")

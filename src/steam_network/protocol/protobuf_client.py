@@ -7,8 +7,7 @@ import logging
 import socket
 import struct
 from itertools import count
-from typing import Awaitable, Callable, Dict, Optional, Any
-from typing import List, NamedTuple
+from typing import Awaitable, Callable, Dict, Optional, Any, List, NamedTuple, Iterator
 
 import base64
 
@@ -25,6 +24,8 @@ from .messages import steammessages_base_pb2, steammessages_clientserver_login_p
     enums_pb2
 
 from .steam_types import SteamId, ProtoUserInfo
+
+from pprint import pformat
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -70,8 +71,8 @@ class ProtobufClient:
         self.times_import_finished_handler: Optional[Callable[[bool], Awaitable[None]]] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._session_id: Optional[int] = None
-        self._job_id_iterator = count(1)
-        self.job_list = []
+        self._job_id_iterator: Iterator[int] = count(1) #this is actually clever. A lazy iterator that increments every time you call next. 
+        #self.job_list : List[Dict[str,str]] = []
 
         self.account_info_retrieved = asyncio.Event()
         self.collections = {'event': asyncio.Event(),
@@ -88,19 +89,19 @@ class ProtobufClient:
 
     async def run(self):
         while True:
-            for job in self.job_list.copy():
-                logger.info(f"New job on list {job}")
-                if job['job_name'] == "import_game_stats":
-                    await self._import_game_stats(job['game_id'])
-                    self.job_list.remove(job)
-                elif job['job_name'] == "import_collections":
-                    await self._import_collections()
-                    self.job_list.remove(job)
-                elif job['job_name'] == "import_game_times":
-                    await self._import_game_time()
-                    self.job_list.remove(job)
-                else:
-                    logger.warning(f'Unknown job {job}')
+            #for job in self.job_list.copy():
+            #    logger.info(f"New job on list {job}")
+            #    if job['job_name'] == "import_game_stats":
+            #        await self._import_game_stats(job['game_id'])
+            #        self.job_list.remove(job)
+            #    elif job['job_name'] == "import_collections":
+            #        await self._import_collections()
+            #        self.job_list.remove(job)
+            #    elif job['job_name'] == "import_game_times":
+            #        await self._import_game_time()
+            #        self.job_list.remove(job)
+            #    else:
+            #        logger.warning(f'Unknown job {job}')
             try:
                 packet = await asyncio.wait_for(self._socket.recv(), 0.1)
                 logger.info("Received Packet" + str(packet))
@@ -158,8 +159,9 @@ class ProtobufClient:
         message = steammessages_auth_pb2.CAuthentication_GetPasswordRSAPublicKey_Response()
         message.ParseFromString(body)
         logger.info("Received RSA KEY")
+        #logger.info(pformat(message))
         if (self.rsa_handler is not None):
-            await self.rsa_handler(result, message.publickey_mod, message.publickey_exp, message.timestamp)
+            await self.rsa_handler(result, int(message.publickey_mod, 16), int(message.publickey_exp, 16), message.timestamp)
         else:
             logger.warning("NO RSA HANDLER SET!")
 

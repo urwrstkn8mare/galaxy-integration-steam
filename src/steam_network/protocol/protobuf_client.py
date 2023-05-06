@@ -14,6 +14,7 @@ import base64
 
 import vdf
 
+from websockets.client import WebSocketClientProtocol
 from pprint import pformat
 
 from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
@@ -49,8 +50,8 @@ class ProtobufClient:
     _MSG_PROTOCOL_VERSION = 65580
     _MSG_CLIENT_PACKAGE_VERSION = 1561159470
 
-    def __init__(self, set_socket):
-        self._socket = set_socket
+    def __init__(self, set_socket : WebSocketClientProtocol):
+        self._socket : WebSocketClientProtocol = set_socket
         self.rsa_handler: Optional[Callable[[EResult, int, int, int], Awaitable[None]]] = None
         self.login_handler: Optional[Callable[[EResult,steammessages_clientserver_login_pb2.CMsgClientLogonResponse], Awaitable[None]]] = None
         self.log_off_handler: Optional[Callable[[EResult], Awaitable[None]]] = None

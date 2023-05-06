@@ -1,4 +1,5 @@
 import asyncio
+from asyncio import exceptions
 from asyncio.futures import Future
 import logging
 import ssl
@@ -61,7 +62,7 @@ class WebSocketClient:
         ownership_ticket_cache: OwnershipTicketCache
     ):
         self._ssl_context = ssl_context
-        self._websocket: Optional[websockets.WebSocketClientProtocol] = None
+        self._websocket: Optional[websockets.client.WebSocketClientProtocol] = None
         self._protocol_client: Optional[ProtocolClient] = None
         self._websocket_list = websocket_list
 
@@ -122,12 +123,12 @@ class WebSocketClient:
             except asyncio.CancelledError as e:
                 logger.warning(f"Websocket task cancelled {repr(e)}")
                 raise
-            except websockets.ConnectionClosedOK as e:
+            except websockets.exceptions.ConnectionClosedOK as e:
                 logger.debug(format_exc())
                 logger.debug("Expected WebSocket disconnection")
-            except websockets.ConnectionClosedError as error:
+            except websockets.exceptions.ConnectionClosedError as error:
                 logger.warning("WebSocket disconnected (%d: %s), reconnecting...", error.code, error.reason)
-            except websockets.InvalidState as error:
+            except websockets.exceptions.InvalidState as error:
                 logger.warning(f"WebSocket is trying to connect... {repr(error)}")
             except (BackendNotAvailable, BackendTimeout, BackendError) as error:
                 logger.warning(f"{repr(error)}. Trying with different CM...")
@@ -213,12 +214,12 @@ class WebSocketClient:
             async for ws_address in self._websocket_list.get(self.used_server_cell_id):
                 self._current_ws_address = ws_address
                 try:
-                    self._websocket = await asyncio.wait_for(websockets.connect(ws_address, ssl=self._ssl_context, max_size=MAX_INCOMING_MESSAGE_SIZE), 5)
+                    self._websocket = await asyncio.wait_for(websockets.client.connect(ws_address, ssl=self._ssl_context, max_size=MAX_INCOMING_MESSAGE_SIZE), 5)
                     self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self._local_machine_cache, self._steam_app_ownership_ticket_cache, self.used_server_cell_id)
                     logger.info(f'Connected to Steam on CM {ws_address} on cell_id {self.used_server_cell_id}. Sending Hello')
                     await self._protocol_client.finish_handshake()
                     return
-                except (asyncio.TimeoutError, OSError, websockets.InvalidURI, websockets.InvalidHandshake):
+                except (asyncio.TimeoutError, OSError, websockets.exceptions.InvalidURI, websockets.exceptions.InvalidHandshake):
                     self._websocket_list.add_server_to_ignored(self._current_ws_address, timeout_sec=BLACKLISTED_CM_EXPIRATION_SEC)
                     continue
 
@@ -236,8 +237,8 @@ class WebSocketClient:
         if self._steam_app_ownership_ticket_cache.ticket:
             await self._protocol_client.register_auth_ticket_with_cm(self._steam_app_ownership_ticket_cache.ticket)
 
-        if self._user_info_cache.token:
-            ret_code = await self._protocol_client.authenticate_token(self._user_info_cache.steam_id, self._user_info_cache.account_username, self._user_info_cache.token, auth_lost_handler)
+        if self._user_info_cache.access_token:
+            ret_code = await self._protocol_client.authenticate_token(self._user_info_cache.steam_id, self._user_info_cache.account_username, self._user_info_cache.access_token, auth_lost_handler)
         else:
             ret_code = None
             while ret_code != UserActionRequired.NoActionRequired:
@@ -264,6 +265,8 @@ class WebSocketClient:
                         ret_code = self._steam_polling_data.confirmation_method if self._steam_polling_data is not None else UserActionRequired.InvalidAuthData
                         if (ret_code != UserActionRequired.InvalidAuthData):
                             logger.info("GOT THE LOGIN DONE! ON TO 2FA")
+                        else:
+                            logger.info("LOGIN FAILED :( But hey, at least you're here!")
                     else:
                         ret_code = UserActionRequired.InvalidAuthData
                 elif (mode == AuthCall.UPDATE_TWO_FACTOR_CODE):

@@ -52,7 +52,7 @@ class ProtobufClient:
     def __init__(self, set_socket):
         self._socket = set_socket
         self.rsa_handler: Optional[Callable[[EResult, int, int, int], Awaitable[None]]] = None
-        self.log_on_handler: Optional[Callable[[steammessages_clientserver_login_pb2.CMsgClientLogonResponse], Awaitable[None]]] = None
+        self.login_handler: Optional[Callable[[EResult,steammessages_clientserver_login_pb2.CMsgClientLogonResponse], Awaitable[None]]] = None
         self.log_off_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
         self.app_ownership_ticket_handler: Optional[Callable[[int, bytes], Awaitable[None]]] = None
         self.relationship_handler: Optional[Callable[[bool, Dict[int, EFriendRelationship]], Awaitable[None]]] = None
@@ -64,7 +64,6 @@ class ProtobufClient:
         self.translations_handler: Optional[Callable[[int, Any], Awaitable[None]]] = None
         self.stats_handler: Optional[Callable[[int, Any, Any], Awaitable[None]]] = None
         self.user_authentication_handler: Optional[Callable[[str, Any], Awaitable[None]]] = None
-        self.sentry: Optional[Callable[[], Awaitable[None]]] = None
         self.steam_id: Optional[int] = None
         self.times_handler: Optional[Callable[[int, int, int], Awaitable[None]]] = None
         self.times_import_finished_handler: Optional[Callable[[bool], Awaitable[None]]] = None
@@ -74,7 +73,6 @@ class ProtobufClient:
         self.job_list = []
 
         self.account_info_retrieved = asyncio.Event()
-        self.login_key_retrieved = asyncio.Event()
         self.collections = {'event': asyncio.Event(),
                             'collections': dict()}
 
@@ -167,7 +165,7 @@ class ProtobufClient:
     async def log_on_password(self, account_name, enciphered_password: str, timestamp: int, os_value):
         device_details = steammessages_auth_pb2.CAuthentication_DeviceDetails()
         
-        device_details.device_friendly_name = socket.gethostname() + " (GOG Galaxy)"
+        device_details.device_friendly_name = self._socket.gethostname() + " (GOG Galaxy)"
         device_details.os_type = os_value if os_value >= 0 else 0
         device_details.platform_type= steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient
 
@@ -176,7 +174,7 @@ class ProtobufClient:
         message.account_name = account_name
         message.encrypted_password = base64.b64encode(enciphered_password) #i think it needs to be in this format, we can try doing it without after if it doesn't work. 
         message.website_id = "Client"
-        message.device_friendly_name = socket.gethostname() + " (GOG Galaxy)"
+        message.device_friendly_name = self._socket.gethostname() + " (GOG Galaxy)"
         message.encryption_timestamp = timestamp
         message.platform_type = steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient #no idea if this line will work.
         #message.persistence = enums_pb2.ESessionPersistence.k_ESessionPersistence_Persistent # this is the default value and i have no idea how reflected enums work in python.
@@ -200,86 +198,14 @@ class ProtobufClient:
         #       k_EAuthSessionGuardType_DeviceConfirmation = 4, k_EAuthSessionGuardType_EmailConfirmation = 5, k_EAuthSessionGuardType_MachineToken = 6,
         #       k_EAuthSessionGuardType_LegacyMachineAuth = 7,
         #   For the sake of copypasta, we're only supporting EmailCode, DeviceCode, and None. Unknown is expected, somewhat, but it's an error. 
-        weak_token : string
-        agreement_session_url: string
-        extended_error_message : string
+        weak_token : string #ignored
+        agreement_session_url: string #ignored?
+        extended_error_message : string #used for errors. 
         """
         if (self.login_handler is not None):
             await self.login_handler(result, message)
         else:
             logger.warning("NO LOGIN HANDLER SET!")
-#this is the new code, but first, i'm keeping the old so i can run tests in GOG Galaxy - BaumherA
-
- #   async def log_on_password(self, account_name, enciphered_password, public_key_timestamp, two_factor, two_factor_type, machine_id, os_value, sentry):
- #       message = steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Request()
- #       message.account_name = account_name
- #       message.encrypted_password = enciphered_password
- #       message.website_id = "Client"
- #       message.device_friendly_name = socket.gethostname() + " (GOG Galaxy)"
- #       message.encryption_timestamp = public_key_timestamp
- #       message.platform_type = steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient #no idea if this line will work.
- #       raise NotImplementedError
- #       #message.persistence = enums_pb2.ESessionPersistence.
-
-	#    #TODO: Finish merging these. These changes were apparently lost.
- #       #optional .ESessionPersistence persistence = 7 [default = k_ESessionPersistence_Persistent, (description) = "whether we are requesting a persistent or an ephemeral session"];
-	##optional .CAuthentication_DeviceDetails device_details = 9 [(description) = "User-supplied details about the device attempting to sign in"];
-	##optional string guard_data = 10 [(description) = "steam guard data for client login"];
-            
- #   #async def log_on_password(self, account_name, enciphered_password, two_factor, two_factor_type, machine_id, os_value, sentry):
- #   #    #def sanitize_password(password):
- #   #    #    return ''.join([i if ord(i) < 128 else '' for i in password])
-
- #   #    message = await self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
- #   #    #message.password = sanitize_password(enciphered_password)
- #   #    message.password = enciphered_password
- #   #    if two_factor:
- #   #        if two_factor_type == 'email':
- #   #            message.auth_code = two_factor
- #   #        elif two_factor_type == 'mobile':
- #   #            message.two_factor_code = two_factor
- #   #    logger.info("Sending log on message using credentials")
- #   #    await self._send(EMsg.ClientLogon, message)
-
-    async def log_on_token(self, account_name, token, used_server_cell_id, machine_id, os_value, sentry):
-        message = await self._prepare_log_on_msg(account_name, machine_id, os_value, sentry)
-        message.cell_id = used_server_cell_id
-        message.login_key = token
-        logger.info("Sending log on message using token")
-        await self._send(EMsg.ClientLogon, message)
-
-    async def _prepare_log_on_msg(self, account_name: str, machine_id: bytes, os_value: int, sentry) -> "steammessages_clientserver_login_pb2.CMsgClientLogon":
-        message = steammessages_clientserver_login_pb2.CMsgClientLogon()
-        message.account_name = account_name
-        message.protocol_version = self._MSG_PROTOCOL_VERSION
-        message.client_package_version = self._MSG_CLIENT_PACKAGE_VERSION
-        message.client_language = "english"
-        message.should_remember_password = True
-        message.supports_rate_limit_response = True
-        message.steamguard_dont_remember_computer = False
-        message.obfuscated_private_ip.v4 = await self._get_obfuscated_private_ip()
-        message.qos_level = 3
-        message.machine_name = socket.gethostname()
-        message.client_os_type = os_value if os_value >= 0 else 0
-        message.machine_id = machine_id
-
-        if sentry:
-            logger.info("Sentry present")
-            message.eresult_sentryfile = EResult.OK
-            message.sha_sentryfile = sentry
-        else:
-            message.eresult_sentryfile = EResult.FileNotFound
-
-        return message
-
-    async def _get_obfuscated_private_ip(self) -> int:
-        logger.info('Websocket state is: %s' % self._socket.state.name)
-        await self._socket.ensure_open()
-        host, port = self._socket.local_address
-        ip = int(ipaddress.IPv4Address(host))
-        obfuscated_ip = ip ^ self._IP_OBFUSCATION_MASK
-        logger.debug(f"Local obfuscated IP: {obfuscated_ip}")
-        return obfuscated_ip
 
     async def _import_game_stats(self, game_id):
         logger.info(f"Importing game stats for {game_id}")

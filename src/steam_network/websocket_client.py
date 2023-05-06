@@ -22,6 +22,7 @@ from .user_info_cache import UserInfoCache
 from .authentication import AuthCall
 
 from .steam_public_key import SteamPublicKey
+from .steam_auth_polling_data import SteamPollingData
 
 from traceback import format_exc
 
@@ -78,6 +79,7 @@ class WebSocketClient:
         self._current_ws_address: Optional[str] = None
 
         self._steam_public_key : Optional[SteamPublicKey] = None
+        self._steam_polling_data : Optional[SteamPollingData] = None
 
     async def run(self, create_future_factory: Callable[[], Future]=asyncio_future):
         while True:
@@ -252,19 +254,29 @@ class WebSocketClient:
                     (code, key) = await self._protocol_client.get_rsa_public_key(self._user_info_cache.account_username, auth_lost_handler)
                     self._steam_public_key = key
                     ret_code = code
-                    logger.info("!!!YATTA!!!" if key else "Dangit!")
                 elif (mode == AuthCall.LOGIN):
                     password :str = response.get('password', None)
                     logger.info(f'Authenticating with {"username" if self._user_info_cache.account_username else ""}, {"password" if password else ""}')
                     if (password):
                         enciphered = encrypt(password.encode('utf-8',errors="ignore"), self._steam_public_key.rsa_public_key)
-                        ret_code = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, enciphered, auth_lost_handler)
+                        self._steam_polling_data = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, enciphered, auth_lost_handler)
+                        ret_code = self._steam_polling_data.confirmation_method if self._steam_polling_data is not None else UserActionRequired.InvalidAuthData
+                        if (ret_code != UserActionRequired.InvalidAuthData):
+                            logger.info("GOT THE LOGIN DONE! ON TO 2FA")
                     else:
                         ret_code = UserActionRequired.InvalidAuthData
-                elif (mode == AuthCall.TWO_FACTOR):
-                    code = response.get('two-factor', None)
-                    logger.info(f'Updating with {"two-factor" if code else ""}{"using " + self._user_info_cache.two_step + " authentication" if self._user_info_cache.two_step else ""}')
-                    ret_code = await self._protocol_client.update_two_factor(code, self._user_info_cache.two_step, auth_lost_handler)
+                elif (mode == AuthCall.UPDATE_TWO_FACTOR_CODE):
+                    method : Optional[bool] = response.get('two-factor-method-is-email', None)
+                    code : Optional[str] = response.get('two-factor-code', None)
+                    if (method is None or not code):
+                        ret_code = UserActionRequired.InvalidAuthData
+                    else:
+                        logger.info(f'Updating two-factor with provided ' + "email code." if method else "phone code.")
+                        ret_code = await self._protocol_client.update_two_factor(code, self._user_info_cache.two_step, auth_lost_handler)
+                elif (mode == AuthCall.POLL_TWO_FACTOR):
+                    logger.info("Polling to see if the user has completed any steam-guard related stuff")
+                    ret_code = await self._protocol_client.check_auth_status(code, self._user_info_cache.two_step, auth_lost_handler)
+
                 else:
                     ret_code = UserActionRequired.InvalidAuthData
 

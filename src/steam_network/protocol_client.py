@@ -6,6 +6,7 @@ import secrets
 from typing import Callable, List, TYPE_CHECKING, Optional, Tuple
 
 from .steam_public_key import SteamPublicKey
+from .steam_auth_polling_data import SteamPollingData
 
 import galaxy.api.errors
 
@@ -20,7 +21,9 @@ from .user_info_cache import UserInfoCache
 from .times_cache import TimesCache
 from .ownership_ticket_cache import OwnershipTicketCache
 
-from rsa import PublicKey, encrypt
+from rsa import PublicKey
+
+from .protocol.messages.steammessages_auth_pb2 import CAuthentication_BeginAuthSessionViaCredentials_Response, CAuthentication_AllowedConfirmation
 
 if TYPE_CHECKING:
     from protocol.messages import steammessages_clientserver_pb2
@@ -139,8 +142,36 @@ class UserActionRequired(enum.IntEnum):
     NoActionRequired = 0
     EmailTwoFactorInputRequired = 1
     PhoneTwoFactorInputRequired = 2
-    PasswordRequired = 3
-    InvalidAuthData = 4
+    PhoneTwoFactorConfirmRequired = 3
+    PasswordRequired = 4
+    InvalidAuthData = 5
+
+
+def to_UserAction(auth_enum : CAuthentication_AllowedConfirmation) -> UserActionRequired:
+    
+    if (auth_enum == CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_None):
+        return UserActionRequired.NoActionRequired
+    elif (auth_enum == CAuthentication_AllowedConfirmation.auth_k_EAuthSessionGuardType_EmailCode):
+        return UserActionRequired.EmailTwoFactorInputRequired
+    elif (auth_enum == CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceCode):
+        return UserActionRequired.PhoneTwoFactorInputRequired
+    elif (auth_enum == CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceConfirmation):
+        return UserActionRequired.PhoneTwoFactorConfirmRequired
+    else: #if (k_EAuthSessionGuardType_Unknown, k_EAuthSessionGuardType_LegacyMachineAuth, k_EAuthSessionGuardType_MachineToken, k_EAuthSessionGuardType_EmailConfirmation, or an invalid number
+        return UserActionRequired.InvalidAuthData
+
+def to_CAuthentication_AllowedConfirmation(actionRequired : UserActionRequired) -> CAuthentication_AllowedConfirmation:
+    
+    if (actionRequired == UserActionRequired.NoActionRequired):
+        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_None
+    elif (actionRequired == UserActionRequired.EmailTwoFactorInputRequired):
+        return CAuthentication_AllowedConfirmation.auth_k_EAuthSessionGuardType_EmailCode
+    elif (actionRequired == UserActionRequired.PhoneTwoFactorInputRequired):
+        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceCode
+    elif (actionRequired == UserActionRequired.PhoneTwoFactorConfirmRequired):
+        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceConfirmation
+    else: #if UserActionRequired.InvalidAuthData or an invalid number
+        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_Unknown
 
 
 class ProtocolClient:
@@ -161,7 +192,7 @@ class ProtocolClient:
 
         self._protobuf_client = ProtobufClient(socket)
         self._protobuf_client.rsa_handler = self._rsa_handler
-        self._protobuf_client.log_on_handler = self._log_on_handler
+        self._protobuf_client.login_handler = self._login_handler
         self._protobuf_client.log_off_handler = self._log_off_handler
         self._protobuf_client.relationship_handler = self._relationship_handler
         self._protobuf_client.user_info_handler = self._user_info_handler
@@ -174,7 +205,6 @@ class ProtocolClient:
         self._protobuf_client.stats_handler = self._stats_handler
         self._protobuf_client.times_handler = self._times_handler
         self._protobuf_client.user_authentication_handler = self._user_authentication_handler
-        self._protobuf_client.sentry = self._get_sentry
         self._protobuf_client.times_import_finished_handler = self._times_import_finished_handler
         self._friends_cache = friends_cache
         self._games_cache = games_cache
@@ -244,16 +274,13 @@ class ProtocolClient:
         else:
             logger.warning("NO FUTURE SET")
 
-    async def authenticate_password(self, account_name, enciphered_password : bytes, auth_lost_handler:Callable):
+    async def authenticate_password(self, account_name :str, enciphered_password : bytes, timestamp: int, auth_lost_handler:Callable) -> Optional[SteamPollingData]:
         loop = asyncio.get_running_loop()
         self._login_future = loop.create_future()
         os_value = get_os()
-        sentry = await self._get_sentry()
-        #TODO: FIX ME!
-        await self._protobuf_client.log_on_password(
-            account_name, enciphered_password, None, None, self._machine_id, os_value, sentry
-        )
-        result = await self._login_future
+
+        await self._protobuf_client.log_on_password(account_name, enciphered_password, timestamp, os_value)
+        (result, data) = await self._login_future
         logger.info(result)
         if result == EResult.OK:
             self._auth_lost_handler = auth_lost_handler
@@ -276,31 +303,13 @@ class ProtocolClient:
             logger.warning(f"Received unknown error, code: {result}")
             raise translate_error(result)
 
-        await self._protobuf_client.account_info_retrieved.wait()
-        await self._protobuf_client.login_key_retrieved.wait()
-        return UserActionRequired.NoActionRequired
+        return data
 
-    async def update_two_factor(self, code: str, method: str):
+    async def update_two_factor(self, code: str, method: str, auth_lost_handler:Callable):
         pass
 
-    async def authenticate_token(self, steam_id, account_name, token, auth_lost_handler):
-        loop = asyncio.get_running_loop()
-        self._login_future = loop.create_future()
-        self._protobuf_client.steam_id = steam_id
-        os_value = get_os()
-        sentry = await self._get_sentry()
-        await self._protobuf_client.log_on_token(
-            account_name, token, self._used_server_cell_id, self._machine_id, os_value, sentry
-        )
-        result = await self._login_future
-        if result == EResult.OK:
-            self._auth_lost_handler = auth_lost_handler
-        else:
-            logger.warning(f"authenticate_token failed with code: {result}")
-            raise translate_error(result)
-
-        await self._protobuf_client.account_info_retrieved.wait()
-        return UserActionRequired.NoActionRequired
+    async def check_auth_status(self, auth_lost_handler:Callable):
+        pass
 
     async def import_game_stats(self, game_ids):
         for game_id in game_ids:
@@ -318,12 +327,44 @@ class ProtocolClient:
         self._protobuf_client.collections['collections'] = dict()
         return collections
 
-    async def _log_on_handler(self, result: EResult):
+    async def _login_handler(self, result: EResult, message : CAuthentication_BeginAuthSessionViaCredentials_Response):
+        data : Optional[SteamPollingData] = None
+        if (result == EResult.OK):
+            auth_method : UserActionRequired = UserActionRequired.InvalidAuthData
+            if self._user_info_cache.steam_id != message.steamid:
+                self._user_info_cache.steam_id = message.steamid;
+            allowed : CAuthentication_AllowedConfirmation
+            #loop through all the allowed confirmation methods. we will prioritize Codes over confirmation, and phone code over email code.
+            # We arguably should let the user choose but this is already complicated enouh.
+            for allowed in message.allowed_confirmations:
+                action = to_UserAction(allowed)
+                if (action == UserActionRequired.PhoneTwoFactorInputRequired):
+                    auth_method = action
+                    break #this is the highest priority, so stop iterating immediately. 
+                elif (action == UserActionRequired.EmailTwoFactorInputRequired):
+                    auth_method = action
+                    #since the highest priority stops the loop immediately, we will only ever get here if any previous iterations had a lower priority. 
+                    #but, we may still have the phone 2FA after us, so do not break.
+                elif (action == UserActionRequired.PhoneTwoFactorConfirmRequired and auth_method != UserActionRequired.EmailTwoFactorInputRequired):
+                    auth_method = action
+                    #mobile confirm is the hardest to implement here and requires the most waiting on the user's point of view, so we're deprioritizing it here.
+                    #if either mobile or email codes is allowed, use them instead.
+                elif (action == UserActionRequired.NoActionRequired and auth_method == UserActionRequired.InvalidAuthData):
+                    auth_method = action
+                    #in theory if this is set, none of the others should be, so this gets lowest priority. If somehow none and one of the other options is set, 
+                    #steam messed up somehow, so err on the side of caution.
+            data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, auth_method, message.extended_error_message)
+        else:
+            logger.error("Login failed. Reason: " + message.extended_error_message)
+
         if self._login_future is not None:
-            self._login_future.set_result(result)
+            self._login_future.set_result((result, data))
         else:
             # sometimes Steam sends LogOnResponse message even if plugin didn't send LogOnRequest
             # known example is LogOnResponse with result=EResult.TryAnotherCM
+
+            #if i had to guess, some other random machine is trying to use the connection without going through a handshake. 
+            #Steam detects it's not right, but for whatever reason we also get the response. -BaumherA
             raise translate_error(result)
 
     async def _log_off_handler(self, result):

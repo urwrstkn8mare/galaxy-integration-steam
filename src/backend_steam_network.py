@@ -233,17 +233,34 @@ class SteamNetworkBackend(BackendInterface):
         await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.LOGIN, 'password' : pws })
         result = await self._get_websocket_auth_step()
         if (result == UserActionRequired.NoActionRequired):
-            self._auth_data = None
-            self._store_credentials(self._user_info_cache.to_dict())
-            return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
+            #we still don't have the 2FA Confirmation. that's actually required for NoAction, but instead of waiting for us to input 2FA, it immediately returns what we need. 
+            return await self._handle_2FA_PollOnce()
         elif (result == UserActionRequired.EmailTwoFactorInputRequired):
             return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MAIL, self._user_info_cache.account_username)
-        if (result == UserActionRequired.PhoneTwoFactorInputRequired):
+        elif (result == UserActionRequired.PhoneTwoFactorInputRequired):
             return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MOBILE, self._user_info_cache.account_username)
+        elif (result == UserActionRequired.PhoneTwoFactorConfirmRequired):
+            return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_CONFIRM, self._user_info_cache.account_username)
         else:
             return next_step_response_simple(DisplayUriHelper.LOGIN, self._user_info_cache.account_username, True)
         #result here should be password, or unathorized. 
 
+    async def _handle_steam_guard_none(self) -> Union[NextStep, Authentication]:
+        result = self._handle_2FA_PollOnce(UserActionRequired.NoActionRequired)
+        if (result != UserActionRequired.NoActionRequired):
+            raise UnknownBackendResponse()
+        return Authentication()
+
+    async def _handle_2FA_PollOnce(self) -> UserActionRequired:
+        await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.POLL_TWO_FACTOR})
+        return await self._get_websocket_auth_step()
+
+    async def _finish_auth_process(self):
+        """ Essentially, call the classic Client.Login and get all the messages back we normally would. 
+
+
+        """
+        pass
 
     #async def _handle_login_finished(self, credentials):
     #    parsed_url = parse.urlsplit(credentials["end_uri"])

@@ -109,18 +109,6 @@ class UserInfoCache:
             self._check_initialized()
 
     @property
-    def token(self):
-        return self._token
-
-    @token.setter
-    def token(self, val):
-        if self._token != val and self.initialized.is_set():
-            self._changed = True
-        self._token = val
-        if not self.initialized.is_set():
-            self._check_initialized()
-
-    @property
     def two_step(self):
         return self._two_step
 
@@ -133,13 +121,25 @@ class UserInfoCache:
             self._check_initialized()
 
     @property
-    def sentry(self):
-        return self._sentry
+    def access_token(self):
+        return self._access_token
 
-    @sentry.setter
-    def sentry(self, val):
-        if self._sentry != val and self.initialized.is_set():
+    @access_token.setter
+    def access_token(self, val):
+        if self._access_token != val and self.initialized.is_set():
             self._changed = True
-        self._sentry = val
+        self._access_token = val
+        if not self.initialized.is_set():
+            self._check_initialized()
+
+    @property
+    def refresh_token(self):
+        return self._refresh_token
+
+    @refresh_token.setter
+    def refresh_token(self, val):
+        if self._refresh_token != val and self.initialized.is_set():
+            self._changed = True
+        self._refresh_token = val
         if not self.initialized.is_set():
             self._check_initialized()

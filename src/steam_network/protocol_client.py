@@ -1,12 +1,12 @@
 import asyncio
 import logging
-import enum
-import platform
 import secrets
 from typing import Callable, List, TYPE_CHECKING, Optional, Tuple
 
 from .steam_public_key import SteamPublicKey
 from .steam_auth_polling_data import SteamPollingData
+
+from .utils import get_os, translate_error
 
 import galaxy.api.errors
 
@@ -21,6 +21,9 @@ from .user_info_cache import UserInfoCache
 from .times_cache import TimesCache
 from .ownership_ticket_cache import OwnershipTicketCache
 
+from .enums import to_UserAction, UserActionRequired
+from .utils import get_os, translate_error
+
 from rsa import PublicKey
 
 from .protocol.messages.steammessages_auth_pb2 import CAuthentication_BeginAuthSessionViaCredentials_Response, CAuthentication_AllowedConfirmation
@@ -30,149 +33,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
-
-
-def get_os() -> EOSType:
-    system = platform.system()
-    if system == 'Windows':
-        release = platform.release()
-        releases = {
-            'XP': EOSType.WinXP,
-            'Vista': EOSType.WinVista,
-            '7': EOSType.Windows7,
-            '8': EOSType.Windows8,
-            '8.1': EOSType.Windows81,
-            '10': EOSType.Windows10,
-            '10': EOSType.Windows10,
-            '11': EOSType.Win11,
-        }
-        return releases.get(release, EOSType.WinUnknown)
-    elif system == 'Darwin':
-        release = platform.mac_ver()[0]
-        releases = {
-            '10.4': EOSType.MacOS104,
-            '10.5': EOSType.MacOS105,
-            '10.6': EOSType.MacOS106,
-            '10.7': EOSType.MacOS107,
-            '10.8': EOSType.MacOS108,
-            '10.9': EOSType.MacOS109,
-            '10.10': EOSType.MacOS1010,
-            '10.11': EOSType.MacOS1011,
-            '10.12': EOSType.MacOS1012,
-            '10.13': EOSType.MacOS1013,
-            '10.14': EOSType.MacOS1014,
-            '10.15': EOSType.MacOS1015,
-            '10.16': EOSType.MacOS1016,
-            '11.0': EOSType.MacOS11,
-            '11.1': EOSType.MacOS111,
-            '10.17': EOSType.MacOS1017,
-            '12.0': EOSType.MacOS12,
-            '13.0': EOSType.MacOS13,
-        }
-        return releases.get(release, EOSType.MacOSUnknown)
-    return EOSType.Unknown
-
-
-def translate_error(result: EResult):
-    assert result != EResult.OK
-    data = {
-        "result": result
-    }
-    if result in (
-        EResult.InvalidPassword,
-        EResult.AccountNotFound,
-        EResult.InvalidSteamID,
-        EResult.InvalidLoginAuthCode,
-        EResult.AccountLogonDeniedNoMailSent,
-        EResult.AccountLoginDeniedNeedTwoFactor,
-        EResult.TwoFactorCodeMismatch,
-        EResult.TwoFactorActivationCodeMismatch
-    ):
-        return galaxy.api.errors.InvalidCredentials(data)
-    if result in (
-        EResult.ConnectFailed,
-        EResult.IOFailure,
-        EResult.RemoteDisconnect
-    ):
-        return galaxy.api.errors.NetworkError(data)
-    if result in (
-        EResult.Busy,
-        EResult.ServiceUnavailable,
-        EResult.Pending,
-        EResult.IPNotFound,
-        EResult.TryAnotherCM,
-        EResult.Cancelled
-    ):
-        return galaxy.api.errors.BackendNotAvailable(data)
-    if result == EResult.Timeout:
-        return galaxy.api.errors.BackendTimeout(data)
-    if result in (
-        EResult.RateLimitExceeded,
-        EResult.LimitExceeded,
-        EResult.Suspended,
-        EResult.AccountLocked,
-        EResult.AccountLogonDeniedVerifiedEmailRequired
-    ):
-        return galaxy.api.errors.TemporaryBlocked(data)
-    if result == EResult.Banned:
-        return galaxy.api.errors.Banned(data)
-    if result in (
-        EResult.AccessDenied,
-        EResult.InsufficientPrivilege,
-        EResult.LogonSessionReplaced,
-        EResult.Blocked,
-        EResult.Ignored,
-        EResult.AccountDisabled,
-        EResult.AccountNotFeatured
-    ):
-        return galaxy.api.errors.AccessDenied(data)
-    if result in (
-        EResult.DataCorruption,
-        EResult.DiskFull,
-        EResult.RemoteCallFailed,
-        EResult.RemoteFileConflict,
-        EResult.BadResponse
-    ):
-        return galaxy.api.errors.BackendError(data)
-
-    return galaxy.api.errors.UnknownError(data)
-
-
-class UserActionRequired(enum.IntEnum):
-    NoActionRequired = 0
-    EmailTwoFactorInputRequired = 1
-    PhoneTwoFactorInputRequired = 2
-    PhoneTwoFactorConfirmRequired = 3
-    PasswordRequired = 4
-    InvalidAuthData = 5
-
-
-def to_UserAction(auth_enum : CAuthentication_AllowedConfirmation) -> UserActionRequired:
-    
-    if (auth_enum == CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_None):
-        return UserActionRequired.NoActionRequired
-    elif (auth_enum == CAuthentication_AllowedConfirmation.auth_k_EAuthSessionGuardType_EmailCode):
-        return UserActionRequired.EmailTwoFactorInputRequired
-    elif (auth_enum == CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceCode):
-        return UserActionRequired.PhoneTwoFactorInputRequired
-    elif (auth_enum == CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceConfirmation):
-        return UserActionRequired.PhoneTwoFactorConfirmRequired
-    else: #if (k_EAuthSessionGuardType_Unknown, k_EAuthSessionGuardType_LegacyMachineAuth, k_EAuthSessionGuardType_MachineToken, k_EAuthSessionGuardType_EmailConfirmation, or an invalid number
-        return UserActionRequired.InvalidAuthData
-
-def to_CAuthentication_AllowedConfirmation(actionRequired : UserActionRequired) -> CAuthentication_AllowedConfirmation:
-    
-    if (actionRequired == UserActionRequired.NoActionRequired):
-        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_None
-    elif (actionRequired == UserActionRequired.EmailTwoFactorInputRequired):
-        return CAuthentication_AllowedConfirmation.auth_k_EAuthSessionGuardType_EmailCode
-    elif (actionRequired == UserActionRequired.PhoneTwoFactorInputRequired):
-        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceCode
-    elif (actionRequired == UserActionRequired.PhoneTwoFactorConfirmRequired):
-        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceConfirmation
-    else: #if UserActionRequired.InvalidAuthData or an invalid number
-        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_Unknown
-
 
 class ProtocolClient:
     _STATUS_FLAG = 1106

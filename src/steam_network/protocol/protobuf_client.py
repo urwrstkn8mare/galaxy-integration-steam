@@ -23,7 +23,7 @@ from .messages import steammessages_base_pb2, steammessages_clientserver_login_p
     steammessages_clientserver_appinfo_pb2, steammessages_webui_friends_pb2, service_cloudconfigstore_pb2, \
     enums_pb2
 
-from .types import SteamId, ProtoUserInfo
+from .steam_types import SteamId, ProtoUserInfo
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

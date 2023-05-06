@@ -1,14 +1,15 @@
-import os
-import pathlib
-
-from galaxy.api.types import NextStep
-import yarl
-import urllib
-
 from typing import Optional, Dict
 import enum
 
+import yarl
+import urllib
+
+import os
+import pathlib
+
 import logging
+
+from .protocol.messages.steammessages_auth_pb2 import CAuthentication_AllowedConfirmation
 
 #a constant. this is the path to the current directory, as a uri. this typically means adding file:/// to the beginning
 DIRNAME = yarl.URL(pathlib.Path(os.path.dirname(os.path.realpath(__file__))).as_uri())
@@ -80,59 +81,37 @@ class DisplayUriHelper(enum.Enum):
     def GetEndUriRegex(self):
         return ".*" + self.EndUri() + ".*";
 
+class UserActionRequired(enum.IntEnum):
+    NoActionRequired = 0
+    EmailTwoFactorInputRequired = 1
+    PhoneTwoFactorInputRequired = 2
+    PhoneTwoFactorConfirmRequired = 3
+    PasswordRequired = 4
+    InvalidAuthData = 5
 
 
-class StartUri:
-    __INDEX = DIRNAME / 'custom_login' / 'index.html'  
+def to_UserAction(auth_enum : CAuthentication_AllowedConfirmation) -> UserActionRequired:
+    
+    if (auth_enum == CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_None):
+        return UserActionRequired.NoActionRequired
+    elif (auth_enum == CAuthentication_AllowedConfirmation.auth_k_EAuthSessionGuardType_EmailCode):
+        return UserActionRequired.EmailTwoFactorInputRequired
+    elif (auth_enum == CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceCode):
+        return UserActionRequired.PhoneTwoFactorInputRequired
+    elif (auth_enum == CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceConfirmation):
+        return UserActionRequired.PhoneTwoFactorConfirmRequired
+    else: #if (k_EAuthSessionGuardType_Unknown, k_EAuthSessionGuardType_LegacyMachineAuth, k_EAuthSessionGuardType_MachineToken, k_EAuthSessionGuardType_EmailConfirmation, or an invalid number
+        return UserActionRequired.InvalidAuthData
 
-    GET_USER =                                                __INDEX % {'view': 'user'}
-    GET_USER_FAILED =                                         __INDEX % {'view': 'user', 'errored': 'true'}
-    LOGIN =                                                   __INDEX % {'view': 'login'}
-    LOGIN_FAILED =                                            __INDEX % {'view': 'login', 'errored': 'true'}
-    TWO_FACTOR_MAIL =                                         __INDEX % {'view': 'steamguard'}
-    TWO_FACTOR_MAIL_FAILED =                                  __INDEX % {'view': 'steamguard', 'errored': 'true'}
-    TWO_FACTOR_MOBILE =                                       __INDEX % {'view': 'steamauthenticator'}
-    TWO_FACTOR_MOBILE_FAILED =                                __INDEX % {'view': 'steamauthenticator', 'errored': 'true'}
-    PP_PROMPT__PROFILE_IS_NOT_PUBLIC =                        __INDEX % {'view': 'pp_prompt__profile_is_not_public'}
-    PP_PROMPT__NOT_PUBLIC_GAME_DETAILS_OR_USER_HAS_NO_GAMES = __INDEX % {'view': 'pp_prompt__not_public_game_details_or_user_has_no_games'}
-    PP_PROMPT__UNKNOWN_ERROR =                                __INDEX % {'view': 'pp_prompt__unknown_error'}
-
-    @classmethod 
-    def add_username(username: str) -> str:
-        return "&username=" + urllib.parse.quote_plus(username)
-
-
-class EndUriRegex:
-    USER_FINISHED =              '.*user_finished.*'
-    LOGIN_FINISHED =             '.*login_finished.*'
-    TWO_FACTOR_MAIL_FINISHED =   '.*two_factor_mail_finished.*'
-    TWO_FACTOR_MOBILE_FINISHED = '.*two_factor_mobile_finished.*'
-    PUBLIC_PROMPT_FINISHED =     '.*public_prompt_finished.*'
-
-class EndUriConst:
-    USER_FINISHED =              'user_finished'
-    LOGIN_FINISHED =             'login_finished'
-    TWO_FACTOR_MAIL_FINISHED =   'two_factor_mail_finished'
-    TWO_FACTOR_MOBILE_FINISHED = 'two_factor_mobile_finished'
-    PUBLIC_PROMPT_FINISHED =     'public_prompt_finished'
-
-_NEXT_STEP = {
-    "window_title": "Login to Steam",
-    "window_width": 500,
-    "window_height": 460,
-    "start_uri": None,
-    "end_uri_regex": None
-}
-
-def next_step_response_simple(display: DisplayUriHelper, username: str, errored:bool = False) -> NextStep:
-    next_step = _NEXT_STEP
-    next_step['start_uri'] = display.GetStartUri(username, errored)
-    next_step['end_uri_regex'] = display.GetEndUriRegex()
-
-    return NextStep("web_session", next_step)
-
-def next_step_response(start_uri, end_uri_regex=EndUriRegex.LOGIN_FINISHED):
-    next_step = _NEXT_STEP
-    next_step['start_uri'] = str(start_uri)
-    next_step['end_uri_regex'] = end_uri_regex
-    return NextStep("web_session", next_step)
+def to_CAuthentication_AllowedConfirmation(actionRequired : UserActionRequired) -> CAuthentication_AllowedConfirmation:
+    
+    if (actionRequired == UserActionRequired.NoActionRequired):
+        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_None
+    elif (actionRequired == UserActionRequired.EmailTwoFactorInputRequired):
+        return CAuthentication_AllowedConfirmation.auth_k_EAuthSessionGuardType_EmailCode
+    elif (actionRequired == UserActionRequired.PhoneTwoFactorInputRequired):
+        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceCode
+    elif (actionRequired == UserActionRequired.PhoneTwoFactorConfirmRequired):
+        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceConfirmation
+    else: #if UserActionRequired.InvalidAuthData or an invalid number
+        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_Unknown

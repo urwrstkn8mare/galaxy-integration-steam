@@ -1,4 +1,4 @@
-from .protocol_client import UserActionRequired
+from .enums import UserActionRequired
 
 class SteamPollingData:
     def __init__(self, cid: int, sid: int, rid:bytes, intv:float, confMeth:UserActionRequired, eem: str):

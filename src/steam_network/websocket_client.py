@@ -15,11 +15,12 @@ from .friends_cache import FriendsCache
 from .games_cache import GamesCache
 from .local_machine_cache import LocalMachineCache
 from .ownership_ticket_cache import OwnershipTicketCache
-from .protocol_client import ProtocolClient, UserActionRequired
+from .protocol_client import ProtocolClient
 from .stats_cache import StatsCache
 from .times_cache import TimesCache
 from .user_info_cache import UserInfoCache
-from .authentication import AuthCall
+
+from .enums import AuthCall, UserActionRequired
 
 from .steam_public_key import SteamPublicKey
 from .steam_auth_polling_data import SteamPollingData

@@ -22,7 +22,8 @@ class AuthCall:
 
     RSA =          'rsa'
     LOGIN =        'login'
-    TWO_FACTOR =   'two-factor'
+    UPDATE_TWO_FACTOR =   'two-factor-update'
+    POLL_TWO_FACTOR =   'poll-two-factor'
 
 class DisplayUriHelper(enum.Enum):
     GET_USER = 0

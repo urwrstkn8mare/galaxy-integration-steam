@@ -240,7 +240,7 @@ class WebSocketClient:
             ret_code = await self._protocol_client.authenticate_token(self._user_info_cache.steam_id, self._user_info_cache.account_username, self._user_info_cache.access_token, auth_lost_handler)
         else:
             ret_code = None
-            while ret_code != UserActionRequired.NoActionRequired:
+            while True:
                 if ret_code != None:
                     await self.communication_queues['plugin'].put({'auth_result': ret_code})
                     logger.info(f"Put {ret_code} in the queue, waiting for other side to receive")
@@ -279,7 +279,9 @@ class WebSocketClient:
                 elif (mode == AuthCall.POLL_TWO_FACTOR):
                     logger.info("Polling to see if the user has completed any steam-guard related stuff")
                     ret_code = await self._protocol_client.check_auth_status(code, self._user_info_cache.two_step, auth_lost_handler)
-
+                elif (mode == AuthCall.DONE):
+                    ret_code = UserActionRequired.NoActionRequired
+                    break
                 else:
                     ret_code = UserActionRequired.InvalidAuthData
 
@@ -288,6 +290,6 @@ class WebSocketClient:
         await self.communication_queues['plugin'].put({'auth_result': ret_code})
 
         # request new steam app ownership ticket
-        await self._protocol_client.get_steam_app_ownership_ticket()
+        #await self._protocol_client.get_steam_app_ownership_ticket()
 
 

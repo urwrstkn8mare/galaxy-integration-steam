@@ -4,7 +4,7 @@ import hashlib
 import ipaddress
 import json
 import logging
-import socket
+import socket as sock
 import struct
 from itertools import count
 from typing import Awaitable, Callable, Dict, Optional, Any, List, NamedTuple, Iterator
@@ -166,22 +166,29 @@ class ProtobufClient:
             logger.warning("NO RSA HANDLER SET!")
 
     async def log_on_password(self, account_name, enciphered_password: str, timestamp: int, os_value):
-        device_details = steammessages_auth_pb2.CAuthentication_DeviceDetails()
+        friendly_name: str = sock.gethostname() + " (GOG Galaxy)"
         
-        device_details.device_friendly_name = self._socket.gethostname() + " (GOG Galaxy)"
-        device_details.os_type = os_value if os_value >= 0 else 0
-        device_details.platform_type= steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient
+        #device details is readonly. So we can't do this the easy way. 
+        #device_details = steammessages_auth_pb2.CAuthentication_DeviceDetails()
+        #device_details.device_friendly_name = 
+        #device_details.os_type = os_value if os_value >= 0 else 0
+        #device_details.platform_type= steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient
 
         message = steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Request()
 
         message.account_name = account_name
         message.encrypted_password = base64.b64encode(enciphered_password) #i think it needs to be in this format, we can try doing it without after if it doesn't work. 
         message.website_id = "Client"
-        message.device_friendly_name = self._socket.gethostname() + " (GOG Galaxy)"
+        message.device_friendly_name = friendly_name
         message.encryption_timestamp = timestamp
         message.platform_type = steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient #no idea if this line will work.
         #message.persistence = enums_pb2.ESessionPersistence.k_ESessionPersistence_Persistent # this is the default value and i have no idea how reflected enums work in python.
-        message.device_details = device_details
+        
+        #message.device_details = device_details
+        #so let's do it the hard way. 
+        message.device_details.device_friendly_name = friendly_name
+        message.device_details.os_type = os_value if os_value >= 0 else 0
+        message.device_details.platform_type= steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient
         #message.guard_data = ""
         logger.info("Sending log on message using credentials in new authorization workflow")
 
@@ -190,6 +197,7 @@ class ProtobufClient:
     async def _process_login(self, result, body):
         message = steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Response()
         message.ParseFromString(body)
+        logger.info("Processing Login Response!")
         """
         client_id : int #the id assigned to us.
         steamid : int #the id of the user that signed in
@@ -677,6 +685,8 @@ class ProtobufClient:
             #pass #no idea what to do here. for now, having it error will let me know when it's called so i can see wtf to do with it.
         elif target_job_name == GET_RSA_KEY:
             await self._process_rsa(eresult, body)
+        elif target_job_name == LOGIN_CREDENTIALS:
+            await self._process_login(eresult, body)
         else:
             logger.warning("Unparsed message, no idea what it is. Tell me")
             logger.warning("job name: \"" + target_job_name + "\"")

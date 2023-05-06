@@ -21,12 +21,14 @@ from .user_info_cache import UserInfoCache
 from .times_cache import TimesCache
 from .ownership_ticket_cache import OwnershipTicketCache
 
-from .enums import to_UserAction, UserActionRequired
+from .enums import to_UserAction, UserActionRequired, to_UserActionWithMessage
 from .utils import get_os, translate_error
 
 from rsa import PublicKey
 
-from .protocol.messages.steammessages_auth_pb2 import CAuthentication_BeginAuthSessionViaCredentials_Response, CAuthentication_AllowedConfirmation
+from .protocol.messages.steammessages_auth_pb2 import CAuthentication_BeginAuthSessionViaCredentials_Response, CAuthentication_AllowedConfirmation, EAuthSessionGuardType
+from pprint import pformat
+
 
 if TYPE_CHECKING:
     from protocol.messages import steammessages_clientserver_pb2
@@ -191,31 +193,41 @@ class ProtocolClient:
         data : Optional[SteamPollingData] = None
         if (result == EResult.OK):
             auth_method : UserActionRequired = UserActionRequired.InvalidAuthData
+            auth_message: str = ""
             if self._user_info_cache.steam_id != message.steamid:
                 self._user_info_cache.steam_id = message.steamid;
             allowed : CAuthentication_AllowedConfirmation
             #loop through all the allowed confirmation methods. we will prioritize Codes over confirmation, and phone code over email code.
             # We arguably should let the user choose but this is already complicated enouh.
+            #This SHOULD be a list of CAuthentication_AllowedConfirmation, but seems instead to be a list of EAuthTokenState. I DO NOT understand
             for allowed in message.allowed_confirmations:
-                action = to_UserAction(allowed)
+                action, msg = to_UserActionWithMessage(allowed)
                 if (action == UserActionRequired.PhoneTwoFactorInputRequired):
                     auth_method = action
+                    auth_message = msg
                     break #this is the highest priority, so stop iterating immediately. 
                 elif (action == UserActionRequired.EmailTwoFactorInputRequired):
                     auth_method = action
+                    auth_message = msg
                     #since the highest priority stops the loop immediately, we will only ever get here if any previous iterations had a lower priority. 
                     #but, we may still have the phone 2FA after us, so do not break.
                 elif (action == UserActionRequired.PhoneTwoFactorConfirmRequired and auth_method != UserActionRequired.EmailTwoFactorInputRequired):
                     auth_method = action
+                    auth_message = msg
                     #mobile confirm is the hardest to implement here and requires the most waiting on the user's point of view, so we're deprioritizing it here.
                     #if either mobile or email codes is allowed, use them instead.
                 elif (action == UserActionRequired.NoActionRequired and auth_method == UserActionRequired.InvalidAuthData):
                     auth_method = action
+                    auth_message = msg
                     #in theory if this is set, none of the others should be, so this gets lowest priority. If somehow none and one of the other options is set, 
                     #steam messed up somehow, so err on the side of caution.
-            data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, auth_method, message.extended_error_message)
+            res = message.DESCRIPTOR.fields_by_name.keys()
+            logger.info("Entries in CredentialsResponse: " + pformat(res))
+            #data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, auth_method, auth_message, message.extended_error_message)
+            data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, auth_method, auth_message)
         else:
-            logger.error("Login failed. Reason: " + message.extended_error_message)
+            logger.error("Login failed")
+            #logger.error("Login failed. Reason: " + message.extended_error_message)
 
         if self._login_future is not None:
             self._login_future.set_result((result, data))

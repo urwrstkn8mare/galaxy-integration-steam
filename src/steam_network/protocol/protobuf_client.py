@@ -4,16 +4,16 @@ import hashlib
 import ipaddress
 import json
 import logging
-import socket
+import socket as sock
 import struct
 from itertools import count
-from typing import Awaitable, Callable, Dict, Optional, Any
-from typing import List, NamedTuple
+from typing import Awaitable, Callable, Dict, Optional, Any, List, NamedTuple, Iterator
 
 import base64
 
 import vdf
 
+from websockets.client import WebSocketClientProtocol
 from pprint import pformat
 
 from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
@@ -24,6 +24,8 @@ from .messages import steammessages_base_pb2, steammessages_clientserver_login_p
     enums_pb2
 
 from .steam_types import SteamId, ProtoUserInfo
+
+from pprint import pformat
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -49,8 +51,8 @@ class ProtobufClient:
     _MSG_PROTOCOL_VERSION = 65580
     _MSG_CLIENT_PACKAGE_VERSION = 1561159470
 
-    def __init__(self, set_socket):
-        self._socket = set_socket
+    def __init__(self, set_socket : WebSocketClientProtocol):
+        self._socket : WebSocketClientProtocol = set_socket
         self.rsa_handler: Optional[Callable[[EResult, int, int, int], Awaitable[None]]] = None
         self.login_handler: Optional[Callable[[EResult,steammessages_clientserver_login_pb2.CMsgClientLogonResponse], Awaitable[None]]] = None
         self.log_off_handler: Optional[Callable[[EResult], Awaitable[None]]] = None
@@ -69,8 +71,8 @@ class ProtobufClient:
         self.times_import_finished_handler: Optional[Callable[[bool], Awaitable[None]]] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._session_id: Optional[int] = None
-        self._job_id_iterator = count(1)
-        self.job_list = []
+        self._job_id_iterator: Iterator[int] = count(1) #this is actually clever. A lazy iterator that increments every time you call next. 
+        #self.job_list : List[Dict[str,str]] = []
 
         self.account_info_retrieved = asyncio.Event()
         self.collections = {'event': asyncio.Event(),
@@ -87,19 +89,19 @@ class ProtobufClient:
 
     async def run(self):
         while True:
-            for job in self.job_list.copy():
-                logger.info(f"New job on list {job}")
-                if job['job_name'] == "import_game_stats":
-                    await self._import_game_stats(job['game_id'])
-                    self.job_list.remove(job)
-                elif job['job_name'] == "import_collections":
-                    await self._import_collections()
-                    self.job_list.remove(job)
-                elif job['job_name'] == "import_game_times":
-                    await self._import_game_time()
-                    self.job_list.remove(job)
-                else:
-                    logger.warning(f'Unknown job {job}')
+            #for job in self.job_list.copy():
+            #    logger.info(f"New job on list {job}")
+            #    if job['job_name'] == "import_game_stats":
+            #        await self._import_game_stats(job['game_id'])
+            #        self.job_list.remove(job)
+            #    elif job['job_name'] == "import_collections":
+            #        await self._import_collections()
+            #        self.job_list.remove(job)
+            #    elif job['job_name'] == "import_game_times":
+            #        await self._import_game_time()
+            #        self.job_list.remove(job)
+            #    else:
+            #        logger.warning(f'Unknown job {job}')
             try:
                 packet = await asyncio.wait_for(self._socket.recv(), 0.1)
                 logger.info("Received Packet" + str(packet))
@@ -157,28 +159,36 @@ class ProtobufClient:
         message = steammessages_auth_pb2.CAuthentication_GetPasswordRSAPublicKey_Response()
         message.ParseFromString(body)
         logger.info("Received RSA KEY")
+        #logger.info(pformat(message))
         if (self.rsa_handler is not None):
-            await self.rsa_handler(result, message.publickey_mod, message.publickey_exp, message.timestamp)
+            await self.rsa_handler(result, int(message.publickey_mod, 16), int(message.publickey_exp, 16), message.timestamp)
         else:
             logger.warning("NO RSA HANDLER SET!")
 
     async def log_on_password(self, account_name, enciphered_password: str, timestamp: int, os_value):
-        device_details = steammessages_auth_pb2.CAuthentication_DeviceDetails()
+        friendly_name: str = sock.gethostname() + " (GOG Galaxy)"
         
-        device_details.device_friendly_name = self._socket.gethostname() + " (GOG Galaxy)"
-        device_details.os_type = os_value if os_value >= 0 else 0
-        device_details.platform_type= steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient
+        #device details is readonly. So we can't do this the easy way. 
+        #device_details = steammessages_auth_pb2.CAuthentication_DeviceDetails()
+        #device_details.device_friendly_name = 
+        #device_details.os_type = os_value if os_value >= 0 else 0
+        #device_details.platform_type= steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient
 
         message = steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Request()
 
         message.account_name = account_name
         message.encrypted_password = base64.b64encode(enciphered_password) #i think it needs to be in this format, we can try doing it without after if it doesn't work. 
         message.website_id = "Client"
-        message.device_friendly_name = self._socket.gethostname() + " (GOG Galaxy)"
+        message.device_friendly_name = friendly_name
         message.encryption_timestamp = timestamp
         message.platform_type = steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient #no idea if this line will work.
         #message.persistence = enums_pb2.ESessionPersistence.k_ESessionPersistence_Persistent # this is the default value and i have no idea how reflected enums work in python.
-        message.device_details = device_details
+        
+        #message.device_details = device_details
+        #so let's do it the hard way. 
+        message.device_details.device_friendly_name = friendly_name
+        message.device_details.os_type = os_value if os_value >= 0 else 0
+        message.device_details.platform_type= steammessages_auth_pb2.EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient
         #message.guard_data = ""
         logger.info("Sending log on message using credentials in new authorization workflow")
 
@@ -187,6 +197,7 @@ class ProtobufClient:
     async def _process_login(self, result, body):
         message = steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Response()
         message.ParseFromString(body)
+        logger.info("Processing Login Response!")
         """
         client_id : int #the id assigned to us.
         steamid : int #the id of the user that signed in
@@ -206,6 +217,18 @@ class ProtobufClient:
             await self.login_handler(result, message)
         else:
             logger.warning("NO LOGIN HANDLER SET!")
+
+    async def update_steamguard_data(self, *args):
+        pass
+
+    async def _process_steamguard_update(self, result, body):
+        pass
+
+    async def poll_auth_status(self):
+        pass
+
+    async def _process_auth_poll_status(self, result, body):
+        pass
 
     async def _import_game_stats(self, game_id):
         logger.info(f"Importing game stats for {game_id}")
@@ -674,6 +697,8 @@ class ProtobufClient:
             #pass #no idea what to do here. for now, having it error will let me know when it's called so i can see wtf to do with it.
         elif target_job_name == GET_RSA_KEY:
             await self._process_rsa(eresult, body)
+        elif target_job_name == LOGIN_CREDENTIALS:
+            await self._process_login(eresult, body)
         else:
             logger.warning("Unparsed message, no idea what it is. Tell me")
             logger.warning("job name: \"" + target_job_name + "\"")

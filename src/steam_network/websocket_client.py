@@ -61,7 +61,7 @@ class WebSocketClient:
         ownership_ticket_cache: OwnershipTicketCache
     ):
         self._ssl_context = ssl_context
-        self._websocket: Optional[websockets.WebSocketClientProtocol] = None
+        self._websocket: Optional[websockets.client.WebSocketClientProtocol] = None
         self._protocol_client: Optional[ProtocolClient] = None
         self._websocket_list = websocket_list
 
@@ -122,12 +122,12 @@ class WebSocketClient:
             except asyncio.CancelledError as e:
                 logger.warning(f"Websocket task cancelled {repr(e)}")
                 raise
-            except websockets.ConnectionClosedOK as e:
+            except websockets.exceptions.ConnectionClosedOK as e:
                 logger.debug(format_exc())
                 logger.debug("Expected WebSocket disconnection")
-            except websockets.ConnectionClosedError as error:
+            except websockets.exceptions.ConnectionClosedError as error:
                 logger.warning("WebSocket disconnected (%d: %s), reconnecting...", error.code, error.reason)
-            except websockets.InvalidState as error:
+            except websockets.exceptions.InvalidState as error:
                 logger.warning(f"WebSocket is trying to connect... {repr(error)}")
             except (BackendNotAvailable, BackendTimeout, BackendError) as error:
                 logger.warning(f"{repr(error)}. Trying with different CM...")
@@ -213,12 +213,12 @@ class WebSocketClient:
             async for ws_address in self._websocket_list.get(self.used_server_cell_id):
                 self._current_ws_address = ws_address
                 try:
-                    self._websocket = await asyncio.wait_for(websockets.connect(ws_address, ssl=self._ssl_context, max_size=MAX_INCOMING_MESSAGE_SIZE), 5)
+                    self._websocket = await asyncio.wait_for(websockets.client.connect(ws_address, ssl=self._ssl_context, max_size=MAX_INCOMING_MESSAGE_SIZE), 5)
                     self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self._local_machine_cache, self._steam_app_ownership_ticket_cache, self.used_server_cell_id)
                     logger.info(f'Connected to Steam on CM {ws_address} on cell_id {self.used_server_cell_id}. Sending Hello')
                     await self._protocol_client.finish_handshake()
                     return
-                except (asyncio.TimeoutError, OSError, websockets.InvalidURI, websockets.InvalidHandshake):
+                except (asyncio.TimeoutError, OSError, websockets.exceptions.InvalidURI, websockets.exceptions.InvalidHandshake):
                     self._websocket_list.add_server_to_ignored(self._current_ws_address, timeout_sec=BLACKLISTED_CM_EXPIRATION_SEC)
                     continue
 
@@ -236,11 +236,11 @@ class WebSocketClient:
         if self._steam_app_ownership_ticket_cache.ticket:
             await self._protocol_client.register_auth_ticket_with_cm(self._steam_app_ownership_ticket_cache.ticket)
 
-        if self._user_info_cache.token:
-            ret_code = await self._protocol_client.authenticate_token(self._user_info_cache.steam_id, self._user_info_cache.account_username, self._user_info_cache.token, auth_lost_handler)
+        if self._user_info_cache.access_token:
+            ret_code = await self._protocol_client.authenticate_token(self._user_info_cache.steam_id, self._user_info_cache.account_username, self._user_info_cache.access_token, auth_lost_handler)
         else:
             ret_code = None
-            while ret_code != UserActionRequired.NoActionRequired:
+            while True:
                 if ret_code != None:
                     await self.communication_queues['plugin'].put({'auth_result': ret_code})
                     logger.info(f"Put {ret_code} in the queue, waiting for other side to receive")
@@ -260,13 +260,15 @@ class WebSocketClient:
                     logger.info(f'Authenticating with {"username" if self._user_info_cache.account_username else ""}, {"password" if password else ""}')
                     if (password):
                         enciphered = encrypt(password.encode('utf-8',errors="ignore"), self._steam_public_key.rsa_public_key)
-                        self._steam_polling_data = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, enciphered, auth_lost_handler)
+                        self._steam_polling_data = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, enciphered, self._steam_public_key.timestamp, auth_lost_handler)
                         ret_code = self._steam_polling_data.confirmation_method if self._steam_polling_data is not None else UserActionRequired.InvalidAuthData
                         if (ret_code != UserActionRequired.InvalidAuthData):
                             logger.info("GOT THE LOGIN DONE! ON TO 2FA")
+                        else:
+                            logger.info("LOGIN FAILED :( But hey, at least you're here!")
                     else:
                         ret_code = UserActionRequired.InvalidAuthData
-                elif (mode == AuthCall.UPDATE_TWO_FACTOR_CODE):
+                elif (mode == AuthCall.UPDATE_TWO_FACTOR):
                     method : Optional[bool] = response.get('two-factor-method-is-email', None)
                     code : Optional[str] = response.get('two-factor-code', None)
                     if (method is None or not code):
@@ -276,8 +278,10 @@ class WebSocketClient:
                         ret_code = await self._protocol_client.update_two_factor(code, self._user_info_cache.two_step, auth_lost_handler)
                 elif (mode == AuthCall.POLL_TWO_FACTOR):
                     logger.info("Polling to see if the user has completed any steam-guard related stuff")
-                    ret_code = await self._protocol_client.check_auth_status(code, self._user_info_cache.two_step, auth_lost_handler)
-
+                    ret_code = await self._protocol_client.check_auth_status(auth_lost_handler)
+                elif (mode == AuthCall.DONE):
+                    ret_code = UserActionRequired.NoActionRequired
+                    break
                 else:
                     ret_code = UserActionRequired.InvalidAuthData
 
@@ -286,6 +290,6 @@ class WebSocketClient:
         await self.communication_queues['plugin'].put({'auth_result': ret_code})
 
         # request new steam app ownership ticket
-        await self._protocol_client.get_steam_app_ownership_ticket()
+        #await self._protocol_client.get_steam_app_ownership_ticket()
 
 

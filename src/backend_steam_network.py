@@ -4,6 +4,8 @@ import ssl
 from contextlib import suppress
 from typing import Callable, List, Any, Dict, Union
 from urllib import parse
+from pprint import pformat
+
 
 from galaxy.api.errors import (
     AuthenticationRequired,
@@ -189,6 +191,7 @@ class SteamNetworkBackend(BackendInterface):
             result = await asyncio.wait_for(
                 self._websocket_client.communication_queues["plugin"].get(), 60
             )
+            logger.info("plugin received: " + pformat(result))
             return result["auth_result"]
         except asyncio.TimeoutError:
             raise BackendTimeout()
@@ -236,7 +239,7 @@ class SteamNetworkBackend(BackendInterface):
         result = await self._get_websocket_auth_step()
         if (result == UserActionRequired.NoActionRequired):
             #we still don't have the 2FA Confirmation. that's actually required for NoAction, but instead of waiting for us to input 2FA, it immediately returns what we need. 
-            return await self._handle_2FA_PollOnce()
+            return await self._handle_steam_guard_none()
         elif (result == UserActionRequired.EmailTwoFactorInputRequired):
             return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MAIL, self._user_info_cache.account_username)
         elif (result == UserActionRequired.PhoneTwoFactorInputRequired):
@@ -248,10 +251,13 @@ class SteamNetworkBackend(BackendInterface):
         #result here should be password, or unathorized. 
 
     async def _handle_steam_guard_none(self) -> Union[NextStep, Authentication]:
-        result = self._handle_2FA_PollOnce(UserActionRequired.NoActionRequired)
+        result = await self._handle_2FA_PollOnce()
         if (result != UserActionRequired.NoActionRequired):
             raise UnknownBackendResponse()
-        return Authentication()
+        else:
+            self._user_info_cache.persona_name = "baumherman" #TODO: FIX ME. THIS IS A DUMMY
+            await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.DONE})
+            return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
 
     async def _handle_2FA_PollOnce(self) -> UserActionRequired:
         await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.POLL_TWO_FACTOR})

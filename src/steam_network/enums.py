@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple, Union
 import enum
 
 import yarl
@@ -9,7 +9,8 @@ import pathlib
 
 import logging
 
-from .protocol.messages.steammessages_auth_pb2 import CAuthentication_AllowedConfirmation
+from .protocol.messages.steammessages_auth_pb2 import CAuthentication_AllowedConfirmation, EAuthSessionGuardType 
+from pprint import pformat
 
 #a constant. this is the path to the current directory, as a uri. this typically means adding file:/// to the beginning
 DIRNAME = yarl.URL(pathlib.Path(os.path.dirname(os.path.realpath(__file__))).as_uri())
@@ -21,10 +22,11 @@ logger = logging.getLogger(__name__)
 #defines the modes we will send to the 'websocket' queue
 class AuthCall:
 
-    RSA =          'rsa'
-    LOGIN =        'login'
-    UPDATE_TWO_FACTOR =   'two-factor-update'
+    RSA =               'rsa'
+    LOGIN =             'login'
+    UPDATE_TWO_FACTOR = 'two-factor-update'
     POLL_TWO_FACTOR =   'poll-two-factor'
+    DONE =              'done'
 
 class DisplayUriHelper(enum.Enum):
     GET_USER = 0
@@ -87,21 +89,32 @@ class UserActionRequired(enum.IntEnum):
     PhoneTwoFactorInputRequired = 2
     PhoneTwoFactorConfirmRequired = 3
     PasswordRequired = 4
-    InvalidAuthData = 5
+    TwoFactorExpired = 5
+    InvalidAuthData = 6
 
 
-def to_UserAction(auth_enum : CAuthentication_AllowedConfirmation) -> UserActionRequired:
+#def to_UserAction(auth_enum : Union[EAuthSessionGuardType, CAuthentication_AllowedConfirmation]) -> UserActionRequired:
+def to_UserAction(auth_enum) -> UserActionRequired:
+    if (isinstance(auth_enum, CAuthentication_AllowedConfirmation)):
+        auth_enum = auth_enum.confirmation_type
+    ret_val, _ = _to_UserAction(auth_enum, None)
+    return ret_val
     
-    if (auth_enum == CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_None):
-        return UserActionRequired.NoActionRequired
-    elif (auth_enum == CAuthentication_AllowedConfirmation.auth_k_EAuthSessionGuardType_EmailCode):
-        return UserActionRequired.EmailTwoFactorInputRequired
-    elif (auth_enum == CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceCode):
-        return UserActionRequired.PhoneTwoFactorInputRequired
-    elif (auth_enum == CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceConfirmation):
-        return UserActionRequired.PhoneTwoFactorConfirmRequired
+#def _to_UserAction(auth_enum : EAuthSessionGuardType, msg: Optional[str]) -> Tuple[UserActionRequired, str]:
+def _to_UserAction(auth_enum, msg: Optional[str]) -> Tuple[UserActionRequired, str]:
+    if (auth_enum == EAuthSessionGuardType.k_EAuthSessionGuardType_None):
+        return (UserActionRequired.NoActionRequired, msg)
+    elif (auth_enum == EAuthSessionGuardType.k_EAuthSessionGuardType_EmailCode):
+        return (UserActionRequired.EmailTwoFactorInputRequired, msg)
+    elif (auth_enum == EAuthSessionGuardType.k_EAuthSessionGuardType_DeviceCode):
+        return (UserActionRequired.PhoneTwoFactorInputRequired, msg)
+    elif (auth_enum == EAuthSessionGuardType.k_EAuthSessionGuardType_DeviceConfirmation):
+        return (UserActionRequired.PhoneTwoFactorConfirmRequired, msg)
     else: #if (k_EAuthSessionGuardType_Unknown, k_EAuthSessionGuardType_LegacyMachineAuth, k_EAuthSessionGuardType_MachineToken, k_EAuthSessionGuardType_EmailConfirmation, or an invalid number
-        return UserActionRequired.InvalidAuthData
+        return (UserActionRequired.InvalidAuthData, msg)
+
+def to_UserActionWithMessage(allowed_confirmation : CAuthentication_AllowedConfirmation) -> Tuple[UserActionRequired, str]:
+    return _to_UserAction(allowed_confirmation.confirmation_type, allowed_confirmation.associated_message)
 
 def to_CAuthentication_AllowedConfirmation(actionRequired : UserActionRequired) -> CAuthentication_AllowedConfirmation:
     

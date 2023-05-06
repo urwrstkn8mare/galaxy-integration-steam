@@ -30,13 +30,12 @@ from backend_interface import BackendInterface
 from http_client import HttpClient
 from persistent_cache_state import PersistentCacheState
 from user_profile import UserProfileChecker, ProfileIsNotPublic, ProfileDoesNotExist, NotPublicGameDetailsOrUserHasNoGames
-from steam_network.authentication import StartUri, EndUriRegex, next_step_response, AuthCall, EndUriConst, next_step_response_simple, DisplayUriHelper
 from steam_network.friends_cache import FriendsCache
 from steam_network.games_cache import GamesCache
 from steam_network.local_machine_cache import LocalMachineCache
 from steam_network.ownership_ticket_cache import OwnershipTicketCache
 from steam_network.presence import presence_from_user_info
-from steam_network.protocol.types import ProtoUserInfo  # TODO accessing inner module
+from steam_network.protocol.steam_types import ProtoUserInfo  # TODO accessing inner module
 from steam_network.stats_cache import StatsCache
 from steam_network.steam_http_client import SteamHttpClient
 from steam_network.times_cache import TimesCache
@@ -49,6 +48,9 @@ from steam_network.w3_hack import (
     WITCHER_3_GOTY_TITLE,
     does_witcher_3_dlcs_set_resolve_to_GOTY
 )
+
+from steam_network.utils import next_step_response_simple
+from steam_network.enums import UserActionRequired, AuthCall, DisplayUriHelper
 
 logger = logging.getLogger(__name__)
 

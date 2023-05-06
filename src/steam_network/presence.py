@@ -2,7 +2,7 @@ from galaxy.api.consts import PresenceState
 from galaxy.api.types import UserPresence
 
 from .protocol.consts import EPersonaState
-from .protocol.types import ProtoUserInfo
+from .protocol.steam_types import ProtoUserInfo
 
 import re
 import logging

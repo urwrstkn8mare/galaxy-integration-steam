@@ -1,7 +1,9 @@
 import asyncio
 import base64
-import logging as log
+import logging
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 class UserInfoCache:
     def __init__(self):
@@ -19,7 +21,7 @@ class UserInfoCache:
 
     def _check_initialized(self):
         if self._steam_id and self._account_id and self._account_username and self._persona_name and self._refresh_token:
-            log.info("User info cache initialized")
+            logger.info("User info cache initialized")
             self.initialized.set()
             self._changed = True
 

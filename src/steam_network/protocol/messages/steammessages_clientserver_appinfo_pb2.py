@@ -18,9 +18,9 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='steammessages_clientserver_appinfo.proto',
   package='',
   syntax='proto2',
-  serialized_options=b'H\001\220\001\000',
+  serialized_options=b'H\001\200\001\000',
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n(steammessages_clientserver_appinfo.proto\x1a\x18steammessages_base.proto\"M\n\x17\x43MsgClientAppInfoUpdate\x12\x19\n\x11last_changenumber\x18\x01 \x01(\r\x12\x17\n\x0fsend_changelist\x18\x02 \x01(\x08\"d\n\x18\x43MsgClientAppInfoChanges\x12\x1d\n\x15\x63urrent_change_number\x18\x01 \x01(\r\x12\x19\n\x11\x66orce_full_update\x18\x02 \x01(\x08\x12\x0e\n\x06\x61ppIDs\x18\x03 \x03(\r\"\xab\x01\n\x18\x43MsgClientAppInfoRequest\x12+\n\x04\x61pps\x18\x01 \x03(\x0b\x32\x1d.CMsgClientAppInfoRequest.App\x12\x1f\n\x10supports_batches\x18\x02 \x01(\x08:\x05\x66\x61lse\x1a\x41\n\x03\x41pp\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\r\x12\x15\n\rsection_flags\x18\x02 \x01(\r\x12\x13\n\x0bsection_CRC\x18\x03 \x03(\r\"\x97\x02\n\x19\x43MsgClientAppInfoResponse\x12,\n\x04\x61pps\x18\x01 \x03(\x0b\x32\x1e.CMsgClientAppInfoResponse.App\x12\x14\n\x0c\x61pps_unknown\x18\x02 \x03(\r\x12\x14\n\x0c\x61pps_pending\x18\x03 \x01(\r\x1a\x99\x01\n\x03\x41pp\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\r\x12\x15\n\rchange_number\x18\x02 \x01(\r\x12\x38\n\x08sections\x18\x03 \x03(\x0b\x32&.CMsgClientAppInfoResponse.App.Section\x1a\x31\n\x07Section\x12\x12\n\nsection_id\x18\x01 \x01(\r\x12\x12\n\nsection_kv\x18\x02 \x01(\x0c:\x04\x88\xb5\x18\x00\"K\n\x1c\x43MsgClientPackageInfoRequest\x12\x13\n\x0bpackage_ids\x18\x01 \x03(\r\x12\x16\n\x0emeta_data_only\x18\x02 \x01(\x08\"\xe0\x01\n\x1d\x43MsgClientPackageInfoResponse\x12\x38\n\x08packages\x18\x01 \x03(\x0b\x32&.CMsgClientPackageInfoResponse.Package\x12\x18\n\x10packages_unknown\x18\x02 \x03(\r\x12\x18\n\x10packages_pending\x18\x03 \x01(\r\x1aQ\n\x07Package\x12\x12\n\npackage_id\x18\x01 \x01(\r\x12\x15\n\rchange_number\x18\x02 \x01(\r\x12\x0b\n\x03sha\x18\x03 \x01(\x0c\x12\x0e\n\x06\x62uffer\x18\x04 \x01(\x0c\"\xc0\x01\n!CMsgClientPICSChangesSinceRequest\x12\x1b\n\x13since_change_number\x18\x01 \x01(\r\x12\x1d\n\x15send_app_info_changes\x18\x02 \x01(\x08\x12!\n\x19send_package_info_changes\x18\x03 \x01(\x08\x12\x1b\n\x13num_app_info_cached\x18\x04 \x01(\r\x12\x1f\n\x17num_package_info_cached\x18\x05 \x01(\r\"\xe5\x03\n\"CMsgClientPICSChangesSinceResponse\x12\x1d\n\x15\x63urrent_change_number\x18\x01 \x01(\r\x12\x1b\n\x13since_change_number\x18\x02 \x01(\r\x12\x19\n\x11\x66orce_full_update\x18\x03 \x01(\x08\x12J\n\x0fpackage_changes\x18\x04 \x03(\x0b\x32\x31.CMsgClientPICSChangesSinceResponse.PackageChange\x12\x42\n\x0b\x61pp_changes\x18\x05 \x03(\x0b\x32-.CMsgClientPICSChangesSinceResponse.AppChange\x12\x1d\n\x15\x66orce_full_app_update\x18\x06 \x01(\x08\x12!\n\x19\x66orce_full_package_update\x18\x07 \x01(\x08\x1aN\n\rPackageChange\x12\x11\n\tpackageid\x18\x01 \x01(\r\x12\x15\n\rchange_number\x18\x02 \x01(\r\x12\x13\n\x0bneeds_token\x18\x03 \x01(\x08\x1a\x46\n\tAppChange\x12\r\n\x05\x61ppid\x18\x01 \x01(\r\x12\x15\n\rchange_number\x18\x02 \x01(\r\x12\x13\n\x0bneeds_token\x18\x03 \x01(\x08\"\xf4\x02\n CMsgClientPICSProductInfoRequest\x12?\n\x08packages\x18\x01 \x03(\x0b\x32-.CMsgClientPICSProductInfoRequest.PackageInfo\x12\x37\n\x04\x61pps\x18\x02 \x03(\x0b\x32).CMsgClientPICSProductInfoRequest.AppInfo\x12\x16\n\x0emeta_data_only\x18\x03 \x01(\x08\x12\x17\n\x0fnum_prev_failed\x18\x04 \x01(\r\x12\x1f\n\x17supports_package_tokens\x18\x05 \x01(\r\x1aL\n\x07\x41ppInfo\x12\r\n\x05\x61ppid\x18\x01 \x01(\r\x12\x14\n\x0c\x61\x63\x63\x65ss_token\x18\x02 \x01(\x04\x12\x1c\n\x14only_public_obsolete\x18\x03 \x01(\x08\x1a\x36\n\x0bPackageInfo\x12\x11\n\tpackageid\x18\x01 \x01(\r\x12\x14\n\x0c\x61\x63\x63\x65ss_token\x18\x02 \x01(\x04\"\xb9\x04\n!CMsgClientPICSProductInfoResponse\x12\x38\n\x04\x61pps\x18\x01 \x03(\x0b\x32*.CMsgClientPICSProductInfoResponse.AppInfo\x12\x16\n\x0eunknown_appids\x18\x02 \x03(\r\x12@\n\x08packages\x18\x03 \x03(\x0b\x32..CMsgClientPICSProductInfoResponse.PackageInfo\x12\x1a\n\x12unknown_packageids\x18\x04 \x03(\r\x12\x16\n\x0emeta_data_only\x18\x05 \x01(\x08\x12\x18\n\x10response_pending\x18\x06 \x01(\x08\x12\x15\n\rhttp_min_size\x18\x07 \x01(\r\x12\x11\n\thttp_host\x18\x08 \x01(\t\x1a\x86\x01\n\x07\x41ppInfo\x12\r\n\x05\x61ppid\x18\x01 \x01(\r\x12\x15\n\rchange_number\x18\x02 \x01(\r\x12\x15\n\rmissing_token\x18\x03 \x01(\x08\x12\x0b\n\x03sha\x18\x04 \x01(\x0c\x12\x0e\n\x06\x62uffer\x18\x05 \x01(\x0c\x12\x13\n\x0bonly_public\x18\x06 \x01(\x08\x12\x0c\n\x04size\x18\x07 \x01(\r\x1ay\n\x0bPackageInfo\x12\x11\n\tpackageid\x18\x01 \x01(\r\x12\x15\n\rchange_number\x18\x02 \x01(\r\x12\x15\n\rmissing_token\x18\x03 \x01(\x08\x12\x0b\n\x03sha\x18\x04 \x01(\x0c\x12\x0e\n\x06\x62uffer\x18\x05 \x01(\x0c\x12\x0c\n\x04size\x18\x06 \x01(\r:\x04\x88\xb5\x18\x00\"F\n CMsgClientPICSAccessTokenRequest\x12\x12\n\npackageids\x18\x01 \x03(\r\x12\x0e\n\x06\x61ppids\x18\x02 \x03(\r\"\xdf\x02\n!CMsgClientPICSAccessTokenResponse\x12N\n\x15package_access_tokens\x18\x01 \x03(\x0b\x32/.CMsgClientPICSAccessTokenResponse.PackageToken\x12\x1d\n\x15package_denied_tokens\x18\x02 \x03(\r\x12\x46\n\x11\x61pp_access_tokens\x18\x03 \x03(\x0b\x32+.CMsgClientPICSAccessTokenResponse.AppToken\x12\x19\n\x11\x61pp_denied_tokens\x18\x04 \x03(\r\x1a\x37\n\x0cPackageToken\x12\x11\n\tpackageid\x18\x01 \x01(\r\x12\x14\n\x0c\x61\x63\x63\x65ss_token\x18\x02 \x01(\x04\x1a/\n\x08\x41ppToken\x12\r\n\x05\x61ppid\x18\x01 \x01(\r\x12\x14\n\x0c\x61\x63\x63\x65ss_token\x18\x02 \x01(\x04\x42\x05H\x01\x90\x01\x00'
+  serialized_pb=b'\n(steammessages_clientserver_appinfo.proto\x1a\x18steammessages_base.proto\"M\n\x17\x43MsgClientAppInfoUpdate\x12\x19\n\x11last_changenumber\x18\x01 \x01(\r\x12\x17\n\x0fsend_changelist\x18\x02 \x01(\x08\"d\n\x18\x43MsgClientAppInfoChanges\x12\x1d\n\x15\x63urrent_change_number\x18\x01 \x01(\r\x12\x19\n\x11\x66orce_full_update\x18\x02 \x01(\x08\x12\x0e\n\x06\x61ppIDs\x18\x03 \x03(\r\"\xab\x01\n\x18\x43MsgClientAppInfoRequest\x12+\n\x04\x61pps\x18\x01 \x03(\x0b\x32\x1d.CMsgClientAppInfoRequest.App\x12\x1f\n\x10supports_batches\x18\x02 \x01(\x08:\x05\x66\x61lse\x1a\x41\n\x03\x41pp\x12\x0e\n\x06\x61pp_id\x18\x01 \x01(\r\x12\x15\n\rsection_flags\x18\x02 \x01(\r\x12\x13\n\x0bsection_CRC\x18\x03 \x03(\r\"\xc0\x01\n!CMsgClientPICSChangesSinceRequest\x12\x1b\n\x13since_change_number\x18\x01 \x01(\r\x12\x1d\n\x15send_app_info_changes\x18\x02 \x01(\x08\x12!\n\x19send_package_info_changes\x18\x03 \x01(\x08\x12\x1b\n\x13num_app_info_cached\x18\x04 \x01(\r\x12\x1f\n\x17num_package_info_cached\x18\x05 \x01(\r\"\xe5\x03\n\"CMsgClientPICSChangesSinceResponse\x12\x1d\n\x15\x63urrent_change_number\x18\x01 \x01(\r\x12\x1b\n\x13since_change_number\x18\x02 \x01(\r\x12\x19\n\x11\x66orce_full_update\x18\x03 \x01(\x08\x12J\n\x0fpackage_changes\x18\x04 \x03(\x0b\x32\x31.CMsgClientPICSChangesSinceResponse.PackageChange\x12\x42\n\x0b\x61pp_changes\x18\x05 \x03(\x0b\x32-.CMsgClientPICSChangesSinceResponse.AppChange\x12\x1d\n\x15\x66orce_full_app_update\x18\x06 \x01(\x08\x12!\n\x19\x66orce_full_package_update\x18\x07 \x01(\x08\x1aN\n\rPackageChange\x12\x11\n\tpackageid\x18\x01 \x01(\r\x12\x15\n\rchange_number\x18\x02 \x01(\r\x12\x13\n\x0bneeds_token\x18\x03 \x01(\x08\x1a\x46\n\tAppChange\x12\r\n\x05\x61ppid\x18\x01 \x01(\r\x12\x15\n\rchange_number\x18\x02 \x01(\r\x12\x13\n\x0bneeds_token\x18\x03 \x01(\x08\"\x96\x03\n CMsgClientPICSProductInfoRequest\x12?\n\x08packages\x18\x01 \x03(\x0b\x32-.CMsgClientPICSProductInfoRequest.PackageInfo\x12\x37\n\x04\x61pps\x18\x02 \x03(\x0b\x32).CMsgClientPICSProductInfoRequest.AppInfo\x12\x16\n\x0emeta_data_only\x18\x03 \x01(\x08\x12\x17\n\x0fnum_prev_failed\x18\x04 \x01(\r\x12(\n OBSOLETE_supports_package_tokens\x18\x05 \x01(\r\x12\x17\n\x0fsequence_number\x18\x06 \x01(\r\x1aL\n\x07\x41ppInfo\x12\r\n\x05\x61ppid\x18\x01 \x01(\r\x12\x14\n\x0c\x61\x63\x63\x65ss_token\x18\x02 \x01(\x04\x12\x1c\n\x14only_public_obsolete\x18\x03 \x01(\x08\x1a\x36\n\x0bPackageInfo\x12\x11\n\tpackageid\x18\x01 \x01(\r\x12\x14\n\x0c\x61\x63\x63\x65ss_token\x18\x02 \x01(\x04\"\xb9\x04\n!CMsgClientPICSProductInfoResponse\x12\x38\n\x04\x61pps\x18\x01 \x03(\x0b\x32*.CMsgClientPICSProductInfoResponse.AppInfo\x12\x16\n\x0eunknown_appids\x18\x02 \x03(\r\x12@\n\x08packages\x18\x03 \x03(\x0b\x32..CMsgClientPICSProductInfoResponse.PackageInfo\x12\x1a\n\x12unknown_packageids\x18\x04 \x03(\r\x12\x16\n\x0emeta_data_only\x18\x05 \x01(\x08\x12\x18\n\x10response_pending\x18\x06 \x01(\x08\x12\x15\n\rhttp_min_size\x18\x07 \x01(\r\x12\x11\n\thttp_host\x18\x08 \x01(\t\x1a\x86\x01\n\x07\x41ppInfo\x12\r\n\x05\x61ppid\x18\x01 \x01(\r\x12\x15\n\rchange_number\x18\x02 \x01(\r\x12\x15\n\rmissing_token\x18\x03 \x01(\x08\x12\x0b\n\x03sha\x18\x04 \x01(\x0c\x12\x0e\n\x06\x62uffer\x18\x05 \x01(\x0c\x12\x13\n\x0bonly_public\x18\x06 \x01(\x08\x12\x0c\n\x04size\x18\x07 \x01(\r\x1ay\n\x0bPackageInfo\x12\x11\n\tpackageid\x18\x01 \x01(\r\x12\x15\n\rchange_number\x18\x02 \x01(\r\x12\x15\n\rmissing_token\x18\x03 \x01(\x08\x12\x0b\n\x03sha\x18\x04 \x01(\x0c\x12\x0e\n\x06\x62uffer\x18\x05 \x01(\x0c\x12\x0c\n\x04size\x18\x06 \x01(\r:\x04\x88\xb5\x18\x00\"F\n CMsgClientPICSAccessTokenRequest\x12\x12\n\npackageids\x18\x01 \x03(\r\x12\x0e\n\x06\x61ppids\x18\x02 \x03(\r\"\xdf\x02\n!CMsgClientPICSAccessTokenResponse\x12N\n\x15package_access_tokens\x18\x01 \x03(\x0b\x32/.CMsgClientPICSAccessTokenResponse.PackageToken\x12\x1d\n\x15package_denied_tokens\x18\x02 \x03(\r\x12\x46\n\x11\x61pp_access_tokens\x18\x03 \x03(\x0b\x32+.CMsgClientPICSAccessTokenResponse.AppToken\x12\x19\n\x11\x61pp_denied_tokens\x18\x04 \x03(\r\x1a\x37\n\x0cPackageToken\x12\x11\n\tpackageid\x18\x01 \x01(\r\x12\x14\n\x0c\x61\x63\x63\x65ss_token\x18\x02 \x01(\x04\x1a/\n\x08\x41ppToken\x12\r\n\x05\x61ppid\x18\x01 \x01(\r\x12\x14\n\x0c\x61\x63\x63\x65ss_token\x18\x02 \x01(\x04\x42\x05H\x01\x80\x01\x00'
   ,
   dependencies=[steammessages__base__pb2.DESCRIPTOR,])
 
@@ -196,272 +196,6 @@ _CMSGCLIENTAPPINFOREQUEST = _descriptor.Descriptor(
 )
 
 
-_CMSGCLIENTAPPINFORESPONSE_APP_SECTION = _descriptor.Descriptor(
-  name='Section',
-  full_name='CMsgClientAppInfoResponse.App.Section',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='section_id', full_name='CMsgClientAppInfoResponse.App.Section.section_id', index=0,
-      number=1, type=13, cpp_type=3, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='section_kv', full_name='CMsgClientAppInfoResponse.App.Section.section_kv', index=1,
-      number=2, type=12, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"",
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=650,
-  serialized_end=699,
-)
-
-_CMSGCLIENTAPPINFORESPONSE_APP = _descriptor.Descriptor(
-  name='App',
-  full_name='CMsgClientAppInfoResponse.App',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='app_id', full_name='CMsgClientAppInfoResponse.App.app_id', index=0,
-      number=1, type=13, cpp_type=3, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='change_number', full_name='CMsgClientAppInfoResponse.App.change_number', index=1,
-      number=2, type=13, cpp_type=3, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='sections', full_name='CMsgClientAppInfoResponse.App.sections', index=2,
-      number=3, type=11, cpp_type=10, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[_CMSGCLIENTAPPINFORESPONSE_APP_SECTION, ],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=546,
-  serialized_end=699,
-)
-
-_CMSGCLIENTAPPINFORESPONSE = _descriptor.Descriptor(
-  name='CMsgClientAppInfoResponse',
-  full_name='CMsgClientAppInfoResponse',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='apps', full_name='CMsgClientAppInfoResponse.apps', index=0,
-      number=1, type=11, cpp_type=10, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='apps_unknown', full_name='CMsgClientAppInfoResponse.apps_unknown', index=1,
-      number=2, type=13, cpp_type=3, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='apps_pending', full_name='CMsgClientAppInfoResponse.apps_pending', index=2,
-      number=3, type=13, cpp_type=3, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[_CMSGCLIENTAPPINFORESPONSE_APP, ],
-  enum_types=[
-  ],
-  serialized_options=b'\210\265\030\000',
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=426,
-  serialized_end=705,
-)
-
-
-_CMSGCLIENTPACKAGEINFOREQUEST = _descriptor.Descriptor(
-  name='CMsgClientPackageInfoRequest',
-  full_name='CMsgClientPackageInfoRequest',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='package_ids', full_name='CMsgClientPackageInfoRequest.package_ids', index=0,
-      number=1, type=13, cpp_type=3, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='meta_data_only', full_name='CMsgClientPackageInfoRequest.meta_data_only', index=1,
-      number=2, type=8, cpp_type=7, label=1,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=707,
-  serialized_end=782,
-)
-
-
-_CMSGCLIENTPACKAGEINFORESPONSE_PACKAGE = _descriptor.Descriptor(
-  name='Package',
-  full_name='CMsgClientPackageInfoResponse.Package',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='package_id', full_name='CMsgClientPackageInfoResponse.Package.package_id', index=0,
-      number=1, type=13, cpp_type=3, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='change_number', full_name='CMsgClientPackageInfoResponse.Package.change_number', index=1,
-      number=2, type=13, cpp_type=3, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='sha', full_name='CMsgClientPackageInfoResponse.Package.sha', index=2,
-      number=3, type=12, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"",
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='buffer', full_name='CMsgClientPackageInfoResponse.Package.buffer', index=3,
-      number=4, type=12, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"",
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=928,
-  serialized_end=1009,
-)
-
-_CMSGCLIENTPACKAGEINFORESPONSE = _descriptor.Descriptor(
-  name='CMsgClientPackageInfoResponse',
-  full_name='CMsgClientPackageInfoResponse',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='packages', full_name='CMsgClientPackageInfoResponse.packages', index=0,
-      number=1, type=11, cpp_type=10, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='packages_unknown', full_name='CMsgClientPackageInfoResponse.packages_unknown', index=1,
-      number=2, type=13, cpp_type=3, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='packages_pending', full_name='CMsgClientPackageInfoResponse.packages_pending', index=2,
-      number=3, type=13, cpp_type=3, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[_CMSGCLIENTPACKAGEINFORESPONSE_PACKAGE, ],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto2',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=785,
-  serialized_end=1009,
-)
-
-
 _CMSGCLIENTPICSCHANGESSINCEREQUEST = _descriptor.Descriptor(
   name='CMsgClientPICSChangesSinceRequest',
   full_name='CMsgClientPICSChangesSinceRequest',
@@ -517,8 +251,8 @@ _CMSGCLIENTPICSCHANGESSINCEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1012,
-  serialized_end=1204,
+  serialized_start=426,
+  serialized_end=618,
 )
 
 
@@ -563,8 +297,8 @@ _CMSGCLIENTPICSCHANGESSINCERESPONSE_PACKAGECHANGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1542,
-  serialized_end=1620,
+  serialized_start=956,
+  serialized_end=1034,
 )
 
 _CMSGCLIENTPICSCHANGESSINCERESPONSE_APPCHANGE = _descriptor.Descriptor(
@@ -608,8 +342,8 @@ _CMSGCLIENTPICSCHANGESSINCERESPONSE_APPCHANGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1622,
-  serialized_end=1692,
+  serialized_start=1036,
+  serialized_end=1106,
 )
 
 _CMSGCLIENTPICSCHANGESSINCERESPONSE = _descriptor.Descriptor(
@@ -681,8 +415,8 @@ _CMSGCLIENTPICSCHANGESSINCERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1207,
-  serialized_end=1692,
+  serialized_start=621,
+  serialized_end=1106,
 )
 
 
@@ -727,8 +461,8 @@ _CMSGCLIENTPICSPRODUCTINFOREQUEST_APPINFO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1935,
-  serialized_end=2011,
+  serialized_start=1383,
+  serialized_end=1459,
 )
 
 _CMSGCLIENTPICSPRODUCTINFOREQUEST_PACKAGEINFO = _descriptor.Descriptor(
@@ -765,8 +499,8 @@ _CMSGCLIENTPICSPRODUCTINFOREQUEST_PACKAGEINFO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2013,
-  serialized_end=2067,
+  serialized_start=1461,
+  serialized_end=1515,
 )
 
 _CMSGCLIENTPICSPRODUCTINFOREQUEST = _descriptor.Descriptor(
@@ -806,8 +540,15 @@ _CMSGCLIENTPICSPRODUCTINFOREQUEST = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='supports_package_tokens', full_name='CMsgClientPICSProductInfoRequest.supports_package_tokens', index=4,
+      name='OBSOLETE_supports_package_tokens', full_name='CMsgClientPICSProductInfoRequest.OBSOLETE_supports_package_tokens', index=4,
       number=5, type=13, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='sequence_number', full_name='CMsgClientPICSProductInfoRequest.sequence_number', index=5,
+      number=6, type=13, cpp_type=3, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -824,8 +565,8 @@ _CMSGCLIENTPICSPRODUCTINFOREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1695,
-  serialized_end=2067,
+  serialized_start=1109,
+  serialized_end=1515,
 )
 
 
@@ -898,8 +639,8 @@ _CMSGCLIENTPICSPRODUCTINFORESPONSE_APPINFO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2376,
-  serialized_end=2510,
+  serialized_start=1824,
+  serialized_end=1958,
 )
 
 _CMSGCLIENTPICSPRODUCTINFORESPONSE_PACKAGEINFO = _descriptor.Descriptor(
@@ -964,8 +705,8 @@ _CMSGCLIENTPICSPRODUCTINFORESPONSE_PACKAGEINFO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2512,
-  serialized_end=2633,
+  serialized_start=1960,
+  serialized_end=2081,
 )
 
 _CMSGCLIENTPICSPRODUCTINFORESPONSE = _descriptor.Descriptor(
@@ -1044,8 +785,8 @@ _CMSGCLIENTPICSPRODUCTINFORESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2070,
-  serialized_end=2639,
+  serialized_start=1518,
+  serialized_end=2087,
 )
 
 
@@ -1083,8 +824,8 @@ _CMSGCLIENTPICSACCESSTOKENREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2641,
-  serialized_end=2711,
+  serialized_start=2089,
+  serialized_end=2159,
 )
 
 
@@ -1122,8 +863,8 @@ _CMSGCLIENTPICSACCESSTOKENRESPONSE_PACKAGETOKEN = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2961,
-  serialized_end=3016,
+  serialized_start=2409,
+  serialized_end=2464,
 )
 
 _CMSGCLIENTPICSACCESSTOKENRESPONSE_APPTOKEN = _descriptor.Descriptor(
@@ -1160,8 +901,8 @@ _CMSGCLIENTPICSACCESSTOKENRESPONSE_APPTOKEN = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3018,
-  serialized_end=3065,
+  serialized_start=2466,
+  serialized_end=2513,
 )
 
 _CMSGCLIENTPICSACCESSTOKENRESPONSE = _descriptor.Descriptor(
@@ -1212,18 +953,12 @@ _CMSGCLIENTPICSACCESSTOKENRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2714,
-  serialized_end=3065,
+  serialized_start=2162,
+  serialized_end=2513,
 )
 
 _CMSGCLIENTAPPINFOREQUEST_APP.containing_type = _CMSGCLIENTAPPINFOREQUEST
 _CMSGCLIENTAPPINFOREQUEST.fields_by_name['apps'].message_type = _CMSGCLIENTAPPINFOREQUEST_APP
-_CMSGCLIENTAPPINFORESPONSE_APP_SECTION.containing_type = _CMSGCLIENTAPPINFORESPONSE_APP
-_CMSGCLIENTAPPINFORESPONSE_APP.fields_by_name['sections'].message_type = _CMSGCLIENTAPPINFORESPONSE_APP_SECTION
-_CMSGCLIENTAPPINFORESPONSE_APP.containing_type = _CMSGCLIENTAPPINFORESPONSE
-_CMSGCLIENTAPPINFORESPONSE.fields_by_name['apps'].message_type = _CMSGCLIENTAPPINFORESPONSE_APP
-_CMSGCLIENTPACKAGEINFORESPONSE_PACKAGE.containing_type = _CMSGCLIENTPACKAGEINFORESPONSE
-_CMSGCLIENTPACKAGEINFORESPONSE.fields_by_name['packages'].message_type = _CMSGCLIENTPACKAGEINFORESPONSE_PACKAGE
 _CMSGCLIENTPICSCHANGESSINCERESPONSE_PACKAGECHANGE.containing_type = _CMSGCLIENTPICSCHANGESSINCERESPONSE
 _CMSGCLIENTPICSCHANGESSINCERESPONSE_APPCHANGE.containing_type = _CMSGCLIENTPICSCHANGESSINCERESPONSE
 _CMSGCLIENTPICSCHANGESSINCERESPONSE.fields_by_name['package_changes'].message_type = _CMSGCLIENTPICSCHANGESSINCERESPONSE_PACKAGECHANGE
@@ -1243,9 +978,6 @@ _CMSGCLIENTPICSACCESSTOKENRESPONSE.fields_by_name['app_access_tokens'].message_t
 DESCRIPTOR.message_types_by_name['CMsgClientAppInfoUpdate'] = _CMSGCLIENTAPPINFOUPDATE
 DESCRIPTOR.message_types_by_name['CMsgClientAppInfoChanges'] = _CMSGCLIENTAPPINFOCHANGES
 DESCRIPTOR.message_types_by_name['CMsgClientAppInfoRequest'] = _CMSGCLIENTAPPINFOREQUEST
-DESCRIPTOR.message_types_by_name['CMsgClientAppInfoResponse'] = _CMSGCLIENTAPPINFORESPONSE
-DESCRIPTOR.message_types_by_name['CMsgClientPackageInfoRequest'] = _CMSGCLIENTPACKAGEINFOREQUEST
-DESCRIPTOR.message_types_by_name['CMsgClientPackageInfoResponse'] = _CMSGCLIENTPACKAGEINFORESPONSE
 DESCRIPTOR.message_types_by_name['CMsgClientPICSChangesSinceRequest'] = _CMSGCLIENTPICSCHANGESSINCEREQUEST
 DESCRIPTOR.message_types_by_name['CMsgClientPICSChangesSinceResponse'] = _CMSGCLIENTPICSCHANGESSINCERESPONSE
 DESCRIPTOR.message_types_by_name['CMsgClientPICSProductInfoRequest'] = _CMSGCLIENTPICSPRODUCTINFOREQUEST
@@ -1282,51 +1014,6 @@ CMsgClientAppInfoRequest = _reflection.GeneratedProtocolMessageType('CMsgClientA
   })
 _sym_db.RegisterMessage(CMsgClientAppInfoRequest)
 _sym_db.RegisterMessage(CMsgClientAppInfoRequest.App)
-
-CMsgClientAppInfoResponse = _reflection.GeneratedProtocolMessageType('CMsgClientAppInfoResponse', (_message.Message,), {
-
-  'App' : _reflection.GeneratedProtocolMessageType('App', (_message.Message,), {
-
-    'Section' : _reflection.GeneratedProtocolMessageType('Section', (_message.Message,), {
-      'DESCRIPTOR' : _CMSGCLIENTAPPINFORESPONSE_APP_SECTION,
-      '__module__' : 'steammessages_clientserver_appinfo_pb2'
-      # @@protoc_insertion_point(class_scope:CMsgClientAppInfoResponse.App.Section)
-      })
-    ,
-    'DESCRIPTOR' : _CMSGCLIENTAPPINFORESPONSE_APP,
-    '__module__' : 'steammessages_clientserver_appinfo_pb2'
-    # @@protoc_insertion_point(class_scope:CMsgClientAppInfoResponse.App)
-    })
-  ,
-  'DESCRIPTOR' : _CMSGCLIENTAPPINFORESPONSE,
-  '__module__' : 'steammessages_clientserver_appinfo_pb2'
-  # @@protoc_insertion_point(class_scope:CMsgClientAppInfoResponse)
-  })
-_sym_db.RegisterMessage(CMsgClientAppInfoResponse)
-_sym_db.RegisterMessage(CMsgClientAppInfoResponse.App)
-_sym_db.RegisterMessage(CMsgClientAppInfoResponse.App.Section)
-
-CMsgClientPackageInfoRequest = _reflection.GeneratedProtocolMessageType('CMsgClientPackageInfoRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CMSGCLIENTPACKAGEINFOREQUEST,
-  '__module__' : 'steammessages_clientserver_appinfo_pb2'
-  # @@protoc_insertion_point(class_scope:CMsgClientPackageInfoRequest)
-  })
-_sym_db.RegisterMessage(CMsgClientPackageInfoRequest)
-
-CMsgClientPackageInfoResponse = _reflection.GeneratedProtocolMessageType('CMsgClientPackageInfoResponse', (_message.Message,), {
-
-  'Package' : _reflection.GeneratedProtocolMessageType('Package', (_message.Message,), {
-    'DESCRIPTOR' : _CMSGCLIENTPACKAGEINFORESPONSE_PACKAGE,
-    '__module__' : 'steammessages_clientserver_appinfo_pb2'
-    # @@protoc_insertion_point(class_scope:CMsgClientPackageInfoResponse.Package)
-    })
-  ,
-  'DESCRIPTOR' : _CMSGCLIENTPACKAGEINFORESPONSE,
-  '__module__' : 'steammessages_clientserver_appinfo_pb2'
-  # @@protoc_insertion_point(class_scope:CMsgClientPackageInfoResponse)
-  })
-_sym_db.RegisterMessage(CMsgClientPackageInfoResponse)
-_sym_db.RegisterMessage(CMsgClientPackageInfoResponse.Package)
 
 CMsgClientPICSChangesSinceRequest = _reflection.GeneratedProtocolMessageType('CMsgClientPICSChangesSinceRequest', (_message.Message,), {
   'DESCRIPTOR' : _CMSGCLIENTPICSCHANGESSINCEREQUEST,
@@ -1436,6 +1123,5 @@ _sym_db.RegisterMessage(CMsgClientPICSAccessTokenResponse.AppToken)
 
 
 DESCRIPTOR._options = None
-_CMSGCLIENTAPPINFORESPONSE._options = None
 _CMSGCLIENTPICSPRODUCTINFORESPONSE._options = None
 # @@protoc_insertion_point(module_scope)

@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{6ca78a9c-6df1-4c47-b700-4f413ff2ce59}</ProjectGuid>
     <ProjectHome />
-    <StartupFile>nethook_helpers.py</StartupFile>
+    <StartupFile>src\plugin.py</StartupFile>
     <SearchPath />
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>

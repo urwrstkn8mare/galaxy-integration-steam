@@ -4,6 +4,8 @@ import ssl
 from contextlib import suppress
 from typing import Callable, List, Any, Dict, Union
 from urllib import parse
+from pprint import pformat
+
 
 from galaxy.api.errors import (
     AuthenticationRequired,
@@ -189,6 +191,7 @@ class SteamNetworkBackend(BackendInterface):
             result = await asyncio.wait_for(
                 self._websocket_client.communication_queues["plugin"].get(), 60
             )
+            logger.info("plugin received: " + pformat(result))
             return result["auth_result"]
         except asyncio.TimeoutError:
             raise BackendTimeout()
@@ -248,7 +251,7 @@ class SteamNetworkBackend(BackendInterface):
         #result here should be password, or unathorized. 
 
     async def _handle_steam_guard_none(self) -> Union[NextStep, Authentication]:
-        result = self._handle_2FA_PollOnce()
+        result = await self._handle_2FA_PollOnce()
         if (result != UserActionRequired.NoActionRequired):
             raise UnknownBackendResponse()
         else:

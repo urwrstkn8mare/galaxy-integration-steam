@@ -21,12 +21,12 @@ from .user_info_cache import UserInfoCache
 from .times_cache import TimesCache
 from .ownership_ticket_cache import OwnershipTicketCache
 
-from .enums import to_UserAction, UserActionRequired, to_UserActionWithMessage
+from .enums import UserActionRequired, to_UserActionWithMessage
 from .utils import get_os, translate_error
 
 from rsa import PublicKey
 
-from .protocol.messages.steammessages_auth_pb2 import CAuthentication_BeginAuthSessionViaCredentials_Response, CAuthentication_AllowedConfirmation, EAuthSessionGuardType
+from .protocol.messages.steammessages_auth_pb2 import CAuthentication_BeginAuthSessionViaCredentials_Response, CAuthentication_AllowedConfirmation, CAuthentication_PollAuthSessionStatus_Response
 from pprint import pformat
 
 
@@ -55,6 +55,8 @@ class ProtocolClient:
         self._protobuf_client = ProtobufClient(socket)
         self._protobuf_client.rsa_handler = self._rsa_handler
         self._protobuf_client.login_handler = self._login_handler
+        self._protobuf_client.two_factor_update_handler = self._two_factor_update_handler
+        self._protobuf_client.poll_handler = self._poll_handler
         self._protobuf_client.log_off_handler = self._log_off_handler
         self._protobuf_client.relationship_handler = self._relationship_handler
         self._protobuf_client.user_info_handler = self._user_info_handler
@@ -78,6 +80,8 @@ class ProtocolClient:
         self._auth_lost_handler = None
         self._rsa_future: Optional[Future] = None
         self._login_future: Optional[Future] = None
+        self._two_factor_future: Optional[Future] = None
+        self._poll_future: Optional[Future] = None
         self._used_server_cell_id = used_server_cell_id
         self._local_machine_cache = local_machine_cache
         if not self._local_machine_cache.machine_id:
@@ -111,6 +115,7 @@ class ProtocolClient:
         self._rsa_future = loop.create_future()
         await self._protobuf_client.get_rsa_public_key(username)
         (result, key) = await self._rsa_future
+        self._rsa_future = None
         logger.info ("GOT RSA KEY IN PROTOCOL_CLIENT")
         if (result == EResult.OK):
             self._auth_lost_handler = auth_lost_handler
@@ -143,7 +148,7 @@ class ProtocolClient:
 
         await self._protobuf_client.log_on_password(account_name, enciphered_password, timestamp, os_value)
         (result, data) = await self._login_future
-        logger.info(result)
+        self._login_future = None
         if result == EResult.OK:
             self._auth_lost_handler = auth_lost_handler
         elif result == EResult.AccountLogonDenied:
@@ -161,33 +166,11 @@ class ProtocolClient:
                         ):
             self._auth_lost_handler = auth_lost_handler
             return UserActionRequired.InvalidAuthData
-        else:
+        else: #ServiceUnavailable, RateLimitExceeded
             logger.warning(f"Received unknown error, code: {result}")
             raise translate_error(result)
 
         return data
-
-    async def update_two_factor(self, code: str, method: str, auth_lost_handler:Callable):
-        pass
-
-    async def check_auth_status(self, auth_lost_handler:Callable):
-        pass
-
-    async def import_game_stats(self, game_ids):
-        for game_id in game_ids:
-            self._protobuf_client.job_list.append({"job_name": "import_game_stats",
-                                                   "game_id": game_id})
-
-    async def import_game_times(self):
-        self._protobuf_client.job_list.append({"job_name": "import_game_times"})
-
-    async def retrieve_collections(self):
-        self._protobuf_client.job_list.append({"job_name": "import_collections"})
-        await self._protobuf_client.collections['event'].wait()
-        collections = self._protobuf_client.collections['collections'].copy()
-        self._protobuf_client.collections['event'].clear()
-        self._protobuf_client.collections['collections'] = dict()
-        return collections
 
     async def _login_handler(self, result: EResult, message : CAuthentication_BeginAuthSessionViaCredentials_Response):
         data : Optional[SteamPollingData] = None
@@ -238,6 +221,61 @@ class ProtocolClient:
             #if i had to guess, some other random machine is trying to use the connection without going through a handshake. 
             #Steam detects it's not right, but for whatever reason we also get the response. -BaumherA
             raise translate_error(result)
+
+    async def update_two_factor(self, code: str, method: str, auth_lost_handler:Callable):
+        loop = asyncio.get_running_loop()
+        self._two_factor_future = loop.create_future()
+        await self._protobuf_client.update_steamguard_data(code, method)
+        (result, key) = await self._two_factor_future
+        logger.info ("GOT RSA KEY IN PROTOCOL_CLIENT")
+        ret_code = UserActionRequired.InvalidAuthData
+        if (result == EResult.OK or result == EResult.DuplicateRequest):
+            ret_code = UserActionRequired.NoActionRequired
+            self._auth_lost_handler = auth_lost_handler
+        elif ()
+
+
+    async def _two_factor_update_handler(self, result: EResult):
+        if self._rsa_future is not None:
+            self._rsa_future.set_result(result)
+        else:
+            logger.warning("NO FUTURE SET")
+            
+
+
+    async def check_auth_status(self, auth_lost_handler:Callable):
+        loop = asyncio.get_running_loop()
+        self._poll_future = loop.create_future()
+
+        await self._protobuf_client.poll_auth_status()
+        (result, data) = await self._poll_future
+        self._poll_future = None #we may have to redo the poll so reset this value to null. 
+        if result == EResult.OK:
+            self._auth_lost_handler = auth_lost_handler
+
+    async def _poll_handler(self, result: EResult, message : CAuthentication_PollAuthSessionStatus_Response):
+        pass
+
+    def _clear_poll_data(self):
+        pass
+
+    async def import_game_stats(self, game_ids):
+        for game_id in game_ids:
+            self._protobuf_client.job_list.append({"job_name": "import_game_stats",
+                                                   "game_id": game_id})
+
+    async def import_game_times(self):
+        self._protobuf_client.job_list.append({"job_name": "import_game_times"})
+
+    async def retrieve_collections(self):
+        self._protobuf_client.job_list.append({"job_name": "import_collections"})
+        await self._protobuf_client.collections['event'].wait()
+        collections = self._protobuf_client.collections['collections'].copy()
+        self._protobuf_client.collections['event'].clear()
+        self._protobuf_client.collections['collections'] = dict()
+        return collections
+
+
 
     async def _log_off_handler(self, result):
         logger.warning("Logged off, result: %d", result)

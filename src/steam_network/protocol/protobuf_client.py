@@ -218,6 +218,18 @@ class ProtobufClient:
         else:
             logger.warning("NO LOGIN HANDLER SET!")
 
+    async def update_steamguard_data(self, *args):
+        pass
+
+    async def _process_steamguard_update(self, result, body):
+        pass
+
+    async def poll_auth_status(self):
+        pass
+
+    async def _process_auth_poll_status(self, result, body):
+        pass
+
     async def _import_game_stats(self, game_id):
         logger.info(f"Importing game stats for {game_id}")
         message = steammessages_clientserver_userstats_pb2.CMsgClientGetUserStats()

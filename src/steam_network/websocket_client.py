@@ -268,7 +268,7 @@ class WebSocketClient:
                             logger.info("LOGIN FAILED :( But hey, at least you're here!")
                     else:
                         ret_code = UserActionRequired.InvalidAuthData
-                elif (mode == AuthCall.UPDATE_TWO_FACTOR_CODE):
+                elif (mode == AuthCall.UPDATE_TWO_FACTOR):
                     method : Optional[bool] = response.get('two-factor-method-is-email', None)
                     code : Optional[str] = response.get('two-factor-code', None)
                     if (method is None or not code):
@@ -278,7 +278,7 @@ class WebSocketClient:
                         ret_code = await self._protocol_client.update_two_factor(code, self._user_info_cache.two_step, auth_lost_handler)
                 elif (mode == AuthCall.POLL_TWO_FACTOR):
                     logger.info("Polling to see if the user has completed any steam-guard related stuff")
-                    ret_code = await self._protocol_client.check_auth_status(code, self._user_info_cache.two_step, auth_lost_handler)
+                    ret_code = await self._protocol_client.check_auth_status(auth_lost_handler)
                 elif (mode == AuthCall.DONE):
                     ret_code = UserActionRequired.NoActionRequired
                     break

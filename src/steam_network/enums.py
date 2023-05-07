@@ -89,7 +89,8 @@ class UserActionRequired(enum.IntEnum):
     PhoneTwoFactorInputRequired = 2
     PhoneTwoFactorConfirmRequired = 3
     PasswordRequired = 4
-    InvalidAuthData = 5
+    TwoFactorExpired = 5
+    InvalidAuthData = 6
 
 
 #def to_UserAction(auth_enum : Union[EAuthSessionGuardType, CAuthentication_AllowedConfirmation]) -> UserActionRequired:

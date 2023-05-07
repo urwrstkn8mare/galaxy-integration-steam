@@ -1,7 +1,7 @@
 from .enums import UserActionRequired
 
 class SteamPollingData:
-    #def __init__(self, cid: int, sid: int, rid:bytes, intv:float, confMeth:UserActionRequired, confMsg: str""", eem: str"""):
+    #def __init__(self, cid: int, sid: int, rid:bytes, intv:float, confMeth:UserActionRequired, confMsg: str, eem: str):
     def __init__(self, cid: int, sid: int, rid:bytes, intv:float, confMeth:UserActionRequired, confMsg: str):
         self._client_id : int = cid     #the id assigned to us.
         self._steam_id : int = sid       #the id of the user that signed in

@@ -20,7 +20,7 @@ from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaSt
 from .messages import steammessages_base_pb2, steammessages_clientserver_login_pb2, steammessages_auth_pb2, \
     steammessages_player_pb2, steammessages_clientserver_friends_pb2, steammessages_clientserver_pb2, \
     steammessages_chat_pb2, steammessages_clientserver_2_pb2, steammessages_clientserver_userstats_pb2, \
-    steammessages_clientserver_appinfo_pb2, steammessages_webui_friends_pb2, service_cloudconfigstore_pb2, \
+    steammessages_clientserver_appinfo_pb2, resolved_service_messages_pb2, \
     enums_pb2
 
 from .steam_types import SteamId, ProtoUserInfo
@@ -207,7 +207,6 @@ class ProtobufClient:
         #    Note: Possible values:
         #       k_EAuthSessionGuardType_Unknown, k_EAuthSessionGuardType_None, k_EAuthSessionGuardType_EmailCode = 2, k_EAuthSessionGuardType_DeviceCode = 3,
         #       k_EAuthSessionGuardType_DeviceConfirmation = 4, k_EAuthSessionGuardType_EmailConfirmation = 5, k_EAuthSessionGuardType_MachineToken = 6,
-        #       k_EAuthSessionGuardType_LegacyMachineAuth = 7,
         #   For the sake of copypasta, we're only supporting EmailCode, DeviceCode, and None. Unknown is expected, somewhat, but it's an error. 
         weak_token : string #ignored
         agreement_session_url: string #ignored?
@@ -261,8 +260,8 @@ class ProtobufClient:
 
     async def _import_collections(self):
         job_id = next(self._job_id_iterator)
-        message = service_cloudconfigstore_pb2.CCloudConfigStore_Download_Request()
-        message_inside = service_cloudconfigstore_pb2.CCloudConfigStore_NamespaceVersion()
+        message = resolved_service_messages_pb2.CCloudConfigStore_Download_Request()
+        message_inside = resolved_service_messages_pb2.CCloudConfigStore_NamespaceVersion()
         message_inside.enamespace = 1
         message.versions.append(message_inside)
         await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None, CLOUD_CONFIG_DOWNLOAD)
@@ -290,7 +289,7 @@ class ProtobufClient:
 
     async def get_presence_localization(self, appid, language='english'):
         logger.info(f"Sending call for rich presence localization with {appid}, {language}")
-        message = steammessages_webui_friends_pb2.CCommunity_GetAppRichPresenceLocalization_Request()
+        message = resolved_service_messages_pb2.CCommunity_GetAppRichPresenceLocalization_Request()
 
         message.appid = appid
         message.language = language
@@ -645,7 +644,7 @@ class ProtobufClient:
             await self.get_apps_info(apps_to_parse)
 
     async def _process_rich_presence_translations(self, body):
-        message = steammessages_webui_friends_pb2.CCommunity_GetAppRichPresenceLocalization_Response()
+        message = resolved_service_messages_pb2.CCommunity_GetAppRichPresenceLocalization_Response()
         message.ParseFromString(body)
 
         # keeping info log for further rich presence improvements
@@ -673,7 +672,7 @@ class ProtobufClient:
         await self.times_import_finished_handler(True)
 
     async def _process_collections_response(self, body):
-        message = service_cloudconfigstore_pb2.CCloudConfigStore_Download_Response()
+        message = resolved_service_messages_pb2.CCloudConfigStore_Download_Response()
         message.ParseFromString(body)
 
         for data in message.data:

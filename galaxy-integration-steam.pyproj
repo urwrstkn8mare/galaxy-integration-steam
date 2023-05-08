@@ -25,26 +25,14 @@
     <Content Include="galaxy-integration-steam.pyproj" />
     <Content Include="LICENSE" />
     <Content Include="protobuf_files\conflicts.txt" />
+    <Content Include="protobuf_files\merged\resolved_service_messages.proto" />
+    <Content Include="protobuf_files\protobuf_conflict_list.txt" />
     <Content Include="protobuf_files\protobuf_list.txt" />
-    <Content Include="protobuf_files\protos\encrypted_app_ticket.proto" />
-    <Content Include="protobuf_files\protos\enums.proto" />
-    <Content Include="protobuf_files\protos\service_cloudconfigstore.proto" />
-    <Content Include="protobuf_files\protos\service_community.proto" />
-    <Content Include="protobuf_files\protos\steammessages_auth.proto" />
-    <Content Include="protobuf_files\protos\steammessages_base.proto" />
-    <Content Include="protobuf_files\protos\steammessages_chat.proto" />
-    <Content Include="protobuf_files\protos\steammessages_clientserver.proto" />
-    <Content Include="protobuf_files\protos\steammessages_clientserver_2.proto" />
-    <Content Include="protobuf_files\protos\steammessages_clientserver_appinfo.proto" />
-    <Content Include="protobuf_files\protos\steammessages_clientserver_friends.proto" />
-    <Content Include="protobuf_files\protos\steammessages_clientserver_login.proto" />
-    <Content Include="protobuf_files\protos\steammessages_clientserver_userstats.proto" />
-    <Content Include="protobuf_files\protos\steammessages_client_objects.proto" />
-    <Content Include="protobuf_files\protos\steammessages_player.proto" />
-    <Content Include="protobuf_files\protos\steammessages_unified_base.proto" />
     <Content Include="pytest.ini" />
     <Content Include="README.md" />
     <Content Include="protobuf_files\README_UPDATE_PROTOBUF_FILES.md" />
+    <Content Include="requirements\app.txt" />
+    <Content Include="requirements\dev.txt" />
     <Content Include="src\commonWeb\css\common.css" />
     <Content Include="src\commonWeb\fonts\LatoWeb\LatoWeb-Light.ttf" />
     <Content Include="src\commonWeb\fonts\LatoWeb\LatoWeb-Regular.ttf" />
@@ -166,8 +154,10 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="protobuf_files\" />
-    <Folder Include="protobuf_files\legacy\" />
+    <Folder Include="protobuf_files\merged\" />
+    <Folder Include="protobuf_files\conflicts\" />
     <Folder Include="protobuf_files\protos\" />
+    <Folder Include="requirements\" />
     <Folder Include="src" />
     <Folder Include="src\commonWeb\" />
     <Folder Include="src\commonWeb\css" />

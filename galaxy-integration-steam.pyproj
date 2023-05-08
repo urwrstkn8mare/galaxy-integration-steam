@@ -24,10 +24,15 @@
     <Content Include="current_version.json" />
     <Content Include="galaxy-integration-steam.pyproj" />
     <Content Include="LICENSE" />
+    <Content Include="protobuf_files\conflicts.txt" />
+    <Content Include="protobuf_files\merged\resolved_service_messages.proto" />
+    <Content Include="protobuf_files\protobuf_conflict_list.txt" />
     <Content Include="protobuf_files\protobuf_list.txt" />
     <Content Include="pytest.ini" />
     <Content Include="README.md" />
     <Content Include="protobuf_files\README_UPDATE_PROTOBUF_FILES.md" />
+    <Content Include="requirements\app.txt" />
+    <Content Include="requirements\dev.txt" />
     <Content Include="src\commonWeb\css\common.css" />
     <Content Include="src\commonWeb\fonts\LatoWeb\LatoWeb-Light.ttf" />
     <Content Include="src\commonWeb\fonts\LatoWeb\LatoWeb-Regular.ttf" />
@@ -73,6 +78,7 @@
     <Compile Include="src\steam_network\ownership_ticket_cache.py" />
     <Compile Include="src\steam_network\presence.py" />
     <Compile Include="src\steam_network\protocol\consts.py" />
+    <Compile Include="src\steam_network\protocol\messages\__init__.py" />
     <Compile Include="src\steam_network\protocol\protobuf_client.py" />
     <Compile Include="src\steam_network\protocol\steam_types.py" />
     <Compile Include="src\steam_network\protocol\__init__.py" />
@@ -132,6 +138,10 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="protobuf_files\" />
+    <Folder Include="protobuf_files\merged\" />
+    <Folder Include="protobuf_files\conflicts\" />
+    <Folder Include="protobuf_files\protos\" />
+    <Folder Include="requirements\" />
     <Folder Include="src" />
     <Folder Include="src\commonWeb\" />
     <Folder Include="src\commonWeb\css" />
@@ -146,6 +156,7 @@
     <Folder Include="src\steam_network\custom_login" />
     <Folder Include="src\steam_network\custom_login\css" />
     <Folder Include="src\steam_network\protocol" />
+    <Folder Include="src\steam_network\protocol\messages\" />
     <Folder Include="tests" />
     <Folder Include="tests\tests_public_profiles" />
     <Folder Include="tests\tests_steam_network" />

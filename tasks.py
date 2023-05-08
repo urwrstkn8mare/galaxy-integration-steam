@@ -88,7 +88,10 @@ def PullProtobufFiles(c, silent=False):
             line = line.replace("\n", "")
             if (not silent):
                 print("Retrieving: " + line)
+            #i should really fix this to strip everything up to the last '/' but this works for now and i'm lazy. 
             file_name = line.replace(r"https://raw.githubusercontent.com/SteamDatabase/SteamTracking/master/Protobufs/", "")
+            file_name = file_name.replace(r"https://raw.githubusercontent.com/SteamDatabase/Protobufs/master/webui/", "")
+
             response = urlopen(line)
             data = _read_url(response)
 

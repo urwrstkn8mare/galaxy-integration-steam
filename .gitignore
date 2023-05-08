@@ -16,9 +16,4 @@ output/
 /env
 *.user
 /env1
-/protobuf_files/orig/.gitattributes
-/protobuf_files/orig/.gitignore
-/protobuf_files/orig/LICENSE
-/protobuf_files/orig/README.md
-/src/steam_network/protocol/messages/steammessages_chat/steamclient_pb2.py
-/src/steam_network/protocol/messages/steammessages_player/steamclient_pb2.py
+/protobuf_files/gen

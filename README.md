@@ -39,42 +39,24 @@ GOG Galaxy 2.0 Community integration for Steam.
 
 If the latest version available on Github is newer than the version specified in the `manifest.json` file in the custom build, Galaxy will download the newer version and replace the files. To prevent this from happening, you can manually set the version in `manifest.json` to a significantly higher value (e.g. `9.9`).
 
-## Configuration of the backend operation mode
+## Why this fork?
 
-The plugin supports different data collectors, called `backends`.
-
-Currently supported `backends` are:
-1. `Steam Network`
-    - uses internal Steam protocols 
-    - supports library, game times, achievements, importing tags, friends presence
-2. `Public Profiles`
-    - works without providing user credentials
-    - requires steamcommunity.com user's profile to be set as public with access at least for games library
-    - supports library, game times, achievements, importing tags
-
-NOTE: Data imported by different `backends` may differ due to both Steam side inconsistencies and limitations of specific `backend` implementation.
-
-NOTE: interaction with local games and local Steam client is the same for all `backends`.
-
-The behavior is configurable using a `config file`.
-
-### Config file location
-
-- Windows:
-`%localappdata%\GOG.com\Galaxy\plugins\installed\steam_plugin_config.ini`
-
-- MacOS:
-`~/Library/Application Support/GOG.com/Galaxy/plugins/installed/steam_plugin_config.ini`
-
-### Default behavior
-
-Initial `backend` (with the login window) is set to use `Steam Network` and switches to `Public Profiles` automatically when stored token become invalid (for the main reason see #74).
+Well, without being too complicated, Steam changed how they do authentication. We used to be able to use one call and magically get a lot of info we needed. But, if we're being honest, it was a little insecure, and it easy. While we were using it for legitimate purposes, not everyone else was, and one of Valve's greatest deterrence to botting or DOS attacks (etc) is making things difficult. The new workflow uses a significant back-and-forth between a Steam Server and ourselves, closely resembling a common web form of authentication called OAuth2. This meant a lot of under-the-hood changes. 
 
 ## Credits
 
+### Current Version:
 This is a fork of https://github.com/FriendsOfGalaxy/galaxy-integration-steam
 
-Based on work and research done by others:
+The new Authorization flow implementation is heavily influenced by SteamKit. https://github.com/SteamRE/SteamKit<br/>
+While we have not utilized their source code, they have implemented the new authentication workflow before we did, and we used their knowledge of how to do so in order to implement it ourselves. If you are doing anything steam related in C#, you should check them out; their project has far more features than our own.
+
+Some work was influenced by ValvePython. https://github.com/ValvePython/steam<br/>
+Our projects do the same thing, but use different methods (we use asyncio, they use gevent, for example). Both projects were working on the new Auth Flow simultaneously, with little collaboration between us. That said, their scope is much larger than our own and lets you do a lot more things. If you are looking for a python means of implementing a steam network authentication, you should use their work instead.
+
+### Original Version:
+
+Original Plugin was based on work and research done by others:
 * https://github.com/prncc/steam-scraper
 * https://github.com/rhaarm/steam-scraper
 * https://github.com/mulhod/steam_reviews

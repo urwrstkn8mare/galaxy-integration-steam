@@ -23,11 +23,11 @@
     <Content Include=".gitignore" />
     <Content Include="current_version.json" />
     <Content Include="galaxy-integration-steam.pyproj" />
+    <Content Include="LICENSE" />
+    <Content Include="protobuf_files\protobuf_list.txt" />
     <Content Include="pytest.ini" />
     <Content Include="README.md" />
-    <Content Include="README_UPDATE_PROTOBUF_FILES.md" />
-    <Content Include="requirements\app.txt" />
-    <Content Include="requirements\dev.txt" />
+    <Content Include="protobuf_files\README_UPDATE_PROTOBUF_FILES.md" />
     <Content Include="src\commonWeb\css\common.css" />
     <Content Include="src\commonWeb\fonts\LatoWeb\LatoWeb-Light.ttf" />
     <Content Include="src\commonWeb\fonts\LatoWeb\LatoWeb-Regular.ttf" />
@@ -109,6 +109,7 @@
     <Compile Include="src\uri_scheme_handler.py" />
     <Compile Include="src\user_profile.py" />
     <Compile Include="src\version.py" />
+    <Compile Include="tasks.py" />
     <Compile Include="tests\async_mock.py" />
     <Compile Include="tests\conftest.py" />
     <Compile Include="tests\tests_public_profiles\conftest.py" />
@@ -147,7 +148,7 @@
     <Compile Include="tests\test_user_profile_checker.py" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="requirements" />
+    <Folder Include="protobuf_files\" />
     <Folder Include="src" />
     <Folder Include="src\commonWeb\" />
     <Folder Include="src\commonWeb\css" />

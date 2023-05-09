@@ -25,8 +25,8 @@ The process here is a bit more involved
 2. Make sure that your virtual environment has the `protobuf` library installed. If not then install it with the
 version in the `requirements/app.txt` file.
 3. Make sure your virtual environment has `invoke` installed. if not, install the version in `requirements/app.txt`
-4. Make sure you have `protoc` installed. It should come with `protobuf`, but may not. 
-
+4. Make sure you the right `protoc` installed. Protobuf version 3.20 and up introduced a breaking change to how the proto files are compiled. We should support it, but imo it's easier to read the statically-defined files. You can find the correct protoc files here: https://github.com/protocolbuffers/protobuf/releases/tag/v3.18.1
+5. Make sure protoc is accessible from your build directory. If using windows, make sure the folder containing `protoc.exe` is in your environmental path. If on *nix, make sure it's in either `/home/` or otherwise accessible to you. 
 6. If you retrieve the conflicting files, make sure to obtain any necessary classes or messages and place them into the `protobuf_files/merged` folder. These should be put in the `steammessages_merged.proto` file (overwrite any out of date functions) unless they are drastic or it provides more clarity. Make sure not to have the same definitions in multiple files.
 7. Run `inv GenerateProtobufMessages` will convert all `.proto` files found in the `protobuf_files/protos` and `protobuf_files/merged` directories into their `.py` form. These are placed in the `protobuf_files/gen` folder by default so you can compare against the compile files in `steam_network/protocol/messages` but you can force them there directly by setting `genFile=False`
 8. If you did not overwrite the messages directory, you can compare the files to see if anything changed. `Diff` or `git diff` can be useful here. If you did, skip to step 10.

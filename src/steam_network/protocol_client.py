@@ -58,7 +58,7 @@ class ProtocolClient:
         self._protobuf_client.rsa_handler = self._rsa_handler
         self._protobuf_client.login_handler = self._login_handler
         self._protobuf_client.two_factor_update_handler = self._two_factor_update_handler
-        self._protobuf_client.poll_handler = self._poll_handler
+        self._protobuf_client.poll_status_handler = self._poll_handler
         self._protobuf_client.log_off_handler = self._log_off_handler
         self._protobuf_client.relationship_handler = self._relationship_handler
         self._protobuf_client.user_info_handler = self._user_info_handler

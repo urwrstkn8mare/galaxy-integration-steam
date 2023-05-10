@@ -12,6 +12,8 @@ import logging
 from .protocol.messages.steammessages_auth_pb2 import CAuthentication_AllowedConfirmation, EAuthSessionGuardType 
 from pprint import pformat
 
+from google.protobuf.internal.enum_type_wrapper import EnumTypeWrapper
+
 #a constant. this is the path to the current directory, as a uri. this typically means adding file:/// to the beginning
 DIRNAME = yarl.URL(pathlib.Path(os.path.dirname(os.path.realpath(__file__))).as_uri())
 #another constant. the path to "index.html" relative to the current directory.
@@ -26,7 +28,6 @@ class AuthCall:
     LOGIN =             'login'
     UPDATE_TWO_FACTOR = 'two-factor-update'
     POLL_TWO_FACTOR =   'poll-two-factor'
-    DONE =              'done'
 
 class DisplayUriHelper(enum.Enum):
     GET_USER = 0
@@ -85,46 +86,73 @@ class DisplayUriHelper(enum.Enum):
 
 class UserActionRequired(enum.IntEnum):
     NoActionRequired = 0
-    EmailTwoFactorInputRequired = 1
-    PhoneTwoFactorInputRequired = 2
-    PhoneTwoFactorConfirmRequired = 3
-    PasswordRequired = 4
-    TwoFactorExpired = 5
-    InvalidAuthData = 6
+    NoActionConfirmLogin = 1 #No action required, but we still need to confirm login. New auth workflow requires we poll to get the login info. 
+    TwoFactorRequired = 2 #any form of 2FA required. when set, check the related TwoFactorMethod enum for the thing we need to do. 
+    PasswordRequired = 3
+    TwoFactorExpired = 4
+    InvalidAuthData = 5
 
+#We're going to store this in the User Info Cache so we don't need to pass it everywhere. 
+#WARNING! BE VERY CAREFUL WITH THIS: IT APPEARS IN THE USER INFO CACHE! IF IT IS EVER SAVED (toDict method), THIS ENUM BECOMES SOFT IMMUTABLE 
+#(You can add members but cannot delete, and must parse all options for backwards-compatibility). So, don't, lol.
+class TwoFactorMethod(enum.IntEnum):
+    Nothing = 0
+    PhoneCode = 1
+    EmailCode = 2
+    PhoneConfirm = 3
+    Unknown = 4 
+    #EmailConfirm = 5 #Does not exist? Likely something Steam thought about implementing and decided not to. if that changes, we can support it. 
+    
 
-#def to_UserAction(auth_enum : Union[EAuthSessionGuardType, CAuthentication_AllowedConfirmation]) -> UserActionRequired:
-def to_UserAction(auth_enum) -> UserActionRequired:
+def to_TwoFactorMethod(auth_enum : EnumTypeWrapper) -> TwoFactorMethod:
     if (isinstance(auth_enum, CAuthentication_AllowedConfirmation)):
         auth_enum = auth_enum.confirmation_type
-    ret_val, _ = _to_UserAction(auth_enum, None)
+    ret_val, _ = _to_TwoFactorMethod(auth_enum, None)
     return ret_val
     
-#def _to_UserAction(auth_enum : EAuthSessionGuardType, msg: Optional[str]) -> Tuple[UserActionRequired, str]:
-def _to_UserAction(auth_enum, msg: Optional[str]) -> Tuple[UserActionRequired, str]:
+def _to_TwoFactorMethod(auth_enum : EnumTypeWrapper, msg: Optional[str]) -> Tuple[TwoFactorMethod, str]:
     if (auth_enum == EAuthSessionGuardType.k_EAuthSessionGuardType_None):
-        return (UserActionRequired.NoActionRequired, msg)
+        return (TwoFactorMethod.Nothing, msg)
     elif (auth_enum == EAuthSessionGuardType.k_EAuthSessionGuardType_EmailCode):
-        return (UserActionRequired.EmailTwoFactorInputRequired, msg)
+        return (TwoFactorMethod.EmailCode, msg)
     elif (auth_enum == EAuthSessionGuardType.k_EAuthSessionGuardType_DeviceCode):
-        return (UserActionRequired.PhoneTwoFactorInputRequired, msg)
+        return (TwoFactorMethod.PhoneCode, msg)
     elif (auth_enum == EAuthSessionGuardType.k_EAuthSessionGuardType_DeviceConfirmation):
-        return (UserActionRequired.PhoneTwoFactorConfirmRequired, msg)
+        return (TwoFactorMethod.PhoneConfirm, msg)
     else: #if (k_EAuthSessionGuardType_Unknown, k_EAuthSessionGuardType_LegacyMachineAuth, k_EAuthSessionGuardType_MachineToken, k_EAuthSessionGuardType_EmailConfirmation, or an invalid number
-        return (UserActionRequired.InvalidAuthData, msg)
+        return (TwoFactorMethod.Unknown, msg)
 
-def to_UserActionWithMessage(allowed_confirmation : CAuthentication_AllowedConfirmation) -> Tuple[UserActionRequired, str]:
-    return _to_UserAction(allowed_confirmation.confirmation_type, allowed_confirmation.associated_message)
+def to_TwoFactorWithMessage(allowed_confirmation : CAuthentication_AllowedConfirmation) -> Tuple[TwoFactorMethod, str]:
+    return _to_TwoFactorMethod(allowed_confirmation.confirmation_type, allowed_confirmation.associated_message)
 
-def to_CAuthentication_AllowedConfirmation(actionRequired : UserActionRequired) -> CAuthentication_AllowedConfirmation:
-    
-    if (actionRequired == UserActionRequired.NoActionRequired):
-        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_None
-    elif (actionRequired == UserActionRequired.EmailTwoFactorInputRequired):
-        return CAuthentication_AllowedConfirmation.auth_k_EAuthSessionGuardType_EmailCode
-    elif (actionRequired == UserActionRequired.PhoneTwoFactorInputRequired):
-        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceCode
-    elif (actionRequired == UserActionRequired.PhoneTwoFactorConfirmRequired):
-        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_DeviceConfirmation
-    else: #if UserActionRequired.InvalidAuthData or an invalid number
-        return CAuthentication_AllowedConfirmation.k_EAuthSessionGuardType_Unknown
+def to_EAuthSessionGuardType(actionRequired : TwoFactorMethod) -> EAuthSessionGuardType:
+    if (actionRequired == TwoFactorMethod.Nothing):
+        return EAuthSessionGuardType.k_EAuthSessionGuardType_None
+    elif (actionRequired == TwoFactorMethod.EmailCode):
+        return EAuthSessionGuardType.k_EAuthSessionGuardType_EmailCode
+    elif (actionRequired == TwoFactorMethod.PhoneCode):
+        return EAuthSessionGuardType.k_EAuthSessionGuardType_DeviceCode
+    elif (actionRequired == TwoFactorMethod.PhoneConfirm):
+        return EAuthSessionGuardType.k_EAuthSessionGuardType_DeviceConfirmation
+    else: #if TwoFactorMethod.InvalidAuthData or an invalid number
+        return EAuthSessionGuardType.k_EAuthSessionGuardType_Unknown
+
+def to_helpful_string(method:TwoFactorMethod) -> str:
+    if (method == TwoFactorMethod.Nothing):
+        return "<no two factor method>"
+    elif (method == TwoFactorMethod.EmailCode):
+        return "email code"
+    elif (method == TwoFactorMethod.PhoneCode):
+        return "phone code"
+    elif (method == TwoFactorMethod.PhoneConfirm):
+        return "phone confirmation"
+    else: #if TwoFactorMethod.InvalidAuthData or an invalid number
+        return "<unknown>"
+
+def to_UserAction(method: TwoFactorMethod) -> UserActionRequired:
+    if (method == TwoFactorMethod.Nothing):
+        return UserActionRequired.NoActionConfirmLogin
+    elif (method != TwoFactorMethod.Unknown):
+        return UserActionRequired.TwoFactorRequired
+    else: #if TwoFactorMethod.InvalidAuthData or an invalid number
+        return UserActionRequired.InvalidAuthData

@@ -32,6 +32,7 @@ from backend_interface import BackendInterface
 from http_client import HttpClient
 from persistent_cache_state import PersistentCacheState
 from user_profile import UserProfileChecker, ProfileIsNotPublic, ProfileDoesNotExist, NotPublicGameDetailsOrUserHasNoGames
+from steam_network.authentication_cache import AuthenticationCache
 from steam_network.friends_cache import FriendsCache
 from steam_network.games_cache import GamesCache
 from steam_network.local_machine_cache import LocalMachineCache
@@ -42,7 +43,7 @@ from steam_network.stats_cache import StatsCache
 from steam_network.steam_http_client import SteamHttpClient
 from steam_network.times_cache import TimesCache
 from steam_network.user_info_cache import UserInfoCache
-from steam_network.websocket_client import WebSocketClient, UserActionRequired
+from steam_network.websocket_client import WebSocketClient
 from steam_network.websocket_list import WebSocketList
 from steam_network.w3_hack import (
     WITCHER_3_DLCS_APP_IDS,
@@ -93,6 +94,7 @@ class SteamNetworkBackend(BackendInterface):
         self._user_profile_checker = user_profile_checker
 
         self._store_credentials = store_credentials
+        self._authentication_cache = AuthenticationCache()
         self._user_info_cache = UserInfoCache()
 
         self._games_cache = GamesCache()
@@ -120,6 +122,7 @@ class SteamNetworkBackend(BackendInterface):
         self._websocket_client = WebSocketClient(
             WebSocketList(steam_http_client),
             ssl_context,
+            self._authentication_cache
             self._friends_cache,
             self._games_cache,
             self._translations_cache,
@@ -256,7 +259,6 @@ class SteamNetworkBackend(BackendInterface):
             raise UnknownBackendResponse()
         else:
             self._user_info_cache.persona_name = "baumherman" #TODO: FIX ME. THIS IS A DUMMY
-            await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.DONE})
             return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
 
     async def _handle_2FA_PollOnce(self) -> UserActionRequired:

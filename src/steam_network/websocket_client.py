@@ -10,6 +10,8 @@ from galaxy.api.errors import BackendNotAvailable, BackendTimeout, BackendError,
 
 from rsa import PublicKey, encrypt
 
+from steam_network.authentication_cache import AuthenticationCache
+
 from .websocket_list import WebSocketList
 from .friends_cache import FriendsCache
 from .games_cache import GamesCache
@@ -20,7 +22,7 @@ from .stats_cache import StatsCache
 from .times_cache import TimesCache
 from .user_info_cache import UserInfoCache
 
-from .enums import AuthCall, UserActionRequired
+from .enums import AuthCall, TwoFactorMethod, UserActionRequired, to_helpful_string, to_UserAction
 
 from .steam_public_key import SteamPublicKey
 from .steam_auth_polling_data import SteamPollingData
@@ -56,6 +58,7 @@ class WebSocketClient:
         translations_cache: dict,
         stats_cache: StatsCache,
         times_cache: TimesCache,
+        authentication_cache: AuthenticationCache,
         user_info_cache: UserInfoCache,
         local_machine_cache: LocalMachineCache,
         ownership_ticket_cache: OwnershipTicketCache
@@ -69,6 +72,7 @@ class WebSocketClient:
         self._games_cache = games_cache
         self._translations_cache = translations_cache
         self._stats_cache = stats_cache
+        self._authentication_cache = authentication_cache
         self._user_info_cache = user_info_cache
         self._local_machine_cache = local_machine_cache
         self._steam_app_ownership_ticket_cache = ownership_ticket_cache
@@ -240,12 +244,12 @@ class WebSocketClient:
             ret_code = await self._protocol_client.authenticate_token(self._user_info_cache.steam_id, self._user_info_cache.account_username, self._user_info_cache.access_token, auth_lost_handler)
         else:
             ret_code = None
-            while True:
+            while ret_code != UserActionRequired.NoActionRequired:
                 if ret_code != None:
                     await self.communication_queues['plugin'].put({'auth_result': ret_code})
                     logger.info(f"Put {ret_code} in the queue, waiting for other side to receive")
 
-
+                ret_code = None
                 response : Dict[str,Any] = await self.communication_queues['websocket'].get()
                 logger.info(f" Got {response.keys()} from queue")
                 #change the way the code is done here. Since the workflow changed, on call on the protocol client isn't going to work anymore. we need to do a bunch of shit. 
@@ -261,7 +265,14 @@ class WebSocketClient:
                     if (password):
                         enciphered = encrypt(password.encode('utf-8',errors="ignore"), self._steam_public_key.rsa_public_key)
                         self._steam_polling_data = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, enciphered, self._steam_public_key.timestamp, auth_lost_handler)
-                        ret_code = self._steam_polling_data.confirmation_method if self._steam_polling_data is not None else UserActionRequired.InvalidAuthData
+                        if (self._steam_polling_data):
+                            self._authentication_cache.two_factor_method = self._steam_polling_data.confirmation_method
+                            self._authentication_cache.error_message = self._steam_polling_data.extended_error_message
+                            self._authentication_cache.status_message = self._steam_polling_data.confirmation_message
+                            ret_code = to_UserAction(self._authentication_cache.two_factor_method)
+                        else:
+                            ret_code = UserActionRequired.InvalidAuthData
+
                         if (ret_code != UserActionRequired.InvalidAuthData):
                             logger.info("GOT THE LOGIN DONE! ON TO 2FA")
                         else:
@@ -269,19 +280,15 @@ class WebSocketClient:
                     else:
                         ret_code = UserActionRequired.InvalidAuthData
                 elif (mode == AuthCall.UPDATE_TWO_FACTOR):
-                    method : Optional[bool] = response.get('two-factor-method-is-email', None)
-                    code : Optional[str] = response.get('two-factor-code', None)
-                    if (method is None or not code):
+                    code : Optional[UserActionRequired] = response.get('two-factor-code', None)
+                    if (self._steam_polling_data is None or self._steam_polling_data.confirmation_method == TwoFactorMethod.Unknown or not code):
                         ret_code = UserActionRequired.InvalidAuthData
                     else:
-                        logger.info(f'Updating two-factor with provided ' + "email code." if method else "phone code.")
-                        ret_code = await self._protocol_client.update_two_factor(code, self._user_info_cache.two_step, auth_lost_handler)
+                        logger.info(f'Updating two-factor with provided ' + to_helpful_string(self._authentication_cache.two_factor_method))
+                        ret_code = await self._protocol_client.update_two_factor(code, self._authentication_cache.two_factor_method, auth_lost_handler)
                 elif (mode == AuthCall.POLL_TWO_FACTOR):
                     logger.info("Polling to see if the user has completed any steam-guard related stuff")
                     ret_code = await self._protocol_client.check_auth_status(auth_lost_handler)
-                elif (mode == AuthCall.DONE):
-                    ret_code = UserActionRequired.NoActionRequired
-                    break
                 else:
                     ret_code = UserActionRequired.InvalidAuthData
 

@@ -219,10 +219,10 @@ class ProtocolClient:
         else:
             logger.warning("NO LOGIN FUTURE SET")
 
-    async def update_two_factor(self, client_id: int, code: str, method: TwoFactorMethod, auth_lost_handler:Callable) -> UserActionRequired:
+    async def update_two_factor(self, client_id: int, steam_id:int, code: str, method: TwoFactorMethod, auth_lost_handler:Callable) -> UserActionRequired:
         loop = asyncio.get_running_loop()
         self._two_factor_future = loop.create_future()
-        await self._protobuf_client.update_steamguard_data(client_id, code, method)
+        await self._protobuf_client.update_steamguard_data(client_id, steam_id, code, method)
         result = await self._two_factor_future
         self._two_factor_future = None
         logger.info ("GOT TWO FACTOR UPDATE RESULT IN PROTOCOL CLIENT")

@@ -209,11 +209,11 @@ class ProtobufClient:
         else:
             logger.warning("NO LOGIN HANDLER SET!")
 
-    async def update_steamguard_data(self, client_id: int, code:str, code_type:steammessages_auth_pb2.EAuthSessionGuardType):
+    async def update_steamguard_data(self, client_id: int, steam_id:int, code:str, code_type:steammessages_auth_pb2.EAuthSessionGuardType):
         message = steammessages_auth_pb2.CAuthentication_UpdateAuthSessionWithSteamGuardCode_Request()
 
         message.client_id = client_id
-        message.steamid= self.steam_id
+        message.steamid= steam_id
         message.code = code
         message.code_type = code_type
 

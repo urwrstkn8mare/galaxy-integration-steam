@@ -285,7 +285,7 @@ class WebSocketClient:
                         ret_code = UserActionRequired.InvalidAuthData
                     else:
                         logger.info(f'Updating two-factor with provided ' + to_helpful_string(self._authentication_cache.two_factor_method))
-                        ret_code = await self._protocol_client.update_two_factor(self._steam_polling_data.client_id, code, self._authentication_cache.two_factor_method, auth_lost_handler)
+                        ret_code = await self._protocol_client.update_two_factor(self._steam_polling_data.client_id, self._steam_polling_data.steam_id, code, self._authentication_cache.two_factor_method, auth_lost_handler)
                 elif (mode == AuthCall.POLL_TWO_FACTOR):
                     logger.info("Polling to see if the user has completed any steam-guard related stuff")
                     (ret_code, new_client_id) = await self._protocol_client.check_auth_status(self._steam_polling_data.client_id, self._steam_polling_data.request_id, auth_lost_handler)

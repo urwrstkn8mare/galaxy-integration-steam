@@ -43,6 +43,7 @@
     <Content Include="protobuf_files\protos\steammessages_player.proto" />
     <Content Include="protobuf_files\protos\steammessages_unified_base.proto" />
     <Content Include="pytest.ini" />
+    <Content Include="README_ALPHA.md" />
     <Content Include="README.md" />
     <Content Include="protobuf_files\README_UPDATE_PROTOBUF_FILES.md" />
     <Content Include="requirements\app.txt" />

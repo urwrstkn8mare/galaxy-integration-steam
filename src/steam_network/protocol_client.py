@@ -50,7 +50,6 @@ class ProtocolClient:
         authentication_cache: AuthenticationCache,
         user_info_cache: UserInfoCache,
         local_machine_cache: LocalMachineCache,
-        ownership_ticket_cache: OwnershipTicketCache,
         used_server_cell_id,
     ):
 
@@ -65,7 +64,6 @@ class ProtocolClient:
         self._protobuf_client.user_nicknames_handler = self._user_nicknames_handler
         self._protobuf_client.app_info_handler = self._app_info_handler
         self._protobuf_client.package_info_handler = self._package_info_handler
-        self._protobuf_client.app_ownership_ticket_handler = self._app_ownership_ticket_handler
         self._protobuf_client.license_import_handler = self._license_import_handler
         self._protobuf_client.translations_handler = self._translations_handler
         self._protobuf_client.stats_handler = self._stats_handler
@@ -79,7 +77,6 @@ class ProtocolClient:
         self._authentication_cache = authentication_cache
         self._user_info_cache = user_info_cache
         self._times_cache = times_cache
-        self._ownership_ticket_cache = ownership_ticket_cache
         self._auth_lost_handler = None
         self._rsa_future: Optional[Future] = None
         self._login_future: Optional[Future] = None
@@ -219,10 +216,10 @@ class ProtocolClient:
         else:
             logger.warning("NO LOGIN FUTURE SET")
 
-    async def update_two_factor(self, client_id: int, code: str, method: TwoFactorMethod, auth_lost_handler:Callable) -> UserActionRequired:
+    async def update_two_factor(self, client_id: int, steam_id:int, code: str, method: TwoFactorMethod, auth_lost_handler:Callable) -> UserActionRequired:
         loop = asyncio.get_running_loop()
         self._two_factor_future = loop.create_future()
-        await self._protobuf_client.update_steamguard_data(client_id, code, method)
+        await self._protobuf_client.update_steamguard_data(client_id, steam_id, code, method)
         result = await self._two_factor_future
         self._two_factor_future = None
         logger.info ("GOT TWO FACTOR UPDATE RESULT IN PROTOCOL CLIENT")
@@ -388,13 +385,6 @@ class ProtocolClient:
 
     def _package_info_handler(self):
         self._games_cache.update_packages()
-
-    async def _app_ownership_ticket_handler(self, appid: int, ticket: bytes):
-        if appid == STEAM_CLIENT_APP_ID:
-            logger.info('Storing steam app ownership ticket')
-            self._ownership_ticket_cache.ticket = ticket
-        else:
-            logger.debug(f'Ignoring app_id {appid} in ownership ticket handler')
 
     async def _translations_handler(self, appid, translations=None):
         if appid and translations:

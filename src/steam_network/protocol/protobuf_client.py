@@ -66,7 +66,6 @@ class ProtobufClient:
         self._heartbeat_task:               Optional[asyncio.Task] = None #keeps our connection alive, essentially, by pinging the steam server. 
         self.log_off_handler:               Optional[Callable[[EResult], Awaitable[None]]] = None
         #retrive information
-        self.app_ownership_ticket_handler:  Optional[Callable[[int, bytes], Awaitable[None]]] = None
         self.relationship_handler:          Optional[Callable[[bool, Dict[int, EFriendRelationship]], Awaitable[None]]] = None
         self.user_info_handler:             Optional[Callable[[int, ProtoUserInfo], Awaitable[None]]] = None
         self.user_nicknames_handler:        Optional[Callable[[dict], Awaitable[None]]] = None
@@ -76,7 +75,7 @@ class ProtobufClient:
         self.translations_handler:          Optional[Callable[[int, Any], Awaitable[None]]] = None
         self.stats_handler:                 Optional[Callable[[int, Any, Any], Awaitable[None]]] = None
         self.user_authentication_handler:   Optional[Callable[[str, Any], Awaitable[None]]] = None
-        self.steam_id:                      Optional[int] = None
+        self.confirmed_steam_id:            Optional[int] = None #this should only be set when the steam id is confirmed. this occurs when we actually complete the login. before then, it will cause errors. 
         self.times_handler:                 Optional[Callable[[int, int, int], Awaitable[None]]] = None
         self.times_import_finished_handler: Optional[Callable[[bool], Awaitable[None]]] = None
         self._session_id:                   Optional[int] = None
@@ -119,7 +118,7 @@ class ProtobufClient:
                 pass
 
     async def _send_service_method_with_name(self, message, target_job_name: str):
-        emsg = EMsg.ServiceMethodCallFromClientNonAuthed if self.steam_id is None else EMsg.ServiceMethodCallFromClient;
+        emsg = EMsg.ServiceMethodCallFromClientNonAuthed if self.confirmed_steam_id is None else EMsg.ServiceMethodCallFromClient;
         job_id = next(self._job_id_iterator)
         await self._send(emsg, message, source_job_id=job_id, target_job_name= target_job_name)        
 
@@ -209,11 +208,11 @@ class ProtobufClient:
         else:
             logger.warning("NO LOGIN HANDLER SET!")
 
-    async def update_steamguard_data(self, client_id: int, code:str, code_type:steammessages_auth_pb2.EAuthSessionGuardType):
+    async def update_steamguard_data(self, client_id: int, steam_id:int, code:str, code_type:steammessages_auth_pb2.EAuthSessionGuardType):
         message = steammessages_auth_pb2.CAuthentication_UpdateAuthSessionWithSteamGuardCode_Request()
 
         message.client_id = client_id
-        message.steamid= self.steam_id
+        message.steamid= steam_id
         message.code = code
         message.code_type = code_type
 
@@ -286,7 +285,7 @@ class ProtobufClient:
         result = message.eresult
         interval = message.heartbeat_seconds
         if result == EResult.OK:
-            self.steam_id = message.client_supplied_steamid
+            self.confirmed_steam_id = message.client_supplied_steamid
             self._heartbeat_task = asyncio.create_task(self._heartbeat(interval))
         else:
             logger.info(f"Failed to log on, reason : {message}")
@@ -301,18 +300,6 @@ class ProtobufClient:
             await self._send(EMsg.ClientLogOff, message)
         except Exception as e:
             logger.error(f"Unable to send logoff message {repr(e)}")
-
-    async def get_app_ownership_ticket(self, app_id: int):
-        logger.info(f"Get app ownership ticket for {app_id}")
-        message = steammessages_clientserver_pb2.CMsgClientGetAppOwnershipTicket()
-        message.app_id = app_id
-        await self._send(EMsg.ClientGetAppOwnershipTicket, message)
-
-    async def register_auth_ticket_with_cm(self, ticket: bytes):
-        message = steammessages_clientserver_pb2.CMsgClientRegisterAuthTicketWithCM()
-        message.ticket = ticket
-        message.protocol_version = self._MSG_PROTOCOL_VERSION
-        await self._send(EMsg.ClientRegisterAuthTicketWithCM, message)
 
     async def _import_game_stats(self, game_id):
         logger.info(f"Importing game stats for {game_id}")
@@ -403,8 +390,8 @@ class ProtobufClient:
         target_job_name=None
     ):
         proto_header = steammessages_base_pb2.CMsgProtoBufHeader()
-        if self.steam_id is not None:
-            proto_header.steamid = self.steam_id
+        if self.confirmed_steam_id is not None:
+            proto_header.steamid = self.confirmed_steam_id
         else:
             proto_header.steamid = 0 + self._ACCOUNT_ID_MASK
         if self._session_id is not None:
@@ -503,17 +490,7 @@ class ProtobufClient:
             offset += size_bytes + size
         logger.debug("Finished processing message Multi")
 
-    async def _process_client_get_app_ownership_ticket_response(self, body):
-        logger.debug("Processing message ClientGetAppOwnershipTicketResponse")
-        message = steammessages_clientserver_pb2.CMsgClientGetAppOwnershipTicketResponse()
-        message.ParseFromString(body)
-        result = message.eresult
 
-        if result == EResult.OK:
-            if self.app_ownership_ticket_handler is not None:
-                await self.app_ownership_ticket_handler(message.app_id, message.ticket)
-        else:
-            logger.warning("ClientGetAppOwnershipTicketResponse result: %s", repr(result))
 
     async def _process_client_update_machine_auth(self, body, jobid_source):
         logger.debug("Processing message ClientUpdateMachineAuth")
@@ -530,14 +507,6 @@ class ProtobufClient:
         message.ParseFromString(body)
         await self.user_authentication_handler('persona_name', message.persona_name)
         self.account_info_retrieved.set()
-
-    async def _process_client_new_login_key(self, body, jobid_source):
-        logger.debug("Processing message ClientNewLoginKey")
-        message = steammessages_clientserver_login_pb2.CMsgClientNewLoginKey()
-        message.ParseFromString(body)
-        await self.user_authentication_handler('token', message.login_key)
-        await self.accept_new_login_token(message.unique_id, jobid_source)
-        self.login_key_retrieved.set()
 
     async def _process_client_logged_off(self, body):
         logger.debug("Processing message ClientLoggedOff")
@@ -587,7 +556,7 @@ class ProtobufClient:
 
         for user in message.friends:
             user_id = user.friendid
-            if user_id == self.steam_id and int(user.game_played_app_id) != 0:
+            if user_id == self.confirmed_steam_id and int(user.game_played_app_id) != 0:
                 await self.get_apps_info([int(user.game_played_app_id)])
             user_info = ProtoUserInfo()
             if user.HasField("player_name"):
@@ -638,7 +607,7 @@ class ProtobufClient:
                 logger.debug("Skipping packageid 0 ")
                 continue
 
-            if int(license.owner_id) == int(self.steam_id - self._ACCOUNT_ID_MASK):
+            if int(license.owner_id) == int(self.confirmed_steam_id - self._ACCOUNT_ID_MASK):
                 licenses_to_check.append(SteamLicense(license=license, shared=False))
             else:
                 if license.package_id in licenses_to_check:

@@ -287,13 +287,11 @@ class SteamNetworkBackend(BackendInterface):
         if (result != UserActionRequired.NoActionRequired):
             raise UnknownBackendResponse()
         else:
-            self._user_info_cache.persona_name = "baumherman" #TODO: FIX ME. THIS IS A DUMMY
             return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
 
     async def _handle_steam_guard_check(self, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
         result = await self._handle_2FA_PollOnce()
         if (result == UserActionRequired.NoActionRequired):
-            self._user_info_cache.persona_name = "baumherman" #TODO: FIX ME. THIS IS A DUMMY
             return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
         elif (result == UserActionRequired.TwoFactorExpired):
             return next_step_response_simple(fallback, self._user_info_cache.account_username, True, expired="true")

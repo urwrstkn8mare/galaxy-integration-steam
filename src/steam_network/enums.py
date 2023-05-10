@@ -53,7 +53,7 @@ class DisplayUriHelper(enum.Enum):
             args["errored"] = "false"
         return args
 
-    def GetStartUri(self, username: Optional[str] = None, errored : bool = False) -> str:
+    def GetStartUri(self, username: Optional[str] = None, errored : bool = False, **kwargs:str) -> str:
         #imho this is the most intuitive way of getting the start url. it's not the most "Pythonic" of means, but it is infinitely more readable.
 
         #url params go into a dict. urllib.urlencode will autmatically convert a dict to a string of properly concatenated url params ('&'). 
@@ -68,6 +68,11 @@ class DisplayUriHelper(enum.Enum):
                 raise ValueError("username cannot be null in login view")
             else:
                 args["username"] = username
+
+        for key, value in kwargs:
+            if (key not in args):
+                args[key] = value
+
         #now, convert the dict of url params to a string. replace the placeholder with this string. return the result. 
         return result + urllib.parse.urlencode(args)
     

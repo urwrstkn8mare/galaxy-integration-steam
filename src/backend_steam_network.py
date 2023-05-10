@@ -53,7 +53,7 @@ from steam_network.w3_hack import (
 )
 
 from steam_network.utils import next_step_response_simple
-from steam_network.enums import UserActionRequired, AuthCall, DisplayUriHelper
+from steam_network.enums import UserActionRequired, AuthCall, DisplayUriHelper, TwoFactorMethod
 
 logger = logging.getLogger(__name__)
 
@@ -205,6 +205,12 @@ class SteamNetworkBackend(BackendInterface):
             return await self._handle_get_user_finished(credentials)
         elif (DisplayUriHelper.LOGIN.EndUri() in end_uri):
             return await self._handle_login_finished(credentials)
+        elif (DisplayUriHelper.TWO_FACTOR_MAIL.EndUri() in end_uri):
+            return await self._handle_steam_guard(credentials, DisplayUriHelper.TWO_FACTOR_MAIL)
+        elif (DisplayUriHelper.TWO_FACTOR_MOBILE.EndUri() in end_uri):
+            return await self._handle_steam_guard(credentials, DisplayUriHelper.TWO_FACTOR_MOBILE)
+        #elif (DisplayUriHelper.TWO_FACTOR_CONFIRM.EndUri() in end_uri):
+            #not implemented ever, so it's new. Evidently not in yet. 
         else:
             logger.warning("Not reimplemented yet")
             raise BackendTimeout()
@@ -240,20 +246,43 @@ class SteamNetworkBackend(BackendInterface):
         pws = params["password"][0]
         await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.LOGIN, 'password' : pws })
         result = await self._get_websocket_auth_step()
-        if (result == UserActionRequired.NoActionRequired):
+        if (result == UserActionRequired.NoActionConfirmLogin):
             #we still don't have the 2FA Confirmation. that's actually required for NoAction, but instead of waiting for us to input 2FA, it immediately returns what we need. 
             return await self._handle_steam_guard_none()
-        elif (result == UserActionRequired.EmailTwoFactorInputRequired):
-            return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MAIL, self._user_info_cache.account_username)
-        elif (result == UserActionRequired.PhoneTwoFactorInputRequired):
-            return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MOBILE, self._user_info_cache.account_username)
-        elif (result == UserActionRequired.PhoneTwoFactorConfirmRequired):
-            return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_CONFIRM, self._user_info_cache.account_username)
+        elif (result == UserActionRequired.TwoFactorRequired):
+            method = self._authentication_cache.two_factor_method
+            if (method == TwoFactorMethod.Nothing):
+                result = await self._handle_steam_guard_none()
+            elif (method == TwoFactorMethod.PhoneCode):
+                return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MOBILE, self._user_info_cache.account_username)
+            elif (method == TwoFactorMethod.EmailCode):
+                return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MAIL, self._user_info_cache.account_username)
+            elif (method == TwoFactorMethod.PhoneConfirm):
+                return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_CONFIRM, self._user_info_cache.account_username)
+            else:
+                raise UnknownBackendResponse()
         else:
             return next_step_response_simple(DisplayUriHelper.LOGIN, self._user_info_cache.account_username, True)
         #result here should be password, or unathorized. 
 
-    async def _handle_steam_guard_none(self) -> Union[NextStep, Authentication]:
+    async def _handle_steam_guard(self, credentials, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
+        parsed_url = parse.urlsplit(credentials["end_uri"])
+        params = parse.parse_qs(parsed_url.query)
+        if ("code" not in params):
+            return next_step_response_simple(fallback, self._user_info_cache.account_username, True)
+        code = params["code"][0]
+        await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.UPDATE_TWO_FACTOR, 'two-factor-code' : code })
+        result = await self._get_websocket_auth_step()
+        if (result == UserActionRequired.NoActionConfirmLogin):
+            return await self._handle_steam_guard_check(fallback)
+        elif (result == UserActionRequired.TwoFactorExpired):
+            return next_step_response_simple(fallback, self._user_info_cache.account_username, True, expired="true")
+        elif (result == UserActionRequired.InvalidAuthData):
+            return next_step_response_simple(fallback, self._user_info_cache.account_username, True)
+        else:
+            raise UnknownBackendResponse()
+
+    async def _handle_steam_guard_none(self) -> Authentication:
         result = await self._handle_2FA_PollOnce()
         if (result != UserActionRequired.NoActionRequired):
             raise UnknownBackendResponse()
@@ -261,6 +290,18 @@ class SteamNetworkBackend(BackendInterface):
             self._user_info_cache.persona_name = "baumherman" #TODO: FIX ME. THIS IS A DUMMY
             return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
 
+    async def _handle_steam_guard_check(self, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
+        result = await self._handle_2FA_PollOnce()
+        if (result == UserActionRequired.NoActionRequired):
+            self._user_info_cache.persona_name = "baumherman" #TODO: FIX ME. THIS IS A DUMMY
+            return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
+        elif (result == UserActionRequired.TwoFactorExpired):
+            return next_step_response_simple(fallback, self._user_info_cache.account_username, True, expired="true")
+        else:
+            raise UnknownBackendResponse()
+
+    #in the case of confirm, this needs to be called directly, because the user clicks a button saying "i confirmed it on steam's end"
+    #but, to handle edge cases (expired, they lied), we need to potentially display a page again. 
     async def _handle_2FA_PollOnce(self) -> UserActionRequired:
         await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.POLL_TWO_FACTOR})
         return await self._get_websocket_auth_step()

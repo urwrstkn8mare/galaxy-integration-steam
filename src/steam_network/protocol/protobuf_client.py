@@ -201,6 +201,9 @@ class ProtobufClient:
         agreement_session_url: string #ignored?
         extended_error_message : string #used for errors. 
         """
+        ##TODO: IF WE GET ERRORS UNSET THIS. 
+        #if (self.steam_id is None and message.steamid is not None):
+        #    self.steam_id = message.steamidd
         if (self.login_handler is not None):
             await self.login_handler(result, message)
         else:
@@ -237,10 +240,11 @@ class ProtobufClient:
     async def _process_auth_poll_status(self, result, body):
         message = steammessages_auth_pb2.CAuthentication_PollAuthSessionStatus_Response()
         message.ParseFromString(body)
+
         if (self.poll_status_handler is not None):
             await self.poll_status_handler(result, message)
         else:
-            logger.warning("NO LOGIN HANDLER SET!")
+            logger.warning("NO POLL STATUS HANDLER SET!")
 
     #old auth flow. Still necessary for remaining logged in and confirming after doing the new auth flow. 
     async def _get_obfuscated_private_ip(self) -> int:

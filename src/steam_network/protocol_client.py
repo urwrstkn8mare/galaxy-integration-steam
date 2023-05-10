@@ -19,7 +19,6 @@ from .games_cache import GamesCache
 from .stats_cache import StatsCache
 from .user_info_cache import UserInfoCache
 from .times_cache import TimesCache
-from .ownership_ticket_cache import OwnershipTicketCache
 from .authentication_cache import AuthenticationCache
 
 from .enums import TwoFactorMethod, UserActionRequired, to_TwoFactorWithMessage
@@ -82,6 +81,7 @@ class ProtocolClient:
         self._login_future: Optional[Future] = None
         self._two_factor_future: Optional[Future] = None
         self._poll_future: Optional[Future] = None
+        self._token_login_future: Optional[Future] = None
         self._used_server_cell_id = used_server_cell_id
         self._local_machine_cache = local_machine_cache
         if not self._local_machine_cache.machine_id:
@@ -100,9 +100,6 @@ class ProtocolClient:
 
     async def run(self):
         await self._protobuf_client.run()
-
-    async def get_steam_app_ownership_ticket(self):
-        await self._protobuf_client.get_app_ownership_ticket(STEAM_CLIENT_APP_ID)
 
     async def register_auth_ticket_with_cm(self, ticket: bytes):
         await self._protobuf_client.register_auth_ticket_with_cm(ticket)
@@ -278,16 +275,19 @@ class ProtocolClient:
         else:
             raise translate_error(result)
 
-
-
     async def _poll_handler(self, result: EResult, message : CAuthentication_PollAuthSessionStatus_Response):
         if self._poll_future is not None:
             self._poll_future.set_result((result, message))
         else:
             logger.warning("NO FUTURE SET")
 
-    def _clear_poll_data(self):
-        pass
+    async def finalize_login(self, username:str, refresh_token:str):
+        loop = asyncio.get_running_loop()
+        self._token_login_future = loop.create_future()
+
+        await self._protobuf_client.final_token_login(username, refresh_token)
+        (result, data) = await self._token_login_future
+
 
     async def import_game_stats(self, game_ids):
         for game_id in game_ids:

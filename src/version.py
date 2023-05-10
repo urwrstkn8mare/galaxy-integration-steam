@@ -1,7 +1,12 @@
-__version__ = "1.0.2"
+__version__ = "1.0.4"
 __changelog__ = {
     "unreleased": '''
     ''',
+    "1.0.4": """
+    - refreshed python generated protobuf files
+    - removed public profiles `backend`. The new auth flow makes it irrelevant.
+    - implemented new auth flow.
+    """,
     "1.0.2": """
     - refreshed python generated protobuf files
     - handle eresult 48: `TryWithDifferentCM` on every login attempt

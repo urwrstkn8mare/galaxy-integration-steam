@@ -36,7 +36,6 @@ from steam_network.authentication_cache import AuthenticationCache
 from steam_network.friends_cache import FriendsCache
 from steam_network.games_cache import GamesCache
 from steam_network.local_machine_cache import LocalMachineCache
-from steam_network.ownership_ticket_cache import OwnershipTicketCache
 from steam_network.presence import presence_from_user_info
 from steam_network.protocol.steam_types import ProtoUserInfo  # TODO accessing inner module
 from steam_network.stats_cache import StatsCache
@@ -75,18 +74,21 @@ def avatar_url_from_avatar_hash(a_hash: str):
 
 
 class SteamNetworkBackend(BackendInterface):
-    def __init__(
-        self,
-        *,
-        http_client: HttpClient,
-        user_profile_checker: UserProfileChecker,
-        ssl_context: ssl.SSLContext,
-        persistent_storage_state: PersistentCacheState,
-        persistent_cache: Dict[str, Any],
-        update_user_presence: Callable[[UserPresence], None],
-        store_credentials: Callable[[Dict[str, Any]], None],
-        add_game: Callable[[Game], None],
-    ) -> None:
+    #def __init__(
+    #    self,
+    #    *,
+    #    http_client: HttpClient,
+    #    user_profile_checker: UserProfileChecker,
+    #    ssl_context: ssl.SSLContext,
+    #    persistent_storage_state: PersistentCacheState,
+    #    persistent_cache: Dict[str, Any],
+    #    update_user_presence: Callable[[UserPresence], None],
+    #    store_credentials: Callable[[Dict[str, Any]], None],
+    #    add_game: Callable[[Game], None],
+    #) -> None:
+    def __init__(self, http_client: HttpClient, user_profile_checker: UserProfileChecker, ssl_context: ssl.SSLContext, 
+                 persistent_storage_state: PersistentCacheState, persistent_cache: Dict[str, Any], update_user_presence: Callable[[UserPresence], None], 
+                 store_credentials: Callable[[Dict[str, Any]], None], add_game: Callable[[Game], None]):
 
         self._add_game = add_game
         self._persistent_cache = persistent_cache
@@ -111,9 +113,6 @@ class SteamNetworkBackend(BackendInterface):
 
         self._friends_cache.updated_handler = user_presence_update_handler
 
-        ownership_ticket_cache = OwnershipTicketCache(
-            self._persistent_cache, self._persistent_storage_state
-        )
         local_machine_cache = LocalMachineCache(
             self._persistent_cache, self._persistent_storage_state
         )
@@ -130,7 +129,6 @@ class SteamNetworkBackend(BackendInterface):
             self._authentication_cache,
             self._user_info_cache,
             local_machine_cache,
-            ownership_ticket_cache
         )
 
         self._update_owned_games_task = asyncio.create_task(asyncio.sleep(0))
@@ -142,9 +140,6 @@ class SteamNetworkBackend(BackendInterface):
     def _load_persistent_cache(self):
         if "games" in self._persistent_cache:
             self._games_cache.loads(self._persistent_cache["games"])
-    
-    def register_auth_lost_callback(self, callback: Callable):
-        self._websocket_client.authentication_lost_handler = callback
 
     async def shutdown(self):
         await self._websocket_client.close()

@@ -56,12 +56,7 @@
     <Content Include="src\commonWeb\img\icon-show.svg" />
     <Content Include="src\commonWeb\img\icon-steam-logo.svg" />
     <Content Include="src\commonWeb\img\icon-warning.svg" />
-    <Content Include="src\public_profiles\custom_login\css\style.css" />
-    <Content Include="src\public_profiles\custom_login\index.html" />
-    <Content Include="src\public_profiles\custom_login\main.js" />
-    <Content Include="src\public_profiles\__pycache__\authentication.cpython-311.pyc" />
-    <Content Include="src\public_profiles\__pycache__\steamcommunity_scrapper.cpython-311.pyc" />
-    <Content Include="src\public_profiles\__pycache__\__init__.cpython-311.pyc" />
+    <Content Include="src\manifest.json" />
     <Content Include="src\steam_network\custom_login\css\style.css" />
     <Content Include="src\steam_network\custom_login\index.html" />
     <Content Include="tests\appmanifest_386360.acf" />
@@ -71,9 +66,7 @@
   <ItemGroup>
     <Compile Include="nethook_helpers.py" />
     <Compile Include="src\achievements_cache.py" />
-    <Compile Include="src\backend_configuration.py" />
     <Compile Include="src\backend_interface.py" />
-    <Compile Include="src\backend_public_profiles.py" />
     <Compile Include="src\backend_steam_network.py" />
     <Compile Include="src\cache.py" />
     <Compile Include="src\client.py" />
@@ -81,9 +74,6 @@
     <Compile Include="src\leveldb_parser.py" />
     <Compile Include="src\persistent_cache_state.py" />
     <Compile Include="src\plugin.py" />
-    <Compile Include="src\public_profiles\authentication.py" />
-    <Compile Include="src\public_profiles\steamcommunity_scrapper.py" />
-    <Compile Include="src\public_profiles\__init__.py" />
     <Compile Include="src\registry_monitor.py" />
     <Compile Include="src\steam_network\authentication_cache.py" />
     <Compile Include="src\steam_network\cache_proto.py" />
@@ -91,7 +81,6 @@
     <Compile Include="src\steam_network\friends_cache.py" />
     <Compile Include="src\steam_network\games_cache.py" />
     <Compile Include="src\steam_network\local_machine_cache.py" />
-    <Compile Include="src\steam_network\ownership_ticket_cache.py" />
     <Compile Include="src\steam_network\presence.py" />
     <Compile Include="src\steam_network\protocol\consts.py" />
     <Compile Include="src\steam_network\protocol\messages\encrypted_app_ticket_pb2.py" />
@@ -179,10 +168,6 @@
     <Folder Include="src\commonWeb\fonts\" />
     <Folder Include="src\commonWeb\fonts\LatoWeb" />
     <Folder Include="src\commonWeb\img" />
-    <Folder Include="src\public_profiles" />
-    <Folder Include="src\public_profiles\custom_login" />
-    <Folder Include="src\public_profiles\custom_login\css" />
-    <Folder Include="src\public_profiles\__pycache__" />
     <Folder Include="src\steam_network" />
     <Folder Include="src\steam_network\custom_login" />
     <Folder Include="src\steam_network\custom_login\css" />

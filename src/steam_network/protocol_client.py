@@ -20,6 +20,7 @@ from .stats_cache import StatsCache
 from .user_info_cache import UserInfoCache
 from .times_cache import TimesCache
 from .ownership_ticket_cache import OwnershipTicketCache
+from .authentication_cache import AuthenticationCache
 
 from .enums import TwoFactorMethod, UserActionRequired, to_TwoFactorWithMessage
 from .utils import get_os, translate_error
@@ -46,6 +47,7 @@ class ProtocolClient:
         translations_cache: dict,
         stats_cache: StatsCache,
         times_cache: TimesCache,
+        authentication_cache: AuthenticationCache,
         user_info_cache: UserInfoCache,
         local_machine_cache: LocalMachineCache,
         ownership_ticket_cache: OwnershipTicketCache,
@@ -74,6 +76,7 @@ class ProtocolClient:
         self._games_cache = games_cache
         self._translations_cache = translations_cache
         self._stats_cache = stats_cache
+        self._authentication_cache = authentication_cache
         self._user_info_cache = user_info_cache
         self._times_cache = times_cache
         self._ownership_ticket_cache = ownership_ticket_cache
@@ -139,9 +142,9 @@ class ProtocolClient:
         if self._rsa_future is not None:
             self._rsa_future.set_result((result, spk))
         else:
-            logger.warning("NO FUTURE SET")
+            logger.warning("NO RSA FUTURE SET")
 
-    async def authenticate_password(self, account_name :str, enciphered_password : bytes, timestamp: int, auth_lost_handler:Callable) -> Optional[SteamPollingData]:
+    async def authenticate_password(self, account_name :str, enciphered_password : bytes, timestamp: int, auth_lost_handler:Callable) ->  Optional[SteamPollingData]:
         loop = asyncio.get_running_loop()
         self._login_future = loop.create_future()
         os_value = get_os()
@@ -151,21 +154,14 @@ class ProtocolClient:
         self._login_future = None
         if result == EResult.OK:
             self._auth_lost_handler = auth_lost_handler
-        elif result == EResult.AccountLogonDenied:
-            self._auth_lost_handler = auth_lost_handler
-            return UserActionRequired.EmailTwoFactorInputRequired
-        elif result == EResult.AccountLoginDeniedNeedTwoFactor:
-            self._auth_lost_handler = auth_lost_handler
-            return UserActionRequired.PhoneTwoFactorInputRequired
         elif result in (EResult.InvalidPassword,
+                        EResult.InvalidParam,
                         EResult.InvalidSteamID,
                         EResult.AccountNotFound,
                         EResult.InvalidLoginAuthCode,
-                        EResult.TwoFactorCodeMismatch,
-                        EResult.TwoFactorActivationCodeMismatch
                         ):
             self._auth_lost_handler = auth_lost_handler
-            return UserActionRequired.InvalidAuthData
+            #TODO: Determine if we need to do anything here
         else: #ServiceUnavailable, RateLimitExceeded
             logger.warning(f"Received unknown error, code: {result}")
             raise translate_error(result)
@@ -175,7 +171,7 @@ class ProtocolClient:
     async def _login_handler(self, result: EResult, message : CAuthentication_BeginAuthSessionViaCredentials_Response):
         data : Optional[SteamPollingData] = None
         if (result == EResult.OK):
-            auth_method : UserActionRequired = UserActionRequired.InvalidAuthData
+            auth_method : TwoFactorMethod = TwoFactorMethod.Unknown
             auth_message: str = ""
             if self._user_info_cache.steam_id != message.steamid:
                 self._user_info_cache.steam_id = message.steamid;
@@ -185,36 +181,32 @@ class ProtocolClient:
             #This SHOULD be a list of CAuthentication_AllowedConfirmation, but seems instead to be a list of EAuthTokenState. I DO NOT understand
             for allowed in message.allowed_confirmations:
                 action, msg = to_TwoFactorWithMessage(allowed)
-                if (action == UserActionRequired.PhoneTwoFactorInputRequired):
+                #this could all be one massive if statement but imo this is easier to read. 
+                if (action == TwoFactorMethod.PhoneCode):
                     auth_method = action
                     auth_message = msg
                     break #this is the highest priority, so stop iterating immediately. 
-                elif (action == UserActionRequired.EmailTwoFactorInputRequired):
+                elif (action == TwoFactorMethod.EmailCode):
                     auth_method = action
                     auth_message = msg
                     #since the highest priority stops the loop immediately, we will only ever get here if any previous iterations had a lower priority. 
                     #but, we may still have the phone 2FA after us, so do not break.
-                elif (action == UserActionRequired.PhoneTwoFactorConfirmRequired and auth_method != UserActionRequired.EmailTwoFactorInputRequired):
+                elif (action == TwoFactorMethod.PhoneConfirm and auth_method != TwoFactorMethod.EmailCode):
                     auth_method = action
                     auth_message = msg
                     #mobile confirm is the hardest to implement here and requires the most waiting on the user's point of view, so we're deprioritizing it here.
                     #if either mobile or email codes is allowed, use them instead.
-                elif ((action == UserActionRequired.NoActionRequired or action == UserActionRequired.NoActionConfirmLogin) and auth_method == UserActionRequired.InvalidAuthData):
-                    auth_method = UserActionRequired.NoActionConfirmLogin #force this to Confirm Login. No Action Required should never be here but just in case some legacy something or other. 
+                elif (action == TwoFactorMethod.Nothing and auth_method == TwoFactorMethod.Unknown):
+                    auth_method = action #force this to Confirm Login. No Action Required should never be here but just in case some legacy something or other. 
                     auth_message = msg
                     #in theory if this is set, none of the others should be, so this gets lowest priority. If somehow none and one of the other options is set, 
                     #steam messed up somehow, so err on the side of caution.
             res = message.DESCRIPTOR.fields_by_name.keys()
             logger.info("Entries in CredentialsResponse: " + pformat(res))
             data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, auth_method, auth_message, message.extended_error_message)
-            #data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, auth_method, auth_message)
         else:
-            logger.error("Login failed")
-            #logger.error("Login failed. Reason: " + message.extended_error_message)
-
-        if self._login_future is not None:
-            self._login_future.set_result((result, data))
-        else:
+            #logger.error("Login failed")
+            logger.error("Login failed. Reason: " + message.extended_error_message)
             # sometimes Steam sends LogOnResponse message even if plugin didn't send LogOnRequest
             # known example is LogOnResponse with result=EResult.TryAnotherCM
 
@@ -222,10 +214,15 @@ class ProtocolClient:
             #Steam detects it's not right, but for whatever reason we also get the response. -BaumherA
             raise translate_error(result)
 
-    async def update_two_factor(self, code: str, method: TwoFactorMethod, auth_lost_handler:Callable) -> UserActionRequired:
+        if self._login_future is not None:
+            self._login_future.set_result((result, data))
+        else:
+            logger.warning("NO LOGIN FUTURE SET")
+
+    async def update_two_factor(self, client_id: int, code: str, method: TwoFactorMethod, auth_lost_handler:Callable) -> UserActionRequired:
         loop = asyncio.get_running_loop()
         self._two_factor_future = loop.create_future()
-        await self._protobuf_client.update_steamguard_data(None,code, method)
+        await self._protobuf_client.update_steamguard_data(client_id, code, method)
         result = await self._two_factor_future
         self._two_factor_future = None
         logger.info ("GOT TWO FACTOR UPDATE RESULT IN PROTOCOL CLIENT")
@@ -244,24 +241,53 @@ class ProtocolClient:
             raise translate_error(result)
         return ret_code
 
-    async def _two_factor_update_handler(self, result: EResult):
+    async def _two_factor_update_handler(self, result: EResult, agreement_session_url:str):
         if self._two_factor_future is not None:
             self._two_factor_future.set_result(result)
         else:
             logger.warning("NO FUTURE SET")
 
-    async def check_auth_status(self, auth_lost_handler:Callable):
+    async def check_auth_status(self, client_id:int, request_id:bytes, auth_lost_handler:Callable) -> Tuple[UserActionRequired, Optional[int]]:
         loop = asyncio.get_running_loop()
         self._poll_future = loop.create_future()
 
-        await self._protobuf_client.poll_auth_status()
+        await self._protobuf_client.poll_auth_status(client_id, request_id)
+        result:EResult
+        data:CAuthentication_PollAuthSessionStatus_Response
         (result, data) = await self._poll_future
         self._poll_future = None #we may have to redo the poll so reset this value to null. 
+        # eresult can be OK, Expired, FileNotFound, Fail
         if result == EResult.OK:
             self._auth_lost_handler = auth_lost_handler
+            #uint64 new_client_id = 1 [(description) = "if challenge is old, this is the new client id"];
+            #string new_challenge_url = 2 [(description) = "if challenge is old, this is the new challenge ID to re-render for mobile confirmation"];
+            #string refresh_token = 3 [(description) = "if login has been confirmed, this is the requestor's new refresh token"];
+            #string access_token = 4 [(description) = "if login has been confirmed, this is a new token subordinate to refresh_token"];
+            #bool had_remote_interaction = 5 [(description) = "whether or not the auth session appears to have had remote interaction from a potential confirmer"];
+            #string account_name = 6 [(description) = "account name of authenticating account, for use by UI layer"];
+            #string new_guard_data = 7 [(description) = "if login has been confirmed, may contain remembered machine ID for future login"];
+            #string agreement_session_url = 8 [(description) = "agreement the user needs to agree to"];
+
+            self._user_info_cache.refresh_token = data.refresh_token
+            self._user_info_cache.persona_name = data.account_name
+            self._user_info_cache.access_token = data.access_token
+            self._user_info_cache.guard_data = data.new_guard_data
+
+            return (UserActionRequired.NoActionRequired, None)
+
+        elif result == EResult.Expired:
+            self._auth_lost_handler = auth_lost_handler
+            return (UserActionRequired.TwoFactorExpired, data.new_client_id)
+        else:
+            raise translate_error(result)
+
+
 
     async def _poll_handler(self, result: EResult, message : CAuthentication_PollAuthSessionStatus_Response):
-        pass
+        if self._poll_future is not None:
+            self._poll_future.set_result((result, message))
+        else:
+            logger.warning("NO FUTURE SET")
 
     def _clear_poll_data(self):
         pass

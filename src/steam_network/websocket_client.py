@@ -218,7 +218,7 @@ class WebSocketClient:
                 self._current_ws_address = ws_address
                 try:
                     self._websocket = await asyncio.wait_for(websockets.client.connect(ws_address, ssl=self._ssl_context, max_size=MAX_INCOMING_MESSAGE_SIZE), 5)
-                    self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._user_info_cache, self._local_machine_cache, self._steam_app_ownership_ticket_cache, self.used_server_cell_id)
+                    self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._authentication_cache, self._user_info_cache, self._local_machine_cache, self._steam_app_ownership_ticket_cache, self.used_server_cell_id)
                     logger.info(f'Connected to Steam on CM {ws_address} on cell_id {self.used_server_cell_id}. Sending Hello')
                     await self._protocol_client.finish_handshake()
                     return
@@ -285,15 +285,19 @@ class WebSocketClient:
                         ret_code = UserActionRequired.InvalidAuthData
                     else:
                         logger.info(f'Updating two-factor with provided ' + to_helpful_string(self._authentication_cache.two_factor_method))
-                        ret_code = await self._protocol_client.update_two_factor(code, self._authentication_cache.two_factor_method, auth_lost_handler)
+                        ret_code = await self._protocol_client.update_two_factor(self._steam_polling_data.client_id, code, self._authentication_cache.two_factor_method, auth_lost_handler)
                 elif (mode == AuthCall.POLL_TWO_FACTOR):
                     logger.info("Polling to see if the user has completed any steam-guard related stuff")
-                    ret_code = await self._protocol_client.check_auth_status(auth_lost_handler)
+                    (ret_code, new_client_id) = await self._protocol_client.check_auth_status(self._steam_polling_data.client_id, self._steam_polling_data.request_id, auth_lost_handler)
+                    if (new_client_id is not None):
+                        self._steam_polling_data.client_id = new_client_id
                 else:
                     ret_code = UserActionRequired.InvalidAuthData
 
                 logger.info(f"Response from auth {ret_code}")
+
         logger.info("Finished authentication")
+
         await self.communication_queues['plugin'].put({'auth_result': ret_code})
 
         # request new steam app ownership ticket

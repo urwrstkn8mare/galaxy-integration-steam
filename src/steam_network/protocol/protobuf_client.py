@@ -38,6 +38,7 @@ REQUEST_FRIEND_PERSONA_STATES = "Chat.RequestFriendPersonaStates#1"
 GET_RSA_KEY = "Authentication.GetPasswordRSAPublicKey#1"
 LOGIN_CREDENTIALS = "Authentication.BeginAuthSessionViaCredentials#1"
 UPDATE_TWO_FACTOR = "Authentication.UpdateAuthSessionWithSteamGuardCode#1"
+CHECK_AUTHENTICATION_STATUS = "Authentication.PollAuthSessionStatus#1"
 
 
 class SteamLicense(NamedTuple):
@@ -57,11 +58,12 @@ class ProtobufClient:
         #new auth flow
         self.rsa_handler:                   Optional[Callable[[EResult, int, int, int], Awaitable[None]]] = None
         self.login_handler:                 Optional[Callable[[EResult,steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Response], Awaitable[None]]] = None
-        self.two_factor_update_handler:     Optional[Callable[[EResult, steammessages_auth_pb2.CAuthentication_UpdateAuthSessionWithSteamGuardCode_Response], Awaitable[None]]] = None
+        self.two_factor_update_handler:     Optional[Callable[[EResult, str], Awaitable[None]]] = None
         self.poll_status_handler:           Optional[Callable[[EResult, steammessages_auth_pb2.CAuthentication_PollAuthSessionStatus_Response], Awaitable[None]]] = None
         self.revoke_refresh_token_handler:  Optional[Callable[[EResult], Awaitable[None]]] = None
         #old auth flow. Used to confirm login and repeat logins using the refresh token.
         self.log_on_token_handler:          Optional[Callable[[EResult], Awaitable[None]]] = None
+        self._heartbeat_task:               Optional[asyncio.Task] = None #keeps our connection alive, essentially, by pinging the steam server. 
         self.log_off_handler:               Optional[Callable[[EResult], Awaitable[None]]] = None
         #retrive information
         self.app_ownership_ticket_handler:  Optional[Callable[[int, bytes], Awaitable[None]]] = None
@@ -110,7 +112,7 @@ class ProtobufClient:
             #    else:
             #        logger.warning(f'Unknown job {job}')
             try:
-                packet = await asyncio.wait_for(self._socket.recv(), 0.1)
+                packet = await asyncio.wait_for(self._socket.recv(), 10)
                 logger.info("Received Packet" + str(packet))
                 await self._process_packet(packet)
             except asyncio.TimeoutError:
@@ -217,33 +219,39 @@ class ProtobufClient:
     async def _process_steamguard_update(self, result, body):
         message = steammessages_auth_pb2.CAuthentication_UpdateAuthSessionWithSteamGuardCode_Response()
         message.ParseFromString(body)
-        logger.info("Processing Login Response!")
-        """
-        client_id : int #the id assigned to us.
-        steamid : int #the id of the user that signed in
-        request_id : bytes #unique request id. needed for the polling function.
-        interval : float #interval to poll on.
-        allowed_confirmations : List[CAuthentication_AllowedConfirmation] #possible ways to authenticate for 2FA if needed. 
-        #    Note: Possible values:
-        #       k_EAuthSessionGuardType_Unknown, k_EAuthSessionGuardType_None, k_EAuthSessionGuardType_EmailCode = 2, k_EAuthSessionGuardType_DeviceCode = 3,
-        #       k_EAuthSessionGuardType_DeviceConfirmation = 4, k_EAuthSessionGuardType_EmailConfirmation = 5, k_EAuthSessionGuardType_MachineToken = 6,
-        #   For the sake of copypasta, we're only supporting EmailCode, DeviceCode, and None. Unknown is expected, somewhat, but it's an error. 
-        weak_token : string #ignored
-        agreement_session_url: string #ignored?
-        extended_error_message : string #used for errors. 
-        """
+        logger.info("Processing Two Factor Response!")
+        #this gives us a confirm url, but as of this writing we can ignore it. so, just the result is necessary. 
+        
         if (self.two_factor_update_handler is not None):
-            await self.two_factor_update_handler(result, message)
+            await self.two_factor_update_handler(result, message.agreement_session_url)
+        else:
+            logger.warning("NO TWO-FACTOR HANDLER SET!")
+
+    async def poll_auth_status(self, client_id:int, request_id:bytes):
+        message = steammessages_auth_pb2.CAuthentication_PollAuthSessionStatus_Request()
+        message.client_id = client_id
+        message.request_id = request_id
+
+        await self._send_service_method_with_name(message, CHECK_AUTHENTICATION_STATUS)
+
+    async def _process_auth_poll_status(self, result, body):
+        message = steammessages_auth_pb2.CAuthentication_PollAuthSessionStatus_Response()
+        message.ParseFromString(body)
+        if (self.poll_status_handler is not None):
+            await self.poll_status_handler(result, message)
         else:
             logger.warning("NO LOGIN HANDLER SET!")
 
-    async def poll_auth_status(self):
-        pass
-
-    async def _process_auth_poll_status(self, result, body):
-        pass
-
     #old auth flow. Still necessary for remaining logged in and confirming after doing the new auth flow. 
+    async def _get_obfuscated_private_ip(self) -> int:
+        logger.info('Websocket state is: %s' % self._socket.state.name)
+        await self._socket.ensure_open()
+        host, port = self._socket.local_address
+        ip = int(ipaddress.IPv4Address(host))
+        obfuscated_ip = ip ^ self._IP_OBFUSCATION_MASK
+        logger.debug(f"Local obfuscated IP: {obfuscated_ip}")
+        return obfuscated_ip
+
     async def send_log_on_token_message(self, account_name: str, access_token: str, cell_id: int, machine_id: bytes, os_value: int):
         message = steammessages_clientserver_login_pb2.CMsgClientLogon()
         message.protocol_version = self._MSG_PROTOCOL_VERSION
@@ -261,16 +269,26 @@ class ProtobufClient:
         logger.info("Sending log on message using access token")
         await self._send(EMsg.ClientLogon, message)
 
-    async def _get_obfuscated_private_ip(self) -> int:
-        logger.info('Websocket state is: %s' % self._socket.state.name)
-        await self._socket.ensure_open()
-        host, port = self._socket.local_address
-        ip = int(ipaddress.IPv4Address(host))
-        obfuscated_ip = ip ^ self._IP_OBFUSCATION_MASK
-        logger.debug(f"Local obfuscated IP: {obfuscated_ip}")
-        return obfuscated_ip
+    async def _heartbeat(self, interval):
+        message = steammessages_clientserver_login_pb2.CMsgClientHeartBeat()
+        while True:
+            await asyncio.sleep(interval)
+            await self._send(EMsg.ClientHeartBeat, message)
 
+    async def _process_client_log_on_response(self, body):
+        logger.debug("Processing message ClientLogOnResponse")
+        message = steammessages_clientserver_login_pb2.CMsgClientLogonResponse()
+        message.ParseFromString(body)
+        result = message.eresult
+        interval = message.heartbeat_seconds
+        if result == EResult.OK:
+            self.steam_id = message.client_supplied_steamid
+            self._heartbeat_task = asyncio.create_task(self._heartbeat(interval))
+        else:
+            logger.info(f"Failed to log on, reason : {message}")
 
+        if self.log_on_token_handler is not None:
+            await self.log_on_token_handler(result, )
 
     async def send_log_off_message(self):
         message = steammessages_clientserver_login_pb2.CMsgClientLogOff()
@@ -406,12 +424,6 @@ class ProtobufClient:
             logger.info("[Out] %s (%dB)", repr(emsg), len(data))
         await self._socket.send(data)
 
-    async def _heartbeat(self, interval):
-        message = steammessages_clientserver_login_pb2.CMsgClientHeartBeat()
-        while True:
-            await asyncio.sleep(interval)
-            await self._send(EMsg.ClientHeartBeat, message)
-
     async def _process_packet(self, packet):
         package_size = len(packet)
         logger.debug("Processing packet of %d bytes", package_size)
@@ -498,20 +510,6 @@ class ProtobufClient:
                 await self.app_ownership_ticket_handler(message.app_id, message.ticket)
         else:
             logger.warning("ClientGetAppOwnershipTicketResponse result: %s", repr(result))
-
-    async def _process_client_log_on_response(self, body):
-        logger.debug("Processing message ClientLogOnResponse")
-        message = steammessages_clientserver_login_pb2.CMsgClientLogonResponse()
-        message.ParseFromString(body)
-        result = message.eresult
-        
-        if result == EResult.OK:
-            self.steam_id = message.client_supplied_steamid
-        else:
-            logger.info(f"Failed to log on, reason : {message}")
-
-        if self.log_on_token_handler is not None:
-            await self.log_on_token_handler(result, )
 
     async def _process_client_update_machine_auth(self, body, jobid_source):
         logger.debug("Processing message ClientUpdateMachineAuth")
@@ -747,6 +745,8 @@ class ProtobufClient:
             await self._process_login(eresult, body)
         elif target_job_name == UPDATE_TWO_FACTOR:
             await self._process_steamguard_update(eresult, body)
+        elif target_job_name == CHECK_AUTHENTICATION_STATUS:
+            await self._process_auth_poll_status(eresult, body)
         else:
             logger.warning("Unparsed message, no idea what it is. Tell me")
             logger.warning("job name: \"" + target_job_name + "\"")

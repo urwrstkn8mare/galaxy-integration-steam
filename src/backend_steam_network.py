@@ -122,15 +122,15 @@ class SteamNetworkBackend(BackendInterface):
         self._websocket_client = WebSocketClient(
             WebSocketList(steam_http_client),
             ssl_context,
-            self._authentication_cache
             self._friends_cache,
             self._games_cache,
             self._translations_cache,
             self._stats_cache,
             self._times_cache,
+            self._authentication_cache,
             self._user_info_cache,
             local_machine_cache,
-            ownership_ticket_cache,
+            ownership_ticket_cache
         )
 
         self._update_owned_games_task = asyncio.create_task(asyncio.sleep(0))

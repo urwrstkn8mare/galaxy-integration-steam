@@ -7,18 +7,21 @@ logger = logging.getLogger(__name__)
 
 class UserInfoCache:
     def __init__(self):
-        self._steam_id: Optional[int] = None
-        self._account_username: Optional[str] = None
-        self._persona_name: Optional[str] = None
-        self._refresh_token : Optional[str] = None
-        self._access_token : Optional[str] = None
+        self._steam_id: Optional[int] = None #unique id Steam assigns to the user
+        self._account_username: Optional[str] = None #user name for the steam account.
+        self._persona_name: Optional[str] = None #friendly name the user goes by in their display. It's what we use when saying "logged in" in the integration page.
+        #Note: The tokens below are strings, but they are formatted as JSON Web Tokens (JWT). We can parse them to determine when the refresh token will expire.
+        self._refresh_token : Optional[str] = None #persistent token. Used to log in, despite the fact that we should use an access token. weird quirk in how steam does things.
+        self._access_token : Optional[str] = None #session login token. Largely useless. May be useful in future if steam fixes their login to use an access token instead of refresh token. 
+
+        self._guard_data : Optional[str] = None #steam guard data. It might no longer be necessary, but i'll save it just in case. 
         
         self._changed = False
         
         self.initialized = asyncio.Event()
 
     def _check_initialized(self):
-        if self._steam_id and self._account_username and self._persona_name and self._refresh_token:
+        if self._steam_id and self._account_username and self._persona_name and self._refresh_token and self._guard_data:
             logger.info("User info cache initialized")
             self.initialized.set()
             self._changed = True
@@ -28,7 +31,8 @@ class UserInfoCache:
             'steam_id': base64.b64encode(str(self._steam_id).encode('utf-8')).decode('utf-8'),
             'refresh_token': base64.b64encode(str(self._refresh_token).encode('utf-8')).decode('utf-8'),
             'account_username': base64.b64encode(str(self._account_username).encode('utf-8')).decode('utf-8'),
-            'persona_name': base64.b64encode(str(self._persona_name).encode('utf-8')).decode('utf-8')
+            'persona_name': base64.b64encode(str(self._persona_name).encode('utf-8')).decode('utf-8'),
+            'guard_data': base64.b64encode(str(self._guard_data).encode('utf-8')).decode('utf-8')
         }
         return creds
 
@@ -47,7 +51,10 @@ class UserInfoCache:
             self._persona_name = base64.b64decode(lookup['persona_name']).decode('utf-8')
 
         if 'refresh_token' in lookup:
-            self._token = base64.b64decode(lookup['refresh_token']).decode('utf-8')
+            self._refresh_token = base64.b64decode(lookup['refresh_token']).decode('utf-8')
+
+        if 'guard_data' in lookup:
+            self._guard_data = base64.b64decode(lookup['guard_data']).decode('utf-8')
 
     @property
     def changed(self):
@@ -113,5 +120,17 @@ class UserInfoCache:
         if self._refresh_token != val and self.initialized.is_set():
             self._changed = True
         self._refresh_token = val
+        if not self.initialized.is_set():
+            self._check_initialized()
+
+    @property
+    def guard_data(self):
+        return self._guard_data
+
+    @guard_data.setter
+    def guard_data(self, val):
+        if self._guard_data != val and self.initialized.is_set():
+            self._changed = True
+        self._guard_data = val
         if not self.initialized.is_set():
             self._check_initialized()

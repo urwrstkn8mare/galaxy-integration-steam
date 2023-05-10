@@ -21,7 +21,7 @@ from .user_info_cache import UserInfoCache
 from .times_cache import TimesCache
 from .ownership_ticket_cache import OwnershipTicketCache
 
-from .enums import UserActionRequired, to_UserActionWithMessage
+from .enums import TwoFactorMethod, UserActionRequired, to_TwoFactorWithMessage
 from .utils import get_os, translate_error
 
 from rsa import PublicKey
@@ -184,7 +184,7 @@ class ProtocolClient:
             # We arguably should let the user choose but this is already complicated enouh.
             #This SHOULD be a list of CAuthentication_AllowedConfirmation, but seems instead to be a list of EAuthTokenState. I DO NOT understand
             for allowed in message.allowed_confirmations:
-                action, msg = to_UserActionWithMessage(allowed)
+                action, msg = to_TwoFactorWithMessage(allowed)
                 if (action == UserActionRequired.PhoneTwoFactorInputRequired):
                     auth_method = action
                     auth_message = msg
@@ -199,15 +199,15 @@ class ProtocolClient:
                     auth_message = msg
                     #mobile confirm is the hardest to implement here and requires the most waiting on the user's point of view, so we're deprioritizing it here.
                     #if either mobile or email codes is allowed, use them instead.
-                elif (action == UserActionRequired.NoActionRequired and auth_method == UserActionRequired.InvalidAuthData):
-                    auth_method = action
+                elif ((action == UserActionRequired.NoActionRequired or action == UserActionRequired.NoActionConfirmLogin) and auth_method == UserActionRequired.InvalidAuthData):
+                    auth_method = UserActionRequired.NoActionConfirmLogin #force this to Confirm Login. No Action Required should never be here but just in case some legacy something or other. 
                     auth_message = msg
                     #in theory if this is set, none of the others should be, so this gets lowest priority. If somehow none and one of the other options is set, 
                     #steam messed up somehow, so err on the side of caution.
             res = message.DESCRIPTOR.fields_by_name.keys()
             logger.info("Entries in CredentialsResponse: " + pformat(res))
-            #data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, auth_method, auth_message, message.extended_error_message)
-            data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, auth_method, auth_message)
+            data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, auth_method, auth_message, message.extended_error_message)
+            #data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, auth_method, auth_message)
         else:
             logger.error("Login failed")
             #logger.error("Login failed. Reason: " + message.extended_error_message)
@@ -222,26 +222,33 @@ class ProtocolClient:
             #Steam detects it's not right, but for whatever reason we also get the response. -BaumherA
             raise translate_error(result)
 
-    async def update_two_factor(self, code: str, method: str, auth_lost_handler:Callable):
+    async def update_two_factor(self, code: str, method: TwoFactorMethod, auth_lost_handler:Callable) -> UserActionRequired:
         loop = asyncio.get_running_loop()
         self._two_factor_future = loop.create_future()
-        await self._protobuf_client.update_steamguard_data(code, method)
-        (result, key) = await self._two_factor_future
-        logger.info ("GOT RSA KEY IN PROTOCOL_CLIENT")
+        await self._protobuf_client.update_steamguard_data(None,code, method)
+        result = await self._two_factor_future
+        self._two_factor_future = None
+        logger.info ("GOT TWO FACTOR UPDATE RESULT IN PROTOCOL CLIENT")
+        # Observed results can be OK, InvalidLoginAuthCode, TwoFactorCodeMismatch, Expired, DuplicateRequest.
         ret_code = UserActionRequired.InvalidAuthData
         if (result == EResult.OK or result == EResult.DuplicateRequest):
-            ret_code = UserActionRequired.NoActionRequired
+            ret_code = UserActionRequired.NoActionConfirmLogin
             self._auth_lost_handler = auth_lost_handler
-        elif ()
-
+        elif (result == EResult.Expired):
+            ret_code = UserActionRequired.TwoFactorExpired
+            self._auth_lost_handler = auth_lost_handler
+        elif (result == EResult.InvalidLoginAuthCode or result == EResult.TwoFactorCodeMismatch):
+            ret_code = UserActionRequired.InvalidAuthData
+            self._auth_lost_handler = auth_lost_handler
+        else:
+            raise translate_error(result)
+        return ret_code
 
     async def _two_factor_update_handler(self, result: EResult):
-        if self._rsa_future is not None:
-            self._rsa_future.set_result(result)
+        if self._two_factor_future is not None:
+            self._two_factor_future.set_result(result)
         else:
             logger.warning("NO FUTURE SET")
-            
-
 
     async def check_auth_status(self, auth_lost_handler:Callable):
         loop = asyncio.get_running_loop()

@@ -13,7 +13,7 @@ If you're here, you know things could be (and likely will be) broken. You are he
 * Install the dev dependencies (optional). This will let you potentially help us debug, but isn't really necessary if you don't feel comfortable monkeying around the code. 
   `pip install -r requirements/dev.txt`
 * Backup the current installation of steam (optional) we will overwrite this in the next command.
-* Install your edits for a local test:
+* Install the plugin in it's buggy glory:
   `inv install`
 
 ## Setup (MacOS)
@@ -27,7 +27,7 @@ If you're here, you know things could be (and likely will be) broken. You are he
 * Install the dev dependencies (optional). This will let you potentially help us debug, but isn't really necessary if you don't feel comfortable monkeying around the code. 
   `pip install -r requirements/dev.txt`
 * Backup the current installation of steam (optional) we will overwrite this in the next command.
-* Install your edits for a local test:
+* Install the plugin in it's buggy glory:
   `inv install`
 
  ## The Logs

@@ -75,7 +75,6 @@ class WebSocketClient:
         self._authentication_cache = authentication_cache
         self._user_info_cache = user_info_cache
         self._local_machine_cache = local_machine_cache
-        self._steam_app_ownership_ticket_cache = ownership_ticket_cache
         self._times_cache = times_cache
 
         self.authentication_lost_handler: Optional[Callable] = None
@@ -218,7 +217,7 @@ class WebSocketClient:
                 self._current_ws_address = ws_address
                 try:
                     self._websocket = await asyncio.wait_for(websockets.client.connect(ws_address, ssl=self._ssl_context, max_size=MAX_INCOMING_MESSAGE_SIZE), 5)
-                    self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._authentication_cache, self._user_info_cache, self._local_machine_cache, self._steam_app_ownership_ticket_cache, self.used_server_cell_id)
+                    self._protocol_client = ProtocolClient(self._websocket, self._friends_cache, self._games_cache, self._translations_cache, self._stats_cache, self._times_cache, self._authentication_cache, self._user_info_cache, self._local_machine_cache, self.used_server_cell_id)
                     logger.info(f'Connected to Steam on CM {ws_address} on cell_id {self.used_server_cell_id}. Sending Hello')
                     await self._protocol_client.finish_handshake()
                     return

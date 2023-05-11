@@ -77,7 +77,6 @@ class WebSocketClient:
         self._local_machine_cache = local_machine_cache
         self._times_cache = times_cache
 
-        self.authentication_lost_handler: Optional[Callable] = None
         self.communication_queues = {'plugin': asyncio.Queue(), 'websocket': asyncio.Queue(),}
         self.used_server_cell_id: int = 0
         self._current_ws_address: Optional[str] = None
@@ -105,8 +104,6 @@ class WebSocketClient:
                             await auth_lost
                         except (InvalidCredentials, AccessDenied) as e:
                             logger.warning(f"Auth lost by a reason: {repr(e)}")
-                            if self.authentication_lost_handler:
-                                self.authentication_lost_handler()
                             await self._close_socket()
                             await self._close_protocol_client()
                             run_task.cancel()

@@ -75,18 +75,21 @@ def avatar_url_from_avatar_hash(a_hash: str):
 
 
 class SteamNetworkBackend(BackendInterface):
-    def __init__(
-        self,
-        *,
-        http_client: HttpClient,
-        user_profile_checker: UserProfileChecker,
-        ssl_context: ssl.SSLContext,
-        persistent_storage_state: PersistentCacheState,
-        persistent_cache: Dict[str, Any],
-        update_user_presence: Callable[[UserPresence], None],
-        store_credentials: Callable[[Dict[str, Any]], None],
-        add_game: Callable[[Game], None],
-    ) -> None:
+    #def __init__(
+    #    self,
+    #    *,
+    #    http_client: HttpClient,
+    #    user_profile_checker: UserProfileChecker,
+    #    ssl_context: ssl.SSLContext,
+    #    persistent_storage_state: PersistentCacheState,
+    #    persistent_cache: Dict[str, Any],
+    #    update_user_presence: Callable[[UserPresence], None],
+    #    store_credentials: Callable[[Dict[str, Any]], None],
+    #    add_game: Callable[[Game], None],
+    #) -> None:
+    def __init__(self, http_client: HttpClient, user_profile_checker: UserProfileChecker, ssl_context: ssl.SSLContext, 
+                 persistent_storage_state: PersistentCacheState, persistent_cache: Dict[str, Any], update_user_presence: Callable[[UserPresence], None], 
+                 store_credentials: Callable[[Dict[str, Any]], None], add_game: Callable[[Game], None]):
 
         self._add_game = add_game
         self._persistent_cache = persistent_cache
@@ -142,9 +145,6 @@ class SteamNetworkBackend(BackendInterface):
     def _load_persistent_cache(self):
         if "games" in self._persistent_cache:
             self._games_cache.loads(self._persistent_cache["games"])
-    
-    def register_auth_lost_callback(self, callback: Callable):
-        self._websocket_client.authentication_lost_handler = callback
 
     async def shutdown(self):
         await self._websocket_client.close()

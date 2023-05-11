@@ -103,13 +103,14 @@ class SteamPlugin(Plugin):
     
     def handshake_complete(self):
         self.__backend = self._load_steam_network_backend()
+        logger.info("Handshake complete")
 
     def _load_steam_network_backend(self):
-        http_client=self._http_client,
-        user_profile_checker=self._user_profile_checker,
-        persistent_storage_state=self._persistent_storage_state,
-        persistent_cache=self.persistent_cache,
-        store_credentials=self.store_credentials,
+        http_client : HttpClient = self._http_client
+        user_profile_checker = self._user_profile_checker
+        persistent_storage_state=self._persistent_storage_state
+        persistent_cache=self.persistent_cache
+        store_credentials=self.store_credentials
         ssl_context=self._ssl_context
         update_user_presence=self.update_user_presence
         add_game=self.add_game

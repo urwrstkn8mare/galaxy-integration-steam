@@ -79,7 +79,7 @@ class ProtobufClient:
         self.times_import_finished_handler: Optional[Callable[[bool], Awaitable[None]]] = None
         self._session_id:                   Optional[int] = None
         self._job_id_iterator:              Iterator[int] = count(1) #this is actually clever. A lazy iterator that increments every time you call next. 
-        #self.job_list : List[Dict[str,str]] = []
+        self.job_list : List[Dict[str,str]] = []
 
         self.collections = {'event': asyncio.Event(),
                             'collections': dict()}
@@ -95,19 +95,19 @@ class ProtobufClient:
 
     async def run(self):
         while True:
-            #for job in self.job_list.copy():
-            #    logger.info(f"New job on list {job}")
-            #    if job['job_name'] == "import_game_stats":
-            #        await self._import_game_stats(job['game_id'])
-            #        self.job_list.remove(job)
-            #    elif job['job_name'] == "import_collections":
-            #        await self._import_collections()
-            #        self.job_list.remove(job)
-            #    elif job['job_name'] == "import_game_times":
-            #        await self._import_game_time()
-            #        self.job_list.remove(job)
-            #    else:
-            #        logger.warning(f'Unknown job {job}')
+            for job in self.job_list.copy():
+                logger.info(f"New job on list {job}")
+                if job['job_name'] == "import_game_stats":
+                    await self._import_game_stats(job['game_id'])
+                    self.job_list.remove(job)
+                elif job['job_name'] == "import_collections":
+                    await self._import_collections()
+                    self.job_list.remove(job)
+                elif job['job_name'] == "import_game_times":
+                    await self._import_game_time()
+                    self.job_list.remove(job)
+                else:
+                    logger.warning(f'Unknown job {job}')
             try:
                 packet = await asyncio.wait_for(self._socket.recv(), 10)
                 #logger.info("Received Packet" + str(packet)) #bad idea when we start getting massive packets lol.

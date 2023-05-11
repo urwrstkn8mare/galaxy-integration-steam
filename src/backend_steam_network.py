@@ -286,8 +286,14 @@ class SteamNetworkBackend(BackendInterface):
 
     async def _handle_steam_guard_check(self, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
         result = await self._handle_2FA_PollOnce()
-        if (result == UserActionRequired.NoActionRequired):
+        if (result == UserActionRequired.NoActionRequired): #should never be hit. we need to confirm the token. 
             return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
+        elif (result == UserActionRequired.NoActionConfirmToken):
+            return await self._finish_auth_process()
+        #returned if we somehow got here but poll did not succeed. If we get here, the code should have been successfully input so this should never happen. 
+        elif(result == UserActionRequired.NoActionConfirmLogin):
+            logger.warning("Warning: The poll was called from a steam guard check after the steam guard was successfully input and confirmed valid, but we aren't confirmed yet. This should not happen")
+            return next_step_response_simple(fallback, self._user_info_cache.account_username, True)
         elif (result == UserActionRequired.TwoFactorExpired):
             return next_step_response_simple(fallback, self._user_info_cache.account_username, True, expired="true")
         else:
@@ -296,15 +302,33 @@ class SteamNetworkBackend(BackendInterface):
     #in the case of confirm, this needs to be called directly, because the user clicks a button saying "i confirmed it on steam's end"
     #but, to handle edge cases (expired, they lied), we need to potentially display a page again. 
     async def _handle_2FA_PollOnce(self) -> UserActionRequired:
+        """ Poll the steam authentication to see if we are logged in yet, and return whatever action is required. 
+
+        If the poll succeeds, but we aren't logged in yet (waiting on a code or mobile confirm), it returns UserActionRequired.NoActionConfirmLogin
+        If the poll succeeds and we are logged in, it returns UserActionRequired.NoActionConfirmToken
+        If the poll fails with the Result "Expired", returns UserActionRequired.TwoFactorExpired
+        If the poll otherwise fails, it return UserActionRequired.InvalidAuthData
+        """
         await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.POLL_TWO_FACTOR})
+        #can return NoActionConfirmToken, NoActionConfirmLogin (poll succeeded, but we haven't logged in ye)
         return await self._get_websocket_auth_step()
 
-    async def _finish_auth_process(self):
+    async def _finish_auth_process(self) -> Authentication:
         """ Essentially, call the classic Client.Login and get all the messages back we normally would. 
 
 
         """
-        pass
+        if (self._user_info_cache.is_initialized()):
+            await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.TOKEN})
+            result = await self._get_websocket_auth_step()
+            if (result != UserActionRequired.NoActionRequired):
+                logger.warning("Unexpected Action Required after normal login. Nothing to fall back to")
+                raise UnknownBackendResponse()
+            else:
+                return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
+        else:
+            logger.warning("User Info Cache not initialized after normal login. Unexpected")
+            raise UnknownBackendResponse()
 
     #async def _handle_login_finished(self, credentials):
     #    parsed_url = parse.urlsplit(credentials["end_uri"])
@@ -370,40 +394,26 @@ class SteamNetworkBackend(BackendInterface):
     #    )
 
     async def authenticate(self, stored_credentials=None):
-        if stored_credentials is None:
-            self._steam_run_task = asyncio.create_task(self._websocket_client.run())
-            return next_step_response_simple(DisplayUriHelper.GET_USER, None)
-        return await self._authenticate_with_stored_credentials(stored_credentials)
-    
-    async def _authenticate_with_stored_credentials(self, stored_credentials):
-        self._user_info_cache.from_dict(stored_credentials)
-
         self._steam_run_task = asyncio.create_task(self._websocket_client.run())
-        user_info_ready_task = asyncio.create_task(self._user_info_cache.initialized.wait())
-
-        done, _ = await asyncio.wait(
-            {self._steam_run_task, user_info_ready_task},
-            timeout = USER_INFO_CACHE_INITIALIZED_TIMEOUT,
-            return_when = asyncio.FIRST_COMPLETED
-        )
-        
-        if user_info_ready_task in done:
-            self._store_credentials(self._user_info_cache.to_dict())
-            return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
-        elif self._steam_run_task in done:
-            try:
-                await self._steam_run_task   
-            except Exception as e:
-                logger.exception(f"Unable to authenticate to steam backend: {repr(e)}")
-                raise
-            else:
-                raise UnknownError("Unexcpeted, silent websocket close.")
+        if stored_credentials is None:
+            return next_step_response_simple(DisplayUriHelper.GET_USER, None)
         else:
-            logger.warning(
-                f"Failed to login on steam server within {USER_INFO_CACHE_INITIALIZED_TIMEOUT} seconds."
-            )
-            await self._cancel_task(self._steam_run_task)
-            raise BackendTimeout()
+            return await self._authenticate_with_stored_credentials(stored_credentials)
+    
+    async def _authenticate_with_stored_credentials(self, stored_credentials) -> Union[NextStep, Authentication]:
+
+        self._user_info_cache.from_dict(stored_credentials)
+        if (self._user_info_cache.is_initialized()):
+            await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.TOKEN})
+            result = await self._get_websocket_auth_step()
+            if (result != UserActionRequired.NoActionRequired):
+                logger.warning("Unexpected Action Required after token login. " + str(result) + ". Falling back to normal login")
+                return next_step_response_simple(DisplayUriHelper.GET_USER, None)
+            else:
+                return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
+        else:
+            logger.warning("User Info Cache not initialized properly. Falling back to normal login.")
+            return next_step_response_simple(DisplayUriHelper.GET_USER, None)
 
     # features implementation
 

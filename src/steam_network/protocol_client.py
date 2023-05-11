@@ -53,11 +53,15 @@ class ProtocolClient:
     ):
 
         self._protobuf_client = ProtobufClient(socket)
+        #new auth
         self._protobuf_client.rsa_handler = self._rsa_handler
         self._protobuf_client.login_handler = self._login_handler
         self._protobuf_client.two_factor_update_handler = self._two_factor_update_handler
         self._protobuf_client.poll_status_handler = self._poll_handler
+        #old auth
+        self._protobuf_client.log_on_token_handler = self._login_token_handler
         self._protobuf_client.log_off_handler = self._log_off_handler
+        #retrieve data
         self._protobuf_client.relationship_handler = self._relationship_handler
         self._protobuf_client.user_info_handler = self._user_info_handler
         self._protobuf_client.user_nicknames_handler = self._user_nicknames_handler
@@ -239,7 +243,7 @@ class ProtocolClient:
         if self._two_factor_future is not None:
             self._two_factor_future.set_result(result)
         else:
-            logger.warning("NO FUTURE SET")
+            logger.warning("NO TWO FACTOR FUTURE SET")
 
     async def check_auth_status(self, client_id:int, request_id:bytes, auth_lost_handler:Callable) -> Tuple[UserActionRequired, Optional[int]]:
         loop = asyncio.get_running_loop()
@@ -252,26 +256,30 @@ class ProtocolClient:
         self._poll_future = None #we may have to redo the poll so reset this value to null. 
         # eresult can be OK, Expired, FileNotFound, Fail
         if result == EResult.OK:
-            self._auth_lost_handler = auth_lost_handler
-            #uint64 new_client_id = 1 [(description) = "if challenge is old, this is the new client id"];
-            #string new_challenge_url = 2 [(description) = "if challenge is old, this is the new challenge ID to re-render for mobile confirmation"];
-            #string refresh_token = 3 [(description) = "if login has been confirmed, this is the requestor's new refresh token"];
-            #string access_token = 4 [(description) = "if login has been confirmed, this is a new token subordinate to refresh_token"];
-            #bool had_remote_interaction = 5 [(description) = "whether or not the auth session appears to have had remote interaction from a potential confirmer"];
-            #string account_name = 6 [(description) = "account name of authenticating account, for use by UI layer"];
-            #string new_guard_data = 7 [(description) = "if login has been confirmed, may contain remembered machine ID for future login"];
-            #string agreement_session_url = 8 [(description) = "agreement the user needs to agree to"];
+            #ok just means the poll was successful. it doesn't tell us if we logged in. The only way i know of to check that is the refresh token having data. 
+            if (data.refresh_token):
+                self._auth_lost_handler = auth_lost_handler
+                #uint64 new_client_id = 1 [(description) = "if challenge is old, this is the new client id"];
+                #string new_challenge_url = 2 [(description) = "if challenge is old, this is the new challenge ID to re-render for mobile confirmation"];
+                #string refresh_token = 3 [(description) = "if login has been confirmed, this is the requestor's new refresh token"];
+                #string access_token = 4 [(description) = "if login has been confirmed, this is a new token subordinate to refresh_token"];
+                #bool had_remote_interaction = 5 [(description) = "whether or not the auth session appears to have had remote interaction from a potential confirmer"];
+                #string account_name = 6 [(description) = "account name of authenticating account, for use by UI layer"];
+                #string new_guard_data = 7 [(description) = "if login has been confirmed, may contain remembered machine ID for future login"];
+                #string agreement_session_url = 8 [(description) = "agreement the user needs to agree to"];
 
-            self._user_info_cache.refresh_token = data.refresh_token
-            self._user_info_cache.persona_name = data.account_name
-            self._user_info_cache.access_token = data.access_token
-            self._user_info_cache.guard_data = data.new_guard_data
-
-            return (UserActionRequired.NoActionRequired, None)
-
+                self._user_info_cache.refresh_token = data.refresh_token
+                self._user_info_cache.persona_name = data.account_name
+                self._user_info_cache.access_token = data.access_token
+                self._user_info_cache.guard_data = data.new_guard_data
+                
+                return (UserActionRequired.NoActionConfirmToken, data.new_client_id)
+            else:
+                return (UserActionRequired.NoActionConfirmLogin, data.new_client_id)
         elif result == EResult.Expired:
             self._auth_lost_handler = auth_lost_handler
             return (UserActionRequired.TwoFactorExpired, data.new_client_id)
+        #TODO: This will likely error if the code is bad. Figure out what to do here. 
         else:
             raise translate_error(result)
 
@@ -281,13 +289,32 @@ class ProtocolClient:
         else:
             logger.warning("NO FUTURE SET")
 
-    async def finalize_login(self, username:str, refresh_token:str):
+    async def finalize_login(self, username:str, refresh_token:str, auth_lost_handler : Callable) -> UserActionRequired:
         loop = asyncio.get_running_loop()
         self._token_login_future = loop.create_future()
 
-        await self._protobuf_client.final_token_login(username, refresh_token)
-        (result, data) = await self._token_login_future
+        os_value = get_os()
 
+        await self._protobuf_client.send_log_on_token_message(username, refresh_token, self._used_server_cell_id, self._machine_id, os_value)
+        (result, steam_id) = await self._token_login_future
+        if (steam_id is not None and self._user_info_cache.steam_id != steam_id):
+            self._user_info_cache.steam_id = steam_id
+
+        if result == EResult.OK:
+            self._auth_lost_handler = auth_lost_handler
+        else:
+            logger.warning(f"authenticate_token failed with code: {result}")
+            raise translate_error(result)
+
+        return UserActionRequired.NoActionRequired
+
+    async def _login_token_handler(self, result: EResult, steam_id : Optional[int], account_id: Optional[int]):
+        if self._login_future is not None:
+            self._login_future.set_result((result, steam_id))
+        else:
+            # sometimes Steam sends LogOnResponse message even if plugin didn't send LogOnRequest
+            # known example is LogOnResponse with result=EResult.TryAnotherCM
+            raise translate_error(result)
 
     async def import_game_stats(self, game_ids):
         for game_id in game_ids:

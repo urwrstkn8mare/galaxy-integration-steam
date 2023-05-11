@@ -1,14 +1,19 @@
-""" A collection of Top-Level Functions and other utilities that can be imported from one location so we don't need to hunt for them in this maze of a program. 
+""" A collection of Top-Level Functions and other utilities that can be imported from one location so we don't need to hunt for them in this maze of a program.
 
 
 
 """
+import platform
+
+from galaxy.api.errors import (AccessDenied, BackendError, BackendNotAvailable,
+                               BackendTimeout, Banned, InvalidCredentials,
+                               NetworkError, TemporaryBlocked, UnknownError)
 from galaxy.api.types import NextStep
 import galaxy.api.errors
 
-from .protocol.consts import EResult, EOSType
 from .enums import DisplayUriHelper
-import platform
+from .protocol.consts import EOSType, EResult
+
 
 def get_os() -> EOSType:
     system = platform.system()
@@ -66,13 +71,13 @@ def translate_error(result: EResult):
         EResult.TwoFactorCodeMismatch,
         EResult.TwoFactorActivationCodeMismatch
     ):
-        return galaxy.api.errors.InvalidCredentials(data)
+        return InvalidCredentials(data)
     if result in (
         EResult.ConnectFailed,
         EResult.IOFailure,
         EResult.RemoteDisconnect
     ):
-        return galaxy.api.errors.NetworkError(data)
+        return NetworkError(data)
     if result in (
         EResult.Busy,
         EResult.ServiceUnavailable,
@@ -81,9 +86,9 @@ def translate_error(result: EResult):
         EResult.TryAnotherCM,
         EResult.Cancelled
     ):
-        return galaxy.api.errors.BackendNotAvailable(data)
+        return BackendNotAvailable(data)
     if result == EResult.Timeout:
-        return galaxy.api.errors.BackendTimeout(data)
+        return BackendTimeout(data)
     if result in (
         EResult.RateLimitExceeded,
         EResult.LimitExceeded,
@@ -91,9 +96,9 @@ def translate_error(result: EResult):
         EResult.AccountLocked,
         EResult.AccountLogonDeniedVerifiedEmailRequired
     ):
-        return galaxy.api.errors.TemporaryBlocked(data)
+        return TemporaryBlocked(data)
     if result == EResult.Banned:
-        return galaxy.api.errors.Banned(data)
+        return Banned(data)
     if result in (
         EResult.AccessDenied,
         EResult.InsufficientPrivilege,
@@ -103,7 +108,7 @@ def translate_error(result: EResult):
         EResult.AccountDisabled,
         EResult.AccountNotFeatured
     ):
-        return galaxy.api.errors.AccessDenied(data)
+        return AccessDenied(data)
     if result in (
         EResult.DataCorruption,
         EResult.DiskFull,
@@ -111,9 +116,9 @@ def translate_error(result: EResult):
         EResult.RemoteFileConflict,
         EResult.BadResponse
     ):
-        return galaxy.api.errors.BackendError(data)
+        return BackendError(data)
 
-    return galaxy.api.errors.UnknownError(data)
+    return UnknownError(data)
 
 _NEXT_STEP = {
     "window_title": "Login to Steam",

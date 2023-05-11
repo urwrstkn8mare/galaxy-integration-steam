@@ -204,8 +204,8 @@ class SteamNetworkBackend(BackendInterface):
             return await self._handle_steam_guard(credentials, DisplayUriHelper.TWO_FACTOR_MAIL)
         elif (DisplayUriHelper.TWO_FACTOR_MOBILE.EndUri() in end_uri):
             return await self._handle_steam_guard(credentials, DisplayUriHelper.TWO_FACTOR_MOBILE)
-        #elif (DisplayUriHelper.TWO_FACTOR_CONFIRM.EndUri() in end_uri):
-            #not implemented ever, so it's new. Evidently not in yet. 
+        elif (DisplayUriHelper.TWO_FACTOR_CONFIRM.EndUri() in end_uri):
+            return await self._handle_steam_guard_check(DisplayUriHelper.TWO_FACTOR_MOBILE) #the fallback should be chosen based on the allowed_confirmations and not be hard-coded here
         else:
             logger.warning("Not reimplemented yet")
             raise BackendTimeout()
@@ -286,7 +286,8 @@ class SteamNetworkBackend(BackendInterface):
 
     async def _handle_steam_guard_check(self, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
         result = await self._handle_2FA_PollOnce()
-        if (result == UserActionRequired.NoActionRequired): #should never be hit. we need to confirm the token. 
+        logger.info(f"steam guard check next action: {result.name}")
+        if (result == UserActionRequired.NoActionRequired): #should never be hit. we need to confirm the token.
             return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
         elif (result == UserActionRequired.NoActionConfirmToken):
             return await self._finish_auth_process()

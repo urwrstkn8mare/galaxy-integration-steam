@@ -84,6 +84,17 @@
 						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon"> Invalid code
 					</p>
 				</fieldset>
+				<fieldset id="steamGuardConfirm" style="display:none;">
+					<legend>
+						As an additional security measure, you’ll need to confirm the login attempt in the Steam
+						Mobile Authenticator on your phone.
+						<br /><br />
+						Continue this dialog once you completed the authentication on your phone.
+					</legend>
+					<p class="error-message error-message--centered no-error">
+						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon"> Confirmation failed
+					</p>
+				</fieldset>
 			</form>
 			<p>This code is in development. There are significant changes under the hood. Please bear with us while we fix any errors!</p>
 		</main>
@@ -135,6 +146,7 @@
 			login: "login",
 			steamGuard: "steamguard",
 			steamAuthenticator: "steamauthenticator",
+			steamAuthenticatorConfirm: "steamauthenticator_confirm",
 		};
 
 		//HtmlElements that deal with errors are hidden by default, using the no-error class. Therefore, we can simply query the no-error class to get all our errors. 
@@ -155,6 +167,10 @@
 			steamAuthenticatorFieldset: document.querySelector("#steamGuardPhone"),
 			steamAuthenticatorInputs: document.querySelectorAll("#steamGuardPhone input"),
 			steamAuthenticatorError: document.querySelectorAll("#steamGuardPhone .no-error"),
+
+			steamAuthenticatorConfirmFieldset: document.querySelector("#steamGuardConfirm"),
+			steamAuthenticatorConfirmInputs: document.querySelectorAll("#steamGuardConfirm input"),
+			steamAuthenticatorConfirmError: document.querySelectorAll("#steamGuardConfirm .no-error"),
 		}
 
 		function handleEnablingInputs(inputs) 
@@ -196,6 +212,12 @@
 					inp = fieldSetsObj.steamAuthenticatorInputs;
 					act = "/two_factor_mobile_finished";
 					err = errored ? fieldSetsObj.steamAuthenticatorError : null;
+					break;
+				case viewLookup.steamAuthenticatorConfirm:
+					loc = fieldSetsObj.steamAuthenticatorConfirmFieldset;
+					inp = fieldSetsObj.steamAuthenticatorConfirmInputs;
+					act = "/two_factor_confirm_finished";
+					err = errored ? fieldSetsObj.steamAuthenticatorConfirmError : null;
 					break;
 				case viewLookup.user:
 				default:

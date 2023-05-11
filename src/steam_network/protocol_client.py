@@ -297,6 +297,8 @@ class ProtocolClient:
 
         await self._protobuf_client.send_log_on_token_message(username, refresh_token, self._used_server_cell_id, self._machine_id, os_value)
         (result, steam_id) = await self._token_login_future
+        self._token_login_future = None
+
         if (steam_id is not None and self._user_info_cache.steam_id != steam_id):
             self._user_info_cache.steam_id = steam_id
 
@@ -309,8 +311,8 @@ class ProtocolClient:
         return UserActionRequired.NoActionRequired
 
     async def _login_token_handler(self, result: EResult, steam_id : Optional[int], account_id: Optional[int]):
-        if self._login_future is not None:
-            self._login_future.set_result((result, steam_id))
+        if self._token_login_future is not None:
+            self._token_login_future.set_result((result, steam_id))
         else:
             # sometimes Steam sends LogOnResponse message even if plugin didn't send LogOnRequest
             # known example is LogOnResponse with result=EResult.TryAnotherCM

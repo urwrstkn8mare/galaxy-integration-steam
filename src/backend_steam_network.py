@@ -404,6 +404,10 @@ class SteamNetworkBackend(BackendInterface):
 
         self._user_info_cache.from_dict(stored_credentials)
         if (self._user_info_cache.is_initialized()):
+            logger.inf("USER CACHE INFO:")
+            logger.info(self._user_info_cache.account_username)
+            logger.info(self._user_info_cache.persona_name)
+            logger.info(self._user_info_cache.refresh_token)
             await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.TOKEN})
             result = await self._get_websocket_auth_step()
             if (result != UserActionRequired.NoActionRequired):

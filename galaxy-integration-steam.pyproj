@@ -56,6 +56,7 @@
     <Content Include="src\commonWeb\img\icon-show.svg" />
     <Content Include="src\commonWeb\img\icon-steam-logo.svg" />
     <Content Include="src\commonWeb\img\icon-warning.svg" />
+    <Content Include="src\manifest.json" />
     <Content Include="src\steam_network\custom_login\css\style.css" />
     <Content Include="src\steam_network\custom_login\index.html" />
     <Content Include="tests\appmanifest_386360.acf" />
@@ -80,7 +81,6 @@
     <Compile Include="src\steam_network\friends_cache.py" />
     <Compile Include="src\steam_network\games_cache.py" />
     <Compile Include="src\steam_network\local_machine_cache.py" />
-    <Compile Include="src\steam_network\ownership_ticket_cache.py" />
     <Compile Include="src\steam_network\presence.py" />
     <Compile Include="src\steam_network\protocol\consts.py" />
     <Compile Include="src\steam_network\protocol\messages\encrypted_app_ticket_pb2.py" />

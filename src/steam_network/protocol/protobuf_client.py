@@ -446,8 +446,6 @@ class ProtobufClient:
             await self._process_client_logged_off(body)
         elif emsg == EMsg.ClientFriendsList:
             await self._process_client_friend_list(body)
-        elif emsg == EMsg.ClientGetAppOwnershipTicketResponse:
-            await self._process_client_get_app_ownership_ticket_response(body)
         elif emsg == EMsg.ClientPersonaState:
             await self._process_client_persona_state(body)
         elif emsg == EMsg.ClientLicenseList:

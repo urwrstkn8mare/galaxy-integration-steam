@@ -92,11 +92,12 @@ class DisplayUriHelper(enum.Enum):
 
 class UserActionRequired(enum.IntEnum):
     NoActionRequired = 0
-    NoActionConfirmLogin = 1 #No action required, but we still need to confirm login. New auth workflow requires we poll to get the login info. 
-    TwoFactorRequired = 2 #any form of 2FA required. when set, check the related TwoFactorMethod enum for the thing we need to do. 
-    PasswordRequired = 3
-    TwoFactorExpired = 4
-    InvalidAuthData = 5
+    NoActionConfirmToken = 1
+    NoActionConfirmLogin = 2 #No action required, but we still need to confirm login. New auth workflow requires we poll to get the login info. 
+    TwoFactorRequired = 3 #any form of 2FA required. when set, check the related TwoFactorMethod enum for the thing we need to do. 
+    PasswordRequired = 4
+    TwoFactorExpired = 5
+    InvalidAuthData = 6
 
 #We're going to store this in the User Info Cache so we don't need to pass it everywhere. 
 #WARNING! BE VERY CAREFUL WITH THIS: IT APPEARS IN THE USER INFO CACHE! IF IT IS EVER SAVED (toDict method), THIS ENUM BECOMES SOFT IMMUTABLE 

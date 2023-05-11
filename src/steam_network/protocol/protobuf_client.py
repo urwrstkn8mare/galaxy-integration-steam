@@ -62,7 +62,7 @@ class ProtobufClient:
         self.poll_status_handler:           Optional[Callable[[EResult, steammessages_auth_pb2.CAuthentication_PollAuthSessionStatus_Response], Awaitable[None]]] = None
         self.revoke_refresh_token_handler:  Optional[Callable[[EResult], Awaitable[None]]] = None
         #old auth flow. Used to confirm login and repeat logins using the refresh token.
-        self.log_on_token_handler:          Optional[Callable[[EResult], Awaitable[None]]] = None
+        self.log_on_token_handler:          Optional[Callable[[EResult, Optional[int], Optional[int]], Awaitable[None]]] = None
         self._heartbeat_task:               Optional[asyncio.Task] = None #keeps our connection alive, essentially, by pinging the steam server. 
         self.log_off_handler:               Optional[Callable[[EResult], Awaitable[None]]] = None
         #retrive information
@@ -74,7 +74,6 @@ class ProtobufClient:
         self.package_info_handler:          Optional[Callable[[], None]] = None
         self.translations_handler:          Optional[Callable[[int, Any], Awaitable[None]]] = None
         self.stats_handler:                 Optional[Callable[[int, Any, Any], Awaitable[None]]] = None
-        self.user_authentication_handler:   Optional[Callable[[str, Any], Awaitable[None]]] = None
         self.confirmed_steam_id:            Optional[int] = None #this should only be set when the steam id is confirmed. this occurs when we actually complete the login. before then, it will cause errors. 
         self.times_handler:                 Optional[Callable[[int, int, int], Awaitable[None]]] = None
         self.times_import_finished_handler: Optional[Callable[[bool], Awaitable[None]]] = None
@@ -82,7 +81,6 @@ class ProtobufClient:
         self._job_id_iterator:              Iterator[int] = count(1) #this is actually clever. A lazy iterator that increments every time you call next. 
         #self.job_list : List[Dict[str,str]] = []
 
-        self.account_info_retrieved = asyncio.Event()
         self.collections = {'event': asyncio.Event(),
                             'collections': dict()}
 
@@ -256,6 +254,7 @@ class ProtobufClient:
         return obfuscated_ip
 
     async def send_log_on_token_message(self, account_name: str, access_token: str, cell_id: int, machine_id: bytes, os_value: int):
+
         message = steammessages_clientserver_login_pb2.CMsgClientLogon()
         message.protocol_version = self._MSG_PROTOCOL_VERSION
         message.client_package_version = self._MSG_CLIENT_PACKAGE_VERSION
@@ -289,9 +288,13 @@ class ProtobufClient:
             self._heartbeat_task = asyncio.create_task(self._heartbeat(interval))
         else:
             logger.info(f"Failed to log on, reason : {message}")
+            logger.info(f"Extended info : {message.eresult_extended}")
 
         if self.log_on_token_handler is not None:
-            await self.log_on_token_handler(result, )
+            account_id = message.client_supplied_steamid - self._ACCOUNT_ID_MASK if message.client_supplied_steamid else None
+            await self.log_on_token_handler(result, message.client_supplied_steamid, account_id)
+        else:
+            logger.warning("NO LOGIN TOKEN HANDLER SET!")
 
     async def send_log_off_message(self):
         message = steammessages_clientserver_login_pb2.CMsgClientLogOff()
@@ -300,6 +303,8 @@ class ProtobufClient:
             await self._send(EMsg.ClientLogOff, message)
         except Exception as e:
             logger.error(f"Unable to send logoff message {repr(e)}")
+
+    #retrieve info
 
     async def _import_game_stats(self, game_id):
         logger.info(f"Importing game stats for {game_id}")
@@ -456,10 +461,6 @@ class ProtobufClient:
             await self._process_user_stats_response(body)
         elif emsg == EMsg.ClientAccountInfo:
             await self._process_account_info(body)
-        elif emsg == EMsg.ClientNewLoginKey:
-            await self._process_client_new_login_key(body, header.jobid_source)
-        elif emsg == EMsg.ClientUpdateMachineAuth:
-            await self._process_client_update_machine_auth(body, header.jobid_source)
         elif emsg == EMsg.ClientPlayerNicknameList:
             await self._process_user_nicknames(body)
         elif emsg == EMsg.ServiceMethod:
@@ -488,23 +489,11 @@ class ProtobufClient:
             offset += size_bytes + size
         logger.debug("Finished processing message Multi")
 
-
-
-    async def _process_client_update_machine_auth(self, body, jobid_source):
-        logger.debug("Processing message ClientUpdateMachineAuth")
-        message = steammessages_clientserver_2_pb2.CMsgClientUpdateMachineAuth()
-        message.ParseFromString(body)
-
-        sentry_sha = hashlib.sha1(message.bytes).digest()
-        await self.user_authentication_handler('sentry', sentry_sha)
-        await self.accept_update_machine_auth(jobid_source, sentry_sha, message.offset, message.filename, message.cubtowrite)
-
     async def _process_account_info(self, body):
         logger.debug("Processing message ClientAccountInfo")
-        message = steammessages_clientserver_login_pb2.CMsgClientAccountInfo()
-        message.ParseFromString(body)
-        await self.user_authentication_handler('persona_name', message.persona_name)
-        self.account_info_retrieved.set()
+        #message = steammessages_clientserver_login_pb2.CMsgClientAccountInfo()
+        #message.ParseFromString(body)
+        logger.info("Client Account Info Message currently unused. It it redundant")
 
     async def _process_client_logged_off(self, body):
         logger.debug("Processing message ClientLoggedOff")

@@ -4,6 +4,7 @@
 
 """
 from galaxy.api.types import NextStep
+import galaxy.api.errors
 
 from .protocol.consts import EResult, EOSType
 from .enums import DisplayUriHelper

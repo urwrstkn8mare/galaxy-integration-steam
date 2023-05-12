@@ -316,20 +316,23 @@ class ProtocolClient:
             raise translate_error(result)
 
     async def import_game_stats(self, game_ids):
-        for game_id in game_ids:
-            self._protobuf_client.job_list.append({"job_name": "import_game_stats",
-                                                   "game_id": game_id})
+        #for game_id in game_ids:
+        #    self._protobuf_client.job_list.append({"job_name": "import_game_stats",
+        #                                           "game_id": game_id})
+        pass
 
     async def import_game_times(self):
-        self._protobuf_client.job_list.append({"job_name": "import_game_times"})
+        #self._protobuf_client.job_list.append({"job_name": "import_game_times"})
+        pass
 
     async def retrieve_collections(self):
-        self._protobuf_client.job_list.append({"job_name": "import_collections"})
-        await self._protobuf_client.collections['event'].wait()
-        collections = self._protobuf_client.collections['collections'].copy()
-        self._protobuf_client.collections['event'].clear()
-        self._protobuf_client.collections['collections'] = dict()
-        return collections
+        #self._protobuf_client.job_list.append({"job_name": "import_collections"})
+        #await self._protobuf_client.collections['event'].wait()
+        #collections = self._protobuf_client.collections['collections'].copy()
+        #self._protobuf_client.collections['event'].clear()
+        #self._protobuf_client.collections['collections'] = dict()
+        #return collections
+        return {}
 
 
 

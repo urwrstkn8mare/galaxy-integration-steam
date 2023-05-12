@@ -281,7 +281,7 @@ class WebSocketClient:
                     self._steam_polling_data.client_id = new_client_id
             elif (mode == AuthCall.TOKEN):
                 logger.info("Finalizing Log in using the new auth refresh token and the classic login call")
-                ret_code = await self._protocol_client.finalize_login(self._user_info_cache.account_username, self._user_info_cache.refresh_token, auth_lost_handler)
+                ret_code = await self._protocol_client.finalize_login(self._user_info_cache.account_username, self._user_info_cache.steam_id, self._user_info_cache.refresh_token, auth_lost_handler)
             else:
                 ret_code = UserActionRequired.InvalidAuthData
 

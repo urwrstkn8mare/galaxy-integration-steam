@@ -284,13 +284,15 @@ class ProtocolClient:
         else:
             logger.warning("NO FUTURE SET")
 
-    async def finalize_login(self, username:str, refresh_token:str, auth_lost_handler : Callable) -> UserActionRequired:
+    #async def finalize_login(self, username:str, refresh_token:str, auth_lost_handler : Callable) -> UserActionRequired:
+    async def finalize_login(self, username:str, steam_id:int, refresh_token:str, auth_lost_handler : Callable) -> UserActionRequired:
         loop = asyncio.get_running_loop()
         self._token_login_future = loop.create_future()
 
         os_value = get_os()
 
-        await self._protobuf_client.send_log_on_token_message(username, refresh_token, self._used_server_cell_id, self._machine_id, os_value)
+        #await self._protobuf_client.send_log_on_token_message(username, refresh_token, self._used_server_cell_id, self._machine_id, os_value)
+        await self._protobuf_client.send_log_on_token_message(username, steam_id, refresh_token, self._used_server_cell_id, self._machine_id, os_value)
         (result, steam_id) = await self._token_login_future
         self._token_login_future = None
 

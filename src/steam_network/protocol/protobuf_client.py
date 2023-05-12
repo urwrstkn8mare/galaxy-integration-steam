@@ -253,7 +253,8 @@ class ProtobufClient:
         logger.debug(f"Local obfuscated IP: {obfuscated_ip}")
         return obfuscated_ip
 
-    async def send_log_on_token_message(self, account_name: str, access_token: str, cell_id: int, machine_id: bytes, os_value: int):
+    #async def send_log_on_token_message(self, account_name: str, access_token: str, cell_id: int, machine_id: bytes, os_value: int):
+    async def send_log_on_token_message(self, account_name: str, steam_id:int, access_token: str, cell_id: int, machine_id: bytes, os_value: int):
         #AccountInstance = SteamID.DesktopInstance; // use the default pc steam instance
         #AccountID = 0;
         #ClientOSType = Utils.GetOSType();
@@ -322,8 +323,13 @@ class ProtobufClient:
             this.Client.Send( logon );
         }
         """
+        resetSteamIDAfterThisCall : bool = False
+        if (self.confirmed_steam_id is None):
+            resetSteamIDAfterThisCall = True
+            self.confirmed_steam_id = steam_id
 
         message = steammessages_clientserver_login_pb2.CMsgClientLogon()
+        message.client_supplied_steam_id = steam_id
         message.protocol_version = self._MSG_PROTOCOL_VERSION
         message.client_package_version = self._MSG_CLIENT_PACKAGE_VERSION
         message.cell_id = cell_id
@@ -337,7 +343,11 @@ class ProtobufClient:
         message.machine_name = sock.gethostname()
         message.access_token = access_token
         logger.info("Sending log on message using access token")
-        await self._send(EMsg.ClientLogon, message)
+        awaitMe = self._send(EMsg.ClientLogon, message)
+        if (resetSteamIDAfterThisCall):
+            self.confirmed_steam_id = None
+        await awaitMe
+
 
     async def _heartbeat(self, interval):
         message = steammessages_clientserver_login_pb2.CMsgClientHeartBeat()

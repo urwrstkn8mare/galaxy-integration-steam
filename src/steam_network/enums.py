@@ -35,17 +35,20 @@ class DisplayUriHelper(enum.Enum):
     LOGIN = 1
     TWO_FACTOR_MAIL = 2
     TWO_FACTOR_MOBILE = 3
+    TWO_FACTOR_CONFIRM = 4
 
-    def _add_view(self, args:Dict[str,str]) -> Dict[str, str] : 
+    def _add_view(self, args:Dict[str,str]) -> Dict[str, str] :
         if (self == self.LOGIN):
             args["view"] = "login"
         elif (self == self.TWO_FACTOR_MAIL):
             args["view"] = "steamguard"
         elif (self == self.TWO_FACTOR_MOBILE):
             args["view"] = "steamauthenticator"
+        elif (self == self.TWO_FACTOR_CONFIRM):
+            args["view"] = "steamauthenticator_confirm"
         else:
             args["view"] = "user"
-        return args;
+        return args
 
     def _get_errored(self, args: Dict[str,str], errored: bool, verbose: bool = False) -> Dict[str, str]:
         if (errored):
@@ -84,6 +87,8 @@ class DisplayUriHelper(enum.Enum):
              return 'two_factor_mail_finished'
          elif (self == self.TWO_FACTOR_MOBILE):
              return 'two_factor_mobile_finished'
+         elif (self == self.TWO_FACTOR_CONFIRM):
+             return 'two_factor_confirm_finished'
          else:
              return 'user_finished'
 

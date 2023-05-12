@@ -8,12 +8,10 @@ from .steam_auth_polling_data import SteamPollingData
 
 from .utils import get_os, translate_error
 
-import galaxy.api.errors
-
 from asyncio import Future
 from .local_machine_cache import LocalMachineCache
 from .protocol.protobuf_client import ProtobufClient, SteamLicense
-from .protocol.consts import EResult, EFriendRelationship, EPersonaState, STEAM_CLIENT_APP_ID, EOSType
+from .protocol.consts import EResult, EFriendRelationship, EPersonaState
 from .friends_cache import FriendsCache
 from .games_cache import GamesCache
 from .stats_cache import StatsCache
@@ -27,7 +25,6 @@ from .utils import get_os, translate_error
 from rsa import PublicKey
 
 from .protocol.messages.steammessages_auth_pb2 import CAuthentication_BeginAuthSessionViaCredentials_Response, CAuthentication_AllowedConfirmation, CAuthentication_PollAuthSessionStatus_Response
-from pprint import pformat
 
 
 if TYPE_CHECKING:
@@ -183,7 +180,6 @@ class ProtocolClient:
                 if (action == TwoFactorMethod.PhoneCode):
                     auth_method = action
                     auth_message = msg
-                    break #this is the highest priority, so stop iterating immediately. 
                 elif (action == TwoFactorMethod.EmailCode):
                     auth_method = action
                     auth_message = msg
@@ -192,15 +188,13 @@ class ProtocolClient:
                 elif (action == TwoFactorMethod.PhoneConfirm and auth_method != TwoFactorMethod.EmailCode):
                     auth_method = action
                     auth_message = msg
-                    #mobile confirm is the hardest to implement here and requires the most waiting on the user's point of view, so we're deprioritizing it here.
-                    #if either mobile or email codes is allowed, use them instead.
+                    #mobile confirm is the easiest for the user so we're prioritizing it here.
+                    break
                 elif (action == TwoFactorMethod.Nothing and auth_method == TwoFactorMethod.Unknown):
                     auth_method = action #force this to Confirm Login. No Action Required should never be here but just in case some legacy something or other. 
                     auth_message = msg
                     #in theory if this is set, none of the others should be, so this gets lowest priority. If somehow none and one of the other options is set, 
                     #steam messed up somehow, so err on the side of caution.
-            res = message.DESCRIPTOR.fields_by_name.keys()
-            logger.info("Entries in CredentialsResponse: " + pformat(res))
             data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, auth_method, auth_message, message.extended_error_message)
         else:
             #logger.error("Login failed")
@@ -213,6 +207,7 @@ class ProtocolClient:
             raise translate_error(result)
 
         if self._login_future is not None:
+            logger.info(f"selecting login method {auth_method.name}")
             self._login_future.set_result((result, data))
         else:
             logger.warning("NO LOGIN FUTURE SET")

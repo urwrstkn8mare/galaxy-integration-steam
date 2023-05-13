@@ -17,3 +17,4 @@ output/
 *.user
 /env1
 
+/protoc

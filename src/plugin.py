@@ -50,7 +50,6 @@ from client import (
 from persistent_cache_state import PersistentCacheState
 from registry_monitor import get_steam_registry_monitor
 from uri_scheme_handler import is_uri_handler_installed
-from user_profile import UserProfileChecker
 from version import __version__
 
 
@@ -80,7 +79,6 @@ class SteamPlugin(Plugin):
         self._ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         self._ssl_context.load_verify_locations(certifi.where())
         self._http_client = HttpClient()
-        self._user_profile_checker = UserProfileChecker(self._http_client)
 
         # cache management
         self._persistent_storage_state = PersistentCacheState()
@@ -107,7 +105,6 @@ class SteamPlugin(Plugin):
 
     def _load_steam_network_backend(self):
         http_client : HttpClient = self._http_client
-        user_profile_checker = self._user_profile_checker
         persistent_storage_state=self._persistent_storage_state
         persistent_cache=self.persistent_cache
         store_credentials=self.store_credentials
@@ -115,7 +112,7 @@ class SteamPlugin(Plugin):
         update_user_presence=self.update_user_presence
         add_game=self.add_game
 
-        return SteamNetworkBackend(http_client, user_profile_checker, ssl_context, persistent_storage_state, persistent_cache, update_user_presence, store_credentials, add_game)
+        return SteamNetworkBackend(http_client, ssl_context, persistent_storage_state, persistent_cache, update_user_presence, store_credentials, add_game)
     
     async def pass_login_credentials(self, step, credentials, cookies):
         result = await self._backend.pass_login_credentials(step, credentials, cookies)

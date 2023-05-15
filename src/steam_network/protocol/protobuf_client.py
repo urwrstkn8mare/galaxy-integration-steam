@@ -60,7 +60,6 @@ class ProtobufClient:
         self.login_handler:                 Optional[Callable[[EResult,steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Response], Awaitable[None]]] = None
         self.two_factor_update_handler:     Optional[Callable[[EResult, str], Awaitable[None]]] = None
         self.poll_status_handler:           Optional[Callable[[EResult, steammessages_auth_pb2.CAuthentication_PollAuthSessionStatus_Response], Awaitable[None]]] = None
-        self.revoke_refresh_token_handler:  Optional[Callable[[EResult], Awaitable[None]]] = None
         #old auth flow. Used to confirm login and repeat logins using the refresh token.
         self.log_on_token_handler:          Optional[Callable[[EResult, Optional[int], Optional[int]], Awaitable[None]]] = None
         self._heartbeat_task:               Optional[asyncio.Task] = None #keeps our connection alive, essentially, by pinging the steam server. 
@@ -339,6 +338,9 @@ class ProtobufClient:
         message.qos_level = 3
         message.machine_id = machine_id
         message.account_name = account_name
+        #message.password = ""
+        #message.password = None
+        message.should_remember_password = True
         message.eresult_sentryfile = EResult.FileNotFound
         message.machine_name = sock.gethostname()
         message.access_token = access_token

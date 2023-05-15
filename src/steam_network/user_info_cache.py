@@ -32,8 +32,8 @@ class UserInfoCache:
         #type hinting didn't want to place nice if i didn't do it this way. if you can python better than me and get this to properly bool type hint, go for it -BaumherA
 
         #TO DISABLE, COMMENT THE FIRST AND UNCOMMENT THE SECOND. TO ENABLE, COMMENT THE SECOND, UNCOMMENT THE FIRST. 
-        #return True if (self._steam_id and self._account_username and self._persona_name and self._refresh_token and self._guard_data) else False
-        return False
+        return True if (self._steam_id and self._account_username and self._persona_name and self._refresh_token and self._guard_data) else False
+        #return False
 
 
     def to_dict(self):

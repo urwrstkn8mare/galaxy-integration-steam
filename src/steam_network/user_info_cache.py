@@ -14,14 +14,14 @@ class UserInfoCache:
         self._refresh_token : Optional[str] = None #persistent token. Used to log in, despite the fact that we should use an access token. weird quirk in how steam does things.
         self._access_token : Optional[str] = None #session login token. Largely useless. May be useful in future if steam fixes their login to use an access token instead of refresh token. 
 
-        self._guard_data : Optional[str] = None #steam guard data. It might no longer be necessary, but i'll save it just in case. 
+        #self._guard_data : Optional[str] = None #steam guard data. It might no longer be necessary, but i'll save it just in case. Causes issues with mobile confirm, so it's now excluded
         
         self._changed = False
         
         self.initialized = asyncio.Event()
 
     def _check_initialized(self):
-        if self._steam_id and self._account_username and self._persona_name and self._refresh_token and self._guard_data:
+        if self.is_initialized():
             logger.info("User info cache initialized")
             self.initialized.set()
             self._changed = True
@@ -30,10 +30,8 @@ class UserInfoCache:
         #THIS CURRENTLY ENABLES OR DISABLES LOGGING IN FROM CACHE. 
 
         #type hinting didn't want to place nice if i didn't do it this way. if you can python better than me and get this to properly bool type hint, go for it -BaumherA
-
-        #TO DISABLE, COMMENT THE FIRST AND UNCOMMENT THE SECOND. TO ENABLE, COMMENT THE SECOND, UNCOMMENT THE FIRST. 
         #return True if (self._steam_id and self._account_username and self._persona_name and self._refresh_token and self._guard_data) else False
-        return False
+        return True if (self._steam_id and self._account_username and self._persona_name and self._refresh_token) else False
 
 
     def to_dict(self):
@@ -42,7 +40,7 @@ class UserInfoCache:
             'refresh_token': base64.b64encode(str(self._refresh_token).encode('utf-8')).decode('utf-8'),
             'account_username': base64.b64encode(str(self._account_username).encode('utf-8')).decode('utf-8'),
             'persona_name': base64.b64encode(str(self._persona_name).encode('utf-8')).decode('utf-8'),
-            'guard_data': base64.b64encode(str(self._guard_data).encode('utf-8')).decode('utf-8')
+            #'guard_data': base64.b64encode(str(self._guard_data).encode('utf-8')).decode('utf-8')
         }
         return creds
 
@@ -63,8 +61,8 @@ class UserInfoCache:
         if 'refresh_token' in lookup:
             self._refresh_token = base64.b64decode(lookup['refresh_token']).decode('utf-8')
 
-        if 'guard_data' in lookup:
-            self._guard_data = base64.b64decode(lookup['guard_data']).decode('utf-8')
+        #if 'guard_data' in lookup:
+        #    self._guard_data = base64.b64decode(lookup['guard_data']).decode('utf-8')
 
     @property
     def changed(self):
@@ -133,14 +131,22 @@ class UserInfoCache:
         if not self.initialized.is_set():
             self._check_initialized()
 
-    @property
-    def guard_data(self):
-        return self._guard_data
+    def Clear(self):
+        self._refresh_token = None
+        self._steam_id = None 
+        self._account_username = None 
+        self._persona_name = None 
+        self._access_token  = None 
+        #self._guard_data = None
 
-    @guard_data.setter
-    def guard_data(self, val):
-        if self._guard_data != val and self.initialized.is_set():
-            self._changed = True
-        self._guard_data = val
-        if not self.initialized.is_set():
-            self._check_initialized()
+    #@property
+    #def guard_data(self):
+    #    return self._guard_data
+
+    #@guard_data.setter
+    #def guard_data(self, val):
+    #    if self._guard_data != val and self.initialized.is_set():
+    #        self._changed = True
+    #    self._guard_data = val
+    #    if not self.initialized.is_set():
+    #        self._check_initialized()

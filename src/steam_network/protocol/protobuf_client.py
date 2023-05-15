@@ -60,7 +60,6 @@ class ProtobufClient:
         self.login_handler:                 Optional[Callable[[EResult,steammessages_auth_pb2.CAuthentication_BeginAuthSessionViaCredentials_Response], Awaitable[None]]] = None
         self.two_factor_update_handler:     Optional[Callable[[EResult, str], Awaitable[None]]] = None
         self.poll_status_handler:           Optional[Callable[[EResult, steammessages_auth_pb2.CAuthentication_PollAuthSessionStatus_Response], Awaitable[None]]] = None
-        self.revoke_refresh_token_handler:  Optional[Callable[[EResult], Awaitable[None]]] = None
         #old auth flow. Used to confirm login and repeat logins using the refresh token.
         self.log_on_token_handler:          Optional[Callable[[EResult, Optional[int], Optional[int]], Awaitable[None]]] = None
         self._heartbeat_task:               Optional[asyncio.Task] = None #keeps our connection alive, essentially, by pinging the steam server. 
@@ -255,74 +254,6 @@ class ProtobufClient:
 
     #async def send_log_on_token_message(self, account_name: str, access_token: str, cell_id: int, machine_id: bytes, os_value: int):
     async def send_log_on_token_message(self, account_name: str, steam_id:int, access_token: str, cell_id: int, machine_id: bytes, os_value: int):
-        #AccountInstance = SteamID.DesktopInstance; // use the default pc steam instance
-        #AccountID = 0;
-        #ClientOSType = Utils.GetOSType();
-        #ClientLanguage = "english";
-        #Username = pollResponse.AccountName,
-        #AccessToken = pollResponse.RefreshToken,
-        #ShouldSavePassword = True #err on side of caution in case this not being set causes them to ignore access token. then try false. 
-        """
-            var logon = new ClientMsgProtobuf<CMsgClientLogon>( EMsg.ClientLogon );
-
-            SteamID steamId = new SteamID( details.AccountID, details.AccountInstance, Client.Universe, EAccountType.Individual );
-
-            if ( details.LoginID.HasValue )
-            {
-                // TODO: Support IPv6 login ids?
-                logon.Body.obfuscated_private_ip = new CMsgIPAddress
-                {
-                    v4 = details.LoginID.Value
-                };
-            }
-            else
-            {
-                logon.Body.obfuscated_private_ip = NetHelpers.GetMsgIPAddress( this.Client.LocalIP! ).ObfuscatePrivateIP();
-            }
-
-            // Legacy field, Steam client still sets it
-            if ( logon.Body.obfuscated_private_ip.ShouldSerializev4() )
-            {
-                logon.Body.deprecated_obfustucated_private_ip = logon.Body.obfuscated_private_ip.v4;
-            }
-
-            logon.ProtoHeader.client_sessionid = 0;
-            logon.ProtoHeader.steamid = steamId.ConvertToUInt64();
-
-            logon.Body.account_name = details.Username; //Null
-            logon.Body.password = details.Password; //Null
-            logon.Body.should_remember_password = details.ShouldRememberPassword; //false
-
-            logon.Body.protocol_version = MsgClientLogon.CurrentProtocol; 
-            logon.Body.client_os_type = ( uint )details.ClientOSType; //
-            logon.Body.client_language = details.ClientLanguage;
-            logon.Body.cell_id = details.CellID ?? Client.Configuration.CellID //
-
-            logon.Body.steam2_ticket_request = details.RequestSteam2Ticket;
-
-            // we're now using the latest steamclient package version, this is required to get a proper sentry file for steam guard
-            logon.Body.client_package_version = 1771; // todo: determine if this is still required
-            logon.Body.supports_rate_limit_response = true;
-            logon.Body.machine_name = details.MachineName;
-            logon.Body.machine_id = HardwareUtils.GetMachineID( Client.Configuration.MachineInfoProvider );
-
-            // steam guard 
-            logon.Body.auth_code = details.AuthCode;
-            logon.Body.two_factor_code = details.TwoFactorCode;
-
-#pragma warning disable CS0618 // LoginKey is obsolete
-            logon.Body.login_key = details.LoginKey;
-#pragma warning restore CS0618 // LoginKey is obsolete
-
-            logon.Body.access_token = details.AccessToken;
-
-            logon.Body.sha_sentryfile = details.SentryFileHash;
-            logon.Body.eresult_sentryfile = ( int )( details.SentryFileHash != null ? EResult.OK : EResult.FileNotFound );
-
-
-            this.Client.Send( logon );
-        }
-        """
         resetSteamIDAfterThisCall : bool = False
         if (self.confirmed_steam_id is None):
             resetSteamIDAfterThisCall = True
@@ -339,6 +270,9 @@ class ProtobufClient:
         message.qos_level = 3
         message.machine_id = machine_id
         message.account_name = account_name
+        #message.password = ""
+        #message.password = None
+        message.should_remember_password = True
         message.eresult_sentryfile = EResult.FileNotFound
         message.machine_name = sock.gethostname()
         message.access_token = access_token

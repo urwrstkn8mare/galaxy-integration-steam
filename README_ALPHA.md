@@ -6,14 +6,18 @@ If you're here, you know things could be (and likely will be) broken. You are he
 * Download Python 3.7.9, 32-bit (64-bit also works, as does any newer version. Be warned, if you are using a new version and write any code, it may have unexpected results if you apply it to your plugin. You should leave that to us, so this wont be an issue)
 * Install it with the defaults
 * Set up your working directory. this will be the place you download or clone this repo to. 
-* Create a new virtual env:
-  `python.exe -m virtualenv .venv -p "%localappdata%\Programs\Python\Python37-32\python.exe" --pip 22.0.4`
+* Create a new virtual env:<br/>
+  `python.exe -m virtualenv .venv -p "%localappdata%\Programs\Python\Python37-32\python.exe" --pip 22.0.4`<br/>
+  If this does not work for you, virtualenv might have been aliased as venv. If so, use the following instead.<br/>
+  `python.exe -m venv .venv -p "%localappdata%\Programs\Python\Python37-32\python.exe" --pip 22.0.4`
 * Activate the virtual env:
   `.\.venv\Scripts\activate.ps1`
-* Install the dev dependencies (optional). This will let you potentially help us debug, but isn't really necessary if you don't feel comfortable monkeying around the code. 
+* Install the dev dependencies (optional). This will let you potentially help us debug, but isn't really necessary if you don't feel comfortable monkeying around the code. <br/>
   `pip install -r requirements/dev.txt`
+* Install `invoke`* Only necessary if you didn't install the dev dependencies. This IS required<br/>
+  `pip install invoke==1.2.0`
 * Backup the current installation of steam (optional) we will overwrite this in the next command.
-* Install the plugin in it's buggy glory:
+* Install the plugin in it's buggy glory:<br/>
   `inv install`
 
 ## Setup (MacOS)

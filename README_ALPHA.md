@@ -9,7 +9,7 @@ If you're here, you know things could be (and likely will be) broken. You are he
 * Create a new virtual env:<br/>
   - If you only have python 3.7.9, run:<br/>
     `python.exe -m venv .venv -p "%localappdata%\Programs\Python\Python37-32\python.exe" --pip 22.0.4`
-  - IF you have multiple python versions installed (assumes you have `py` as well)
+  - IF you have multiple python versions installed (assumes you have `py` as well)<br/>
     `py.exe -3.7 -m venv .venv -p "%localappdata%\Programs\Python\Python37-32\python.exe" --pip 22.0.4`
 * Activate the virtual env:
   `.\.venv\Scripts\activate.ps1`

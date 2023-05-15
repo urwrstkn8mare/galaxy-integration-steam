@@ -3,7 +3,7 @@
 If you're here, you know things could be (and likely will be) broken. You are here because we are few, but you are many. It's easier to find bugs and such by making you do it. 
 
 ## Setup (Windows)
-* Download Python 3.7.9, 32-bit (64-bit also works, as does any newer version. ~~Be warned, if you are using a new version and write any code, it may have unexpected results if you apply it to your plugin. You should leave that to us, so this wont be an issue)~~ Because Python loves to introduce breaking changes, you must use this version. If you have multiple versions of pythin installed, make sure you are using this one. 
+* Download Python 3.7.9, 32-bit (64-bit also works~~, as does any newer version. Be warned, if you are using a new version and write any code, it may have unexpected results if you apply it to your plugin. You should leave that to us, so this wont be an issue)~~ Because Python loves to introduce breaking changes, you must use this version. If you have multiple versions of pythin installed, make sure you are using this one. 
 * Install it with the defaults
 * Set up your working directory. this will be the place you download or clone this repo to. 
 * Create a new virtual env:<br/>

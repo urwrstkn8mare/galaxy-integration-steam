@@ -266,7 +266,7 @@ class ProtocolClient:
                 self._user_info_cache.refresh_token = data.refresh_token
                 self._user_info_cache.persona_name = data.account_name
                 self._user_info_cache.access_token = data.access_token
-                self._user_info_cache.guard_data = data.new_guard_data
+                #self._user_info_cache.guard_data = data.new_guard_data #seems to not be required.
                 
                 return (UserActionRequired.NoActionConfirmToken, data.new_client_id)
             else:

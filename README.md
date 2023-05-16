@@ -2,20 +2,28 @@
 
 GOG Galaxy 2.0 Community integration for Steam.
 
-## Dev env setup
+### Alpha Testers: Please see Installation
+
+## Setup (For Developers)
 * Download Python 3.7.9 32-bit
 * Install it with the defaults
 * Create a new virtual env:
-  `python.exe -m virtualenv .venv -p "C:\Users\<your username>\AppData\Local\Programs\Python\Python37-32\python.exe" --pip 22.0.4`
-* Activate the virtual env:
+    - If you only have python 3.7.9<br/>
+    `python.exe -m venv .venv`
+    - IF you have multiple python versions installed (assumes you have `py` as well)<br/>
+    `py.exe -3.7 -m venv .venv`
+* Activate the virtual env 
+  - Windows, Powershell:<br/>
   `.\.venv\Scripts\activate.ps1`
-* Install the dev dependencies:
+  - MacOS, terminal:<br/>
+  `.venv/Scripts/activate
+* Install the dev dependencies:<br/>
   `pip install -r requirements/dev.txt`
 * Make your edits
-* Update the protobufs (See README_UPDATE_PROTOBUF_FILES.md for sources)
+* Update the protobufs (See README_UPDATE_PROTOBUF_FILES.md for more info)
   Take notice of the initial diff between the files in `protobuf_files` and `protobuf_files/orig`
   Generating the python files is done via:
-  `inv generate-protobuf-messages`
+  `inv GenerateProtobufMessages`
 * Build your edits:
   `inv build`
 * Test your edits:
@@ -29,19 +37,57 @@ This is a fork of the repository from FriendsOfGalaxy, intended to continue deve
 
 **This is unofficial and purely maintained by fans!**
 
-## Installation
+## Installation (non-developers)
 
 *~~The latest release should be available for download via the "Connect" button in Galaxy~~*
+We aren't ready to publish this project to Galaxy just yet. We have the tools to do so, but the code is not stable enough for us to consider that just yet. 
 
-### To install a custom build:
-* make sure Galaxy is closed
-* remove the currently installed plugin directory (if present), usually<br>
-`%localappdata%\GOG.com\Galaxy\plugins\installed\steam_ca27391f-2675-49b1-92c0-896d43afa4f8`
-* create a new folder under a name of your choice (the name doesn't matter) at the following path:<br>
-`%localappdata%\GOG.com\Galaxy\plugins\installed\`
-* copy the custom build files to the newly created folder
+In the meantime, we've provided a simplified version of the developer install process that only does the bare minimum to install the plugin. There are only a few commands you need to run, but if you want to know what they do, they are documented above each command. A tl;dr: version is below it. Please do the following:
+* Download or clone this repo. If you download a zip, make sure to extract it. You need to be in the main directory for this to work. 
+* Download Python 3.7.9 32-bit. If you have another version of python installed, make sure `install py` is checked. This makes it easier to select which version of python you are using and we need our virtual environment in 3.7.9. Also, make sure you have the setting that adds python to the path environmental variable checked (windows). These should be the default, but make sure anyway.
+* Create a new virtual env:
+    - If you only have python 3.7.9<br/>
+    `python.exe -m venv .venv` (Windows) or `python -m venv .venv` (MacOS)
+    - IF you have multiple python versions installed (assumes you have `py` as well)<br/>
+    `py.exe -3.7 -m venv .venv` (Windows) or `py -3.7 -m venv .venv` (MacOS)
+* Activate the virtual env 
+  - Windows, Powershell:<br/>
+  `.\.venv\Scripts\activate.ps1`
+  - MacOS, terminal:<br/>
+  `.venv/Scripts/activate
+* Use Pip to get the python tools we need to install the plugin. These will only be applied to the venv you created earlier:<br/>
+  `pip install -r requirements/install.txt`
+* Install the plugin. It should work if you have deleted the original plugin, but will patch it if it is there.<br/>
+  `inv install`
 
-If the latest version available on Github is newer than the version specified in the `manifest.json` file in the custom build, Galaxy will download the newer version and replace the files. To prevent this from happening, you can manually set the version in `manifest.json` to a significantly higher value (e.g. `9.9`).
+### Installation (non-dev, Tl;Dr):
+
+<b>Windows (Powershell recommended)</b>
+```
+echo I have installed python 3.7.9 (32 bit). If not, the rest of this won't work.
+py.exe -3.7 -m venv .venv
+echo if the previous command did not work, you do not have py installed or py is not in your PATH. If you only have python 3.7.9, run the next command. If it worked, skip the next command.
+python.exe -m venv .venv
+echo virtual environment is installed. on to the next step.
+.\.venv\Scripts\activate.ps1
+pip install -r requirements/install.txt
+inv install
+```
+
+<b>MacOS</b> (assumes your shell is bash, which is the default. if you are good enough to change that, you can figure out how to run these)
+```
+echo I have installed python 3.7.9 (MacOS). If not, the rest of this won't work.
+py -3.7 -m venv .venv
+echo if the previous command did not work, you do not have py installed or py is not in your PATH. If you only have python 3.7.9, run the next command. If it worked, skip the next command.
+python -m venv .venv
+echo virtual environment is installed. on to the next step.
+./.venv/Scripts/activate
+pip install -r requirements/install.txt
+inv install
+```
+
+### Install Error fixes:
+If `inv install` throws a bunch of errors, make sure you have the proper python venv set up. It should complain about `getargspec`. If this happens, you created the wrong virtual environment. You can either delete .venv and reinstall it, or create a new virtual environment with a different name and use that. make sure you use `py -3.7` when creating your venv. If you don't have py, get it. You can specify the full path to python 3.7 instead if you want, but that's harder to do and harder to explain here. 
 
 ## Why this fork?
 
@@ -57,6 +103,8 @@ While we have not utilized their source code, they have implemented the new auth
 
 Some work was influenced by ValvePython. https://github.com/ValvePython/steam<br/>
 Our projects do the same thing, but use different methods (we use asyncio, they use gevent, for example). Both projects were working on the new Auth Flow simultaneously, with little collaboration between us. That said, their scope is much larger than our own and lets you do a lot more things. If you are looking for a python means of implementing a steam network authentication, you should use their work instead.
+
+### The names of individual developers will appear here, soon(ish). Any thanks can be directed there
 
 ### Original Version:
 

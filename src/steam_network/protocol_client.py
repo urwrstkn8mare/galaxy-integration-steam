@@ -24,11 +24,15 @@ from .utils import get_os, translate_error
 
 from rsa import PublicKey
 
-from .protocol.messages.steammessages_auth_pb2 import CAuthentication_BeginAuthSessionViaCredentials_Response, CAuthentication_AllowedConfirmation, CAuthentication_PollAuthSessionStatus_Response
+from .protocol.messages.steammessages_auth_pb2 import (
+    CAuthentication_BeginAuthSessionViaCredentials_Response,
+    CAuthentication_AllowedConfirmation,
+    CAuthentication_PollAuthSessionStatus_Response,
+)
 
-
-if TYPE_CHECKING:
-    from protocol.messages import steammessages_clientserver_pb2
+from .protocol.messages.steammessages_clientserver_userstats_pb2 import (
+    CMsgClientGetUserStatsResponse,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -120,6 +124,7 @@ class ProtocolClient:
             return (UserActionRequired.PasswordRequired, key)
         elif True: #TODO: FIX ME! If you enter an improper username an error should pop but idk what eresult it is yet.
         #    self._auth_lost_handler = auth_lost_handler
+            logger.warning(f"Received unknown error, code: {result}")
             return (UserActionRequired.InvalidAuthData, key)
         #elif (result == EResult.):
         #    return UserActionRequired.InvalidAuthData
@@ -318,23 +323,22 @@ class ProtocolClient:
             raise translate_error(result)
 
     async def import_game_stats(self, game_ids):
-        #for game_id in game_ids:
-        #    self._protobuf_client.job_list.append({"job_name": "import_game_stats",
-        #                                           "game_id": game_id})
-        pass
+        for game_id in game_ids:
+            self._protobuf_client.job_list.append({"job_name": "import_game_stats", "game_id": game_id})
+        #pass
 
     async def import_game_times(self):
-        #self._protobuf_client.job_list.append({"job_name": "import_game_times"})
-        pass
+        self._protobuf_client.job_list.append({"job_name": "import_game_times"})
+        #pass
 
     async def retrieve_collections(self):
-        #self._protobuf_client.job_list.append({"job_name": "import_collections"})
-        #await self._protobuf_client.collections['event'].wait()
-        #collections = self._protobuf_client.collections['collections'].copy()
-        #self._protobuf_client.collections['event'].clear()
-        #self._protobuf_client.collections['collections'] = dict()
-        #return collections
-        return {}
+        self._protobuf_client.job_list.append({"job_name": "import_collections"})
+        await self._protobuf_client.collections['event'].wait()
+        collections = self._protobuf_client.collections['collections'].copy()
+        self._protobuf_client.collections['event'].clear()
+        self._protobuf_client.collections['collections'] = dict()
+        return collections
+        #return {}
 
 
 
@@ -426,8 +430,8 @@ class ProtocolClient:
 
     def _stats_handler(self,
         game_id: str,
-        stats: "steammessages_clientserver_pb2.CMsgClientGetUserStatsResponse.Stats",
-        achievement_blocks: "steammessages_clientserver_pb2.CMsgClientGetUserStatsResponse.AchievementBlocks",
+        stats: "CMsgClientGetUserStatsResponse.Stats",
+        achievement_blocks: "CMsgClientGetUserStatsResponse.AchievementBlocks",
         schema: dict
     ):
         def get_achievement_name(achievements_block_schema: dict, bit_no: int) -> str:

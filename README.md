@@ -9,9 +9,9 @@ GOG Galaxy 2.0 Community integration for Steam.
 * Install it with the defaults
 * Create a new virtual env:
     - If you only have python 3.7.9<br/>
-    `python.exe -m venv .venv`
+    `python -m venv .venv`
     - IF you have multiple python versions installed (assumes you have `py` as well)<br/>
-    `py.exe -3.7 -m venv .venv`
+    `py -3.7 -m venv .venv`
 * Activate the virtual env 
   - Windows, Powershell:<br/>
   `.\.venv\Scripts\activate.ps1`
@@ -19,9 +19,9 @@ GOG Galaxy 2.0 Community integration for Steam.
   `.venv/Scripts/activate
 * Downgrade/Upgrade `pip`<br/>
     - If you only have python 3.7.9<br/>
-    `python.exe -m pip install --upgrade pip==22.0.4`
+    `python -m pip install --upgrade pip==22.0.4`
     - IF you have multiple python versions installed (assumes you have `py` as well)<br/>
-    `py.exe -m pip install --upgrade pip==22.0.4`
+    `py -m pip install --upgrade pip==22.0.4`
 * Install the dev dependencies:<br/>
   `pip install -r requirements/dev.txt`
 * Make your edits
@@ -52,19 +52,19 @@ In the meantime, we've provided a simplified version of the developer install pr
 * Download Python 3.7.9 32-bit. If you have another version of python installed, make sure `install py` is checked. This makes it easier to select which version of python you are using and we need our virtual environment in 3.7.9. Also, make sure you have the setting that adds python to the path environmental variable checked (windows). These should be the default, but make sure anyway.
 * Create a new virtual env:
     - If you only have python 3.7.9<br/>
-    `python.exe -m venv .venv` (Windows) or `python -m venv .venv` (MacOS)
+    `python -m venv .venv`
     - IF you have multiple python versions installed (assumes you have `py` as well)<br/>
-    `py.exe -3.7 -m venv .venv` (Windows) or `py -3.7 -m venv .venv` (MacOS)
+    `py -3.7 -m venv .venv`
 * Activate the virtual env 
   - Windows, Powershell:<br/>
   `.\.venv\Scripts\activate.ps1`
   - MacOS, terminal:<br/>
-  `.venv/Scripts/activate
+  `.venv/Scripts/activate.sh`
 * Downgrade/Upgrade `pip`<br/>
     - If you only have python 3.7.9<br/>
-    `python.exe -m pip install --upgrade pip==22.0.4` (Windows) or `python -m pip install --upgrade pip==22.0.4` (MacOS)
+    `python -m pip install --upgrade pip==22.0.4`
     - IF you have multiple python versions installed (assumes you have `py` as well)<br/>
-    `py.exe -m pip install --upgrade pip==22.0.4` (Windows) or `py -m pip install --upgrade pip==22.0.4` (MacOS)
+    `py -3.7 -m pip install --upgrade pip==22.0.4`
 * Use Pip to get the python tools we need to install the plugin. These will only be applied to the venv you created earlier:<br/>
   `pip install -r requirements/install.txt`
 * Install the plugin. It should work if you have deleted the original plugin, but will patch it if it is there.<br/>
@@ -95,7 +95,11 @@ py -3.7 -m venv .venv
 echo if the previous command did not work, you do not have py installed or py is not in your PATH. If you only have python 3.7.9, run the next command. If it worked, skip the next command.
 python -m venv .venv
 echo virtual environment is installed. on to the next step.
-./.venv/Scripts/activate
+./.venv/Scripts/activate.sh
+echo i am downgrading pip.
+py -m pip install --upgrade pip==22.0.4
+echo if the previous command did not work, you do not have py installed or py is not in your PATH. If you only have python 3.7.9, run the next command. If it worked, skip the next command.
+python -m pip install --upgrade pip==22.0.4
 pip install -r requirements/install.txt
 inv install
 ```

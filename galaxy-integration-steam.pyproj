@@ -48,6 +48,7 @@
     <Content Include="protobuf_files\README_UPDATE_PROTOBUF_FILES.md" />
     <Content Include="requirements\app.txt" />
     <Content Include="requirements\dev.txt" />
+    <Content Include="requirements\install.txt" />
     <Content Include="src\commonWeb\css\common.css" />
     <Content Include="src\commonWeb\fonts\LatoWeb\LatoWeb-Light.ttf" />
     <Content Include="src\commonWeb\fonts\LatoWeb\LatoWeb-Regular.ttf" />

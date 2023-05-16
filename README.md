@@ -43,6 +43,7 @@ This is a fork of the repository from FriendsOfGalaxy, intended to continue deve
 We aren't ready to publish this project to Galaxy just yet. We have the tools to do so, but the code is not stable enough for us to consider that just yet. 
 
 In the meantime, we've provided a simplified version of the developer install process that only does the bare minimum to install the plugin. There are only a few commands you need to run, but if you want to know what they do, they are documented above each command. A tl;dr: version is below it. Please do the following:
+* Download or clone this repo. If you download a zip, make sure to extract it. You need to be in the main directory for this to work. 
 * Download Python 3.7.9 32-bit. If you have another version of python installed, make sure `install py` is checked. This makes it easier to select which version of python you are using and we need our virtual environment in 3.7.9. Also, make sure you have the setting that adds python to the path environmental variable checked (windows). These should be the default, but make sure anyway.
 * Create a new virtual env:
     - If you only have python 3.7.9<br/>
@@ -64,7 +65,7 @@ In the meantime, we've provided a simplified version of the developer install pr
 <b>Windows (Powershell recommended)</b>
 ```
 echo I have installed python 3.7.9 (32 bit). If not, the rest of this won't work.
-py.exe -m venv .venv
+py.exe -3.7 -m venv .venv
 echo if the previous command did not work, you do not have py installed or py is not in your PATH. If you only have python 3.7.9, run the next command. If it worked, skip the next command.
 python.exe -m venv .venv
 echo virtual environment is installed. on to the next step.
@@ -76,7 +77,7 @@ inv install
 <b>MacOS</b> (assumes your shell is bash, which is the default. if you are good enough to change that, you can figure out how to run these)
 ```
 echo I have installed python 3.7.9 (MacOS). If not, the rest of this won't work.
-py -m venv .venv
+py -3.7 -m venv .venv
 echo if the previous command did not work, you do not have py installed or py is not in your PATH. If you only have python 3.7.9, run the next command. If it worked, skip the next command.
 python -m venv .venv
 echo virtual environment is installed. on to the next step.
@@ -84,6 +85,9 @@ echo virtual environment is installed. on to the next step.
 pip install -r requirements/install.txt
 inv install
 ```
+
+### Install Error fixes:
+If `inv install` throws a bunch of errors, make sure you have the proper python venv set up. It should complain about `getargspec`. If this happens, you created the wrong virtual environment. You can either delete .venv and reinstall it, or create a new virtual environment with a different name and use that. make sure you use `py -3.7` when creating your venv. If you don't have py, get it. You can specify the full path to python 3.7 instead if you want, but that's harder to do and harder to explain here. 
 
 ## Why this fork?
 

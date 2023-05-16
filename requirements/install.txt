@@ -1,6 +1,3 @@
-pip default
---upgrade pip==22.0.4
-
 #protoc install.
 requests
 

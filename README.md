@@ -17,6 +17,11 @@ GOG Galaxy 2.0 Community integration for Steam.
   `.\.venv\Scripts\activate.ps1`
   - MacOS, terminal:<br/>
   `.venv/Scripts/activate
+* Downgrade/Upgrade `pip`<br/>
+    - If you only have python 3.7.9<br/>
+    `python.exe -m pip install --upgrade pip==22.0.4`
+    - IF you have multiple python versions installed (assumes you have `py` as well)<br/>
+    `py.exe -m pip install --upgrade pip==22.0.4`
 * Install the dev dependencies:<br/>
   `pip install -r requirements/dev.txt`
 * Make your edits
@@ -55,6 +60,11 @@ In the meantime, we've provided a simplified version of the developer install pr
   `.\.venv\Scripts\activate.ps1`
   - MacOS, terminal:<br/>
   `.venv/Scripts/activate
+* Downgrade/Upgrade `pip`<br/>
+    - If you only have python 3.7.9<br/>
+    `python.exe -m pip install --upgrade pip==22.0.4` (Windows) or `python -m pip install --upgrade pip==22.0.4` (MacOS)
+    - IF you have multiple python versions installed (assumes you have `py` as well)<br/>
+    `py.exe -m pip install --upgrade pip==22.0.4` (Windows) or `py -m pip install --upgrade pip==22.0.4` (MacOS)
 * Use Pip to get the python tools we need to install the plugin. These will only be applied to the venv you created earlier:<br/>
   `pip install -r requirements/install.txt`
 * Install the plugin. It should work if you have deleted the original plugin, but will patch it if it is there.<br/>
@@ -70,6 +80,10 @@ echo if the previous command did not work, you do not have py installed or py is
 python.exe -m venv .venv
 echo virtual environment is installed. on to the next step.
 .\.venv\Scripts\activate.ps1
+echo i am downgrading pip.
+py.exe -m pip install --upgrade pip==22.0.4
+echo if the previous command did not work, you do not have py installed or py is not in your PATH. If you only have python 3.7.9, run the next command. If it worked, skip the next command.
+python.exe -m pip install --upgrade pip==22.0.4
 pip install -r requirements/install.txt
 inv install
 ```

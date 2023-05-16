@@ -117,7 +117,6 @@
     <Compile Include="src\steam_network\websocket_list.py" />
     <Compile Include="src\steam_network\__init__.py" />
     <Compile Include="src\uri_scheme_handler.py" />
-    <Compile Include="src\user_profile.py" />
     <Compile Include="src\version.py" />
     <Compile Include="tasks.py" />
     <Compile Include="tests\async_mock.py" />

@@ -31,7 +31,6 @@ from galaxy.api.types import (
 from backend_interface import BackendInterface
 from http_client import HttpClient
 from persistent_cache_state import PersistentCacheState
-from user_profile import UserProfileChecker, ProfileIsNotPublic, ProfileDoesNotExist, NotPublicGameDetailsOrUserHasNoGames
 from steam_network.authentication_cache import AuthenticationCache
 from steam_network.friends_cache import FriendsCache
 from steam_network.games_cache import GamesCache
@@ -78,7 +77,6 @@ class SteamNetworkBackend(BackendInterface):
     #    self,
     #    *,
     #    http_client: HttpClient,
-    #    user_profile_checker: UserProfileChecker,
     #    ssl_context: ssl.SSLContext,
     #    persistent_storage_state: PersistentCacheState,
     #    persistent_cache: Dict[str, Any],
@@ -86,14 +84,13 @@ class SteamNetworkBackend(BackendInterface):
     #    store_credentials: Callable[[Dict[str, Any]], None],
     #    add_game: Callable[[Game], None],
     #) -> None:
-    def __init__(self, http_client: HttpClient, user_profile_checker: UserProfileChecker, ssl_context: ssl.SSLContext, 
+    def __init__(self, http_client: HttpClient, ssl_context: ssl.SSLContext, 
                  persistent_storage_state: PersistentCacheState, persistent_cache: Dict[str, Any], update_user_presence: Callable[[UserPresence], None], 
                  store_credentials: Callable[[Dict[str, Any]], None], add_game: Callable[[Game], None]):
 
         self._add_game = add_game
         self._persistent_cache = persistent_cache
         self._persistent_storage_state = persistent_storage_state
-        self._user_profile_checker = user_profile_checker
 
         self._store_credentials = store_credentials
         self._authentication_cache = AuthenticationCache()

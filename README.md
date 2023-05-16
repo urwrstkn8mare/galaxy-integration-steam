@@ -9,9 +9,9 @@ GOG Galaxy 2.0 Community integration for Steam.
 * Install it with the defaults
 * Create a new virtual env:
     - If you only have python 3.7.9<br/>
-    `python.exe -m venv .venv
+    `python.exe -m venv .venv`
     - IF you have multiple python versions installed (assumes you have `py` as well)<br/>
-    `py.exe -3.7 -m venv .venv
+    `py.exe -3.7 -m venv .venv`
 * Activate the virtual env 
   - Windows, Powershell:<br/>
   `.\.venv\Scripts\activate.ps1`
@@ -61,7 +61,7 @@ In the meantime, we've provided a simplified version of the developer install pr
 
 ### Installation (non-dev, Tl;Dr):
 
-<b>Windows</b>
+<b>Windows (Powershell recommended)</b>
 ```
 echo I have installed python 3.7.9 (32 bit). If not, the rest of this won't work.
 py.exe -m venv .venv

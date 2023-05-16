@@ -81,6 +81,7 @@ from .messages.steammessages_webui_friends_pb2 import (
 from .steam_types import SteamId, ProtoUserInfo
 
 from .rsa_message import RSAMessage
+from .job import Job
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -101,7 +102,7 @@ class SteamLicense(NamedTuple):
     shared: bool
 
 
-class ProtobufClient:
+class ProtobufParser:
     """Handles communication between steam and this application. 
 
     This class deals with the nitty-gritty and protobuf formats, parsing it so the rest of the application can use nicely defined classes and objects. It also 
@@ -117,28 +118,9 @@ class ProtobufClient:
     def __init__(self, set_socket : WebSocketClientProtocol):
         self._socket :                      WebSocketClientProtocol = set_socket
         #new auth flow
-        self.login_handler:                 Optional[Callable[[EResult,CAuthentication_BeginAuthSessionViaCredentials_Response], Awaitable[None]]] = None
-        self.two_factor_update_handler:     Optional[Callable[[EResult, str], Awaitable[None]]] = None
-        self.poll_status_handler:           Optional[Callable[[EResult, CAuthentication_PollAuthSessionStatus_Response], Awaitable[None]]] = None
-        #old auth flow. Used to confirm login and repeat logins using the refresh token.
-        self.log_on_token_handler:          Optional[Callable[[EResult, Optional[int], Optional[int]], Awaitable[None]]] = None
         self._heartbeat_task:               Optional[asyncio.Task] = None #keeps our connection alive, essentially, by pinging the steam server.
-        self.log_off_handler:               Optional[Callable[[EResult], Awaitable[None]]] = None
-        #retrive information
-        self.relationship_handler:          Optional[Callable[[bool, Dict[int, EFriendRelationship]], Awaitable[None]]] = None
-        self.user_info_handler:             Optional[Callable[[int, ProtoUserInfo], Awaitable[None]]] = None
-        self.user_nicknames_handler:        Optional[Callable[[dict], Awaitable[None]]] = None
-        self.license_import_handler:        Optional[Callable[[int], Awaitable[None]]] = None
-        self.app_info_handler:              Optional[Callable] = None
-        self.package_info_handler:          Optional[Callable[[], None]] = None
-        self.translations_handler:          Optional[Callable[[int, Any], Awaitable[None]]] = None
-        self.stats_handler:                 Optional[Callable[[int, Any, Any], Awaitable[None]]] = None
-        self.confirmed_steam_id:            Optional[int] = None #this should only be set when the steam id is confirmed. this occurs when we actually complete the login. before then, it will cause errors.
-        self.times_handler:                 Optional[Callable[[int, int, int], Awaitable[None]]] = None
-        self.times_import_finished_handler: Optional[Callable[[bool], Awaitable[None]]] = None
-        self._session_id:                   Optional[int] = None
         self._job_id_iterator:              Iterator[int] = count(1) #this is actually clever. A lazy iterator that increments every time you call next.
-        self.job_list : List[Dict[str,str]] = []
+        self._future_list: Dict[Job, asyncio.Future] = {} #used to map a Job to a future. The future is returned to the job creator, and when the job occurs, this future is set with the results of the job.
 
         self.collections = {'event': asyncio.Event(),
                             'collections': dict()}
@@ -154,19 +136,6 @@ class ProtobufClient:
 
     async def run(self):
         while True:
-            for job in self.job_list.copy():
-                logger.info(f"New job on list {job}")
-                if job['job_name'] == "import_game_stats":
-                    await self._import_game_stats(job['game_id'])
-                    self.job_list.remove(job)
-                elif job['job_name'] == "import_collections":
-                    await self._import_collections()
-                    self.job_list.remove(job)
-                elif job['job_name'] == "import_game_times":
-                    await self._import_game_time()
-                    self.job_list.remove(job)
-                else:
-                    logger.warning(f'Unknown job {job}')
             try:
                 packet = await asyncio.wait_for(self._socket.recv(), 10)
                 await self._process_packet(packet)
@@ -184,11 +153,14 @@ class ProtobufClient:
     #new workflow:  say hello -> get rsa public key -> log on with password -> handle steam guard -> confirm login
     #each is getting a dedicated function so i don't go insane.
     #confirm login is the old log_on_token call.
+    
 
     async def say_hello(self):
         """Say Hello to the server. Necessary before sending non-authed calls.
 
             If we don't do this, they will just shut down the websocket connection gracefully with "OK", which is most definitely not "OK"
+
+            Does not generate a response. There is no callback that can be associated with this.
         """
         message = CMsgClientHello()
         message.protocol_version = self._MSG_PROTOCOL_VERSION

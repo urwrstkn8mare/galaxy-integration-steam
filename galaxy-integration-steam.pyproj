@@ -83,6 +83,7 @@
     <Compile Include="src\steam_network\local_machine_cache.py" />
     <Compile Include="src\steam_network\presence.py" />
     <Compile Include="src\steam_network\protocol\consts.py" />
+    <Compile Include="src\steam_network\protocol\job.py" />
     <Compile Include="src\steam_network\protocol\messages\encrypted_app_ticket_pb2.py" />
     <Compile Include="src\steam_network\protocol\messages\enums_pb2.py" />
     <Compile Include="src\steam_network\protocol\messages\resolved_service_messages_pb2.py" />
@@ -100,12 +101,17 @@
     <Compile Include="src\steam_network\protocol\messages\steammessages_unified_base_pb2.py" />
     <Compile Include="src\steam_network\protocol\messages\__init__.py" />
     <Compile Include="src\steam_network\protocol\protobuf_client.py" />
+    <Compile Include="src\steam_network\protocol\protobuf_parser.py" />
+    <Compile Include="src\steam_network\protocol\rsa_message.py" />
     <Compile Include="src\steam_network\protocol\steam_types.py" />
     <Compile Include="src\steam_network\protocol\__init__.py" />
     <Compile Include="src\steam_network\protocol_client.py" />
     <Compile Include="src\steam_network\stats_cache.py" />
     <Compile Include="src\steam_network\steam_auth_polling_data.py" />
     <Compile Include="src\steam_network\steam_http_client.py" />
+    <Compile Include="src\steam_network\steam_network_controller.py" />
+    <Compile Include="src\steam_network\steam_network_model.py" />
+    <Compile Include="src\steam_network\steam_network_view.py" />
     <Compile Include="src\steam_network\steam_public_key.py" />
     <Compile Include="src\steam_network\times_cache.py" />
     <Compile Include="src\steam_network\user_info_cache.py" />

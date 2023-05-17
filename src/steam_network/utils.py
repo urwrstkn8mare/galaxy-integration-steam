@@ -13,7 +13,9 @@ import galaxy.api.errors
 
 from .enums import DisplayUriHelper
 from .protocol.consts import EOSType, EResult
+import logging
 
+logger = logging.getLogger(__name__)
 
 def get_os() -> EOSType:
     system = platform.system()
@@ -57,6 +59,7 @@ def get_os() -> EOSType:
 
 
 def translate_error(result: EResult):
+    logger.error("Error Received: " + result.name)
     assert result != EResult.OK
     data = {
         "result": result

@@ -116,21 +116,21 @@ class ProtocolClient:
         loop = asyncio.get_running_loop()
         self._rsa_future = loop.create_future()
         await self._protobuf_client.get_rsa_public_key(username)
+
+        key:Optional[SteamPublicKey]
+        result: EResult
         (result, key) = await self._rsa_future
         self._rsa_future = None
         logger.info ("GOT RSA KEY IN PROTOCOL_CLIENT")
+        #If you provide a bad username, it still returns "OK" and gives you rsa key data. i have no idea why. it just does. so we have no way to determine bad login. 
         if (result == EResult.OK):
             self._auth_lost_handler = auth_lost_handler
             return (UserActionRequired.PasswordRequired, key)
-        elif True: #TODO: FIX ME! If you enter an improper username an error should pop but idk what eresult it is yet.
+        #the only way we get here afaik is if steam is down or busy or something network related. 
+        else: 
         #    self._auth_lost_handler = auth_lost_handler
             logger.warning(f"Received unknown error, code: {result}")
             return (UserActionRequired.InvalidAuthData, key)
-        #elif (result == EResult.):
-        #    return UserActionRequired.InvalidAuthData
-        else:
-            logger.warning(f"Received unknown error, code: {result}")
-            raise translate_error(result)
 
     async def _rsa_handler(self, result: EResult, mod: int, exp: int, timestamp: int) -> Tuple[EResult, SteamPublicKey]:
         logger.info("In Protocol_Client RSA Handler")
@@ -244,7 +244,7 @@ class ProtocolClient:
         else:
             logger.warning("NO TWO FACTOR FUTURE SET")
 
-    async def check_auth_status(self, client_id:int, request_id:bytes, auth_lost_handler:Callable) -> Tuple[UserActionRequired, Optional[int]]:
+    async def check_auth_status(self, client_id:int, request_id:bytes, two_factor_method: TwoFactorMethod, auth_lost_handler:Callable) -> Tuple[UserActionRequired, Optional[int]]:
         loop = asyncio.get_running_loop()
         self._poll_future = loop.create_future()
 
@@ -278,6 +278,13 @@ class ProtocolClient:
         elif result == EResult.Expired:
             self._auth_lost_handler = auth_lost_handler
             return (UserActionRequired.TwoFactorExpired, data.new_client_id)
+        elif result == EResult.FileNotFound: #confirmed occurs with mobile confirm if you don't confirm it. May occur elsewhere, but that is unknown/unexpected.
+            self._auth_lost_handler = auth_lost_handler
+            if (two_factor_method == TwoFactorMethod.PhoneConfirm):
+                return (UserActionRequired.TwoFactorRequired, data.new_client_id)
+            else:
+                logger.warning("Received a file not found but were not using mobile confirm. This is unexpected, but maybe ok? no idea.")
+                return (UserActionRequired.InvalidAuthData, data.new_client_id)
         #TODO: This will likely error if the code is bad. Figure out what to do here. 
         else:
             raise translate_error(result)

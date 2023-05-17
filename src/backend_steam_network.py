@@ -290,7 +290,7 @@ class SteamNetworkBackend(BackendInterface):
             return await self._finish_auth_process()
         #returned if we somehow got here but poll did not succeed. If we get here, the code should have been successfully input so this should never happen. 
         elif(result == UserActionRequired.NoActionConfirmLogin):
-            logger.warning("Warning: The poll was called from a steam guard check after the steam guard was successfully input and confirmed valid, but we aren't confirmed yet. This should not happen")
+            logger.info("Mobile Confirm did not complete. This is likely due to user error, but if not, this is something worth checking.")
             return next_step_response_simple(fallback, self._user_info_cache.account_username, True)
         elif (result == UserActionRequired.TwoFactorExpired):
             return next_step_response_simple(fallback, self._user_info_cache.account_username, True, expired="true")

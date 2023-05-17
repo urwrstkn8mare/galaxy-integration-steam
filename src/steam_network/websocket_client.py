@@ -276,7 +276,7 @@ class WebSocketClient:
                     ret_code = await self._protocol_client.update_two_factor(self._steam_polling_data.client_id, self._steam_polling_data.steam_id, code, self._authentication_cache.two_factor_method, auth_lost_handler)
             elif (mode == AuthCall.POLL_TWO_FACTOR):
                 logger.info("Polling to see if the user has completed any steam-guard related stuff")
-                (ret_code, new_client_id) = await self._protocol_client.check_auth_status(self._steam_polling_data.client_id, self._steam_polling_data.request_id, auth_lost_handler)
+                (ret_code, new_client_id) = await self._protocol_client.check_auth_status(self._steam_polling_data.client_id, self._steam_polling_data.request_id, self._authentication_cache.two_factor_method, auth_lost_handler)
                 if (new_client_id is not None):
                     self._steam_polling_data.client_id = new_client_id
             elif (mode == AuthCall.TOKEN):

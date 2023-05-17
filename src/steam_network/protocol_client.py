@@ -19,7 +19,7 @@ from .user_info_cache import UserInfoCache
 from .times_cache import TimesCache
 from .authentication_cache import AuthenticationCache
 
-from .enums import TwoFactorMethod, UserActionRequired, to_TwoFactorWithMessage
+from .enums import TwoFactorMethod, UserActionRequired, to_TwoFactorWithMessage, to_EAuthSessionGuardType
 from .utils import get_os, translate_error
 
 from rsa import PublicKey
@@ -176,9 +176,7 @@ class ProtocolClient:
             if self._user_info_cache.steam_id != message.steamid:
                 self._user_info_cache.steam_id = message.steamid;
             allowed : CAuthentication_AllowedConfirmation
-            #loop through all the allowed confirmation methods. we will prioritize Codes over confirmation, and phone code over email code.
-            # We arguably should let the user choose but this is already complicated enouh.
-            #This SHOULD be a list of CAuthentication_AllowedConfirmation, but seems instead to be a list of EAuthTokenState. I DO NOT understand
+
             for allowed in message.allowed_confirmations:
                 action, msg = to_TwoFactorWithMessage(allowed)
                 #this could all be one massive if statement but imo this is easier to read. 
@@ -220,7 +218,8 @@ class ProtocolClient:
     async def update_two_factor(self, client_id: int, steam_id:int, code: str, method: TwoFactorMethod, auth_lost_handler:Callable) -> UserActionRequired:
         loop = asyncio.get_running_loop()
         self._two_factor_future = loop.create_future()
-        await self._protobuf_client.update_steamguard_data(client_id, steam_id, code, method)
+        converted_meth = to_EAuthSessionGuardType(method)
+        await self._protobuf_client.update_steamguard_data(client_id, steam_id, code, converted_meth)
         result = await self._two_factor_future
         self._two_factor_future = None
         logger.info ("GOT TWO FACTOR UPDATE RESULT IN PROTOCOL CLIENT")

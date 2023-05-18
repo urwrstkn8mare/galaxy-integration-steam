@@ -59,6 +59,8 @@ def get_os() -> EOSType:
 
 
 def translate_error(result: EResult):
+    if isinstance(result, int):
+        result = EResult(result)
     logger.error("Error Received: " + result.name)
     assert result != EResult.OK
     data = {

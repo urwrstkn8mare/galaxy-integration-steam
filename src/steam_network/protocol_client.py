@@ -200,18 +200,8 @@ class ProtocolClient:
                     #in theory if this is set, none of the others should be, so this gets lowest priority. If somehow none and one of the other options is set, 
                     #steam messed up somehow, so err on the side of caution.
             data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, auth_method, auth_message, message.extended_error_message)
-        else:
-            #logger.error("Login failed")
-            logger.error("Login failed. Reason: " + message.extended_error_message)
-            # sometimes Steam sends LogOnResponse message even if plugin didn't send LogOnRequest
-            # known example is LogOnResponse with result=EResult.TryAnotherCM
-
-            #if i had to guess, some other random machine is trying to use the connection without going through a handshake. 
-            #Steam detects it's not right, but for whatever reason we also get the response. -BaumherA
-            raise translate_error(result)
 
         if self._login_future is not None:
-            logger.info(f"selecting login method {auth_method.name}")
             self._login_future.set_result((result, data))
         else:
             logger.warning("NO LOGIN FUTURE SET")

@@ -25,7 +25,7 @@ class AuthenticationCache:
         self._error_message = val
 
     #provides a priority for our list based on two factor method
-    def _auth_priority(methodPair : Tuple[TwoFactorMethod, str]) -> int:
+    def _auth_priority(self, methodPair : Tuple[TwoFactorMethod, str]) -> int:
         method, _ = methodPair
         if (method == TwoFactorMethod.Unknown):
             return 0

@@ -177,7 +177,7 @@ class ProtocolClient:
             if self._user_info_cache.steam_id != message.steamid:
                 self._user_info_cache.steam_id = message.steamid;
 
-            allowables_with_message : dict[TwoFactorMethod, str]= {zip(to_TwoFactorWithMessage(allowed)) for allowed in message.allowed_confirmations}
+            allowables_with_message : dict[TwoFactorMethod, str]= dict(map(to_TwoFactorWithMessage, message.allowed_confirmations))
 
             data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, allowables_with_message, message.extended_error_message)
 

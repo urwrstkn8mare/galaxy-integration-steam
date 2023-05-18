@@ -49,7 +49,7 @@ class DisplayUriHelper(enum.Enum):
 
 
     def _add_view(self, args:Dict[str,str]) -> Dict[str, str] :
-        val = self.to_view_string(self)
+        val = self.to_view_string()
         args["view"] = val if val else "login"
         return args
 

@@ -270,9 +270,9 @@ class SteamNetworkBackend(BackendInterface):
         #returned if we somehow got here but poll did not succeed. If we get here, the code should have been successfully input so this should never happen. 
         elif(result == UserActionRequired.NoActionConfirmLogin):
             logger.info("Mobile Confirm did not complete. This is likely due to user error, but if not, this is something worth checking.")
-            return next_step_response_simple(fallback, self._user_info_cache.account_username, True)
+            return next_step_response_simple(fallback, True)
         elif (result == UserActionRequired.TwoFactorExpired):
-            return next_step_response_simple(fallback, self._user_info_cache.account_username, True, expired="true")
+            return next_step_response_simple(fallback, True, expired="true")
         else:
             raise UnknownBackendResponse()
 
@@ -373,7 +373,7 @@ class SteamNetworkBackend(BackendInterface):
     async def authenticate(self, stored_credentials=None):
         self._steam_run_task = asyncio.create_task(self._websocket_client.run())
         if stored_credentials is None:
-            return next_step_response_simple(DisplayUriHelper.LOGIN, None)
+            return next_step_response_simple(DisplayUriHelper.LOGIN)
         else:
             return await self._authenticate_with_stored_credentials(stored_credentials)
     
@@ -386,12 +386,12 @@ class SteamNetworkBackend(BackendInterface):
             if (result != UserActionRequired.NoActionRequired):
                 logger.info("Unexpected Action Required after token login. " + str(result) + ". Can be caused when credentials expire or are deactivated. Falling back to normal login")
                 self._user_info_cache.Clear()
-                return next_step_response_simple(DisplayUriHelper.LOGIN, None)
+                return next_step_response_simple(DisplayUriHelper.LOGIN)
             else:
                 return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
         else:
             logger.warning("User Info Cache not initialized properly. Falling back to normal login.")
-            return next_step_response_simple(DisplayUriHelper.LOGIN, None)
+            return next_step_response_simple(DisplayUriHelper.LOGIN)
 
     # features implementation
 

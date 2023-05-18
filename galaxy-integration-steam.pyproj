@@ -24,7 +24,6 @@
     <Content Include="current_version.json" />
     <Content Include="galaxy-integration-steam.pyproj" />
     <Content Include="LICENSE" />
-    <Content Include="protobuf_files\merged\resolved_service_messages.proto" />
     <Content Include="protobuf_files\protobuf_steammessages.txt" />
     <Content Include="protobuf_files\protobuf_webui.txt" />
     <Content Include="protobuf_files\proto\encrypted_app_ticket.proto" />
@@ -159,8 +158,6 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="protobuf_files\" />
-    <Folder Include="protobuf_files\merged\" />
-    <Folder Include="protobuf_files\conflicts\" />
     <Folder Include="protobuf_files\proto\" />
     <Folder Include="requirements\" />
     <Folder Include="src" />

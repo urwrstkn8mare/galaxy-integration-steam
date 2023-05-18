@@ -35,15 +35,22 @@ class DisplayUriHelper(enum.Enum):
     TWO_FACTOR_MOBILE = 2
     TWO_FACTOR_CONFIRM = 3
 
-    def _add_view(self, args:Dict[str,str]) -> Dict[str, str] :
+    def to_view_string(self) -> Optional[str]:
         if (self == self.TWO_FACTOR_MAIL):
-            args["view"] = "steamguard"
+             return "steamguard"
         elif (self == self.TWO_FACTOR_MOBILE):
-            args["view"] = "steamauthenticator"
+            return "steamauthenticator"
         elif (self == self.TWO_FACTOR_CONFIRM):
-            args["view"] = "steamauthenticator_confirm"
-        else: #if (self == self.LOGIN):
-            args["view"] = "login"
+            return "steamauthenticator_confirm"
+        elif (self == self.LOGIN):
+            return "login"
+        else:
+            return None
+
+
+    def _add_view(self, args:Dict[str,str]) -> Dict[str, str] :
+        val = self.to_view_string()
+        args["view"] = val if val else "login"
         return args
 
     def _get_errored(self, args: Dict[str,str], errored: bool, verbose: bool = False) -> Dict[str, str]:
@@ -82,7 +89,10 @@ class DisplayUriHelper(enum.Enum):
              return 'login_finished'
 
     def GetEndUriRegex(self):
-        return ".*" + self.EndUri() + ".*";
+        if (self != self.TWO_FACTOR_CONFIRM):
+            return ".*" + self.EndUri() + ".*"
+        else:
+            return ".*(" + self.EndUri() + "|" + self.TWO_FACTOR_MAIL.EndUri() + "|" + self.TWO_FACTOR_MOBILE.EndUri() + ").*"
 
 class UserActionRequired(enum.IntEnum):
     NoActionRequired = 0
@@ -148,18 +158,6 @@ def to_helpful_string(method:TwoFactorMethod) -> str:
         return "phone confirmation"
     else: #if TwoFactorMethod.InvalidAuthData or an invalid number
         return "<unknown>"
-
-def to_url_string(method:TwoFactorMethod) -> str:
-    if (method == TwoFactorMethod.Nothing):
-        return "none"
-    elif (method == TwoFactorMethod.EmailCode):
-        return "email code"
-    elif (method == TwoFactorMethod.PhoneCode):
-        return "phone code"
-    elif (method == TwoFactorMethod.PhoneConfirm):
-        return "phone confirmation"
-    else: #if TwoFactorMethod.InvalidAuthData or an invalid number
-        return "unknown"
 
 def to_UserAction(method: TwoFactorMethod) -> UserActionRequired:
     if (method == TwoFactorMethod.Nothing):

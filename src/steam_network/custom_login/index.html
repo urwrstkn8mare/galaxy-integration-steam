@@ -84,6 +84,7 @@
 						<br /><br />
 						Continue this dialog once you completed the authentication on your phone.
 					</legend>
+					<div class="fallback-helper no-fallback"><a id="fallback-tag" href="#">placeholder</a></div>
 					<p class="error-message error-message--centered no-error">
 						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon"> Confirmation failed
 					</p>
@@ -229,6 +230,40 @@
 			}
 
 			loc.style.display = "block";
+
+			if (view == viewLookup.steamAuthenticatorConfirm)
+			{
+				let fallbackMeth = urlParams.get("fallbackMethod");
+				let fallbackStr = urlParams.get("fallbackMsg");
+				if (fallbackMeth) 
+				{
+					let fallbackTag = document.getElementById("fallback-tag");
+					let fallbackHolder = document.getElementsByClassName("fallback-helper no-fallback");
+
+					let curr_href = new URL(window.location.href);
+
+					curr_href.searchParams.set('view', fallbackMeth);
+					curr_href.searchParams.set('view-msg', fallbackStr);
+					console.log(curr_href.href)
+					fallbackTag.href = curr_href.href;
+
+					let niceText = "Use a fallback (unknown). Well, this is unexpected.";
+					if (fallbackMeth == viewLookup.steamGuard)
+					{
+						niceText = "Enter a Steam Guard code using email instead";
+					}
+					else if (fallbackMeth = viewLookup.steamAuthenticator)
+					{
+						niceText = "Enter a Steam Guard mobile code instead";
+					}
+					fallbackTag.innerHTML = niceText
+
+					for (let x = 0; x < fallbackHolder.length; x++)
+					{
+						fallbackHolder[x].classList.remove("no-fallback");
+					}
+				}
+			}
 		}
 
 		window.addEventListener("load", handleParamsAndForms);

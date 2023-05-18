@@ -6,7 +6,7 @@ from contextlib import suppress
 from typing import Callable, Optional, Any, Dict
 
 import websockets
-from galaxy.api.errors import BackendNotAvailable, BackendTimeout, BackendError, InvalidCredentials, NetworkError, AccessDenied
+from galaxy.api.errors import BackendNotAvailable, BackendTimeout, BackendError, InvalidCredentials, NetworkError, AccessDenied, AuthenticationRequired
 
 from rsa import PublicKey, encrypt
 
@@ -99,7 +99,7 @@ class WebSocketClient:
                     if auth_lost in done:
                         try:
                             await auth_lost
-                        except (InvalidCredentials, AccessDenied) as e:
+                        except (InvalidCredentials, AccessDenied, AuthenticationRequired) as e:
                             logger.warning(f"Auth lost by a reason: {repr(e)}")
                             await self._close_socket()
                             await self._close_protocol_client()

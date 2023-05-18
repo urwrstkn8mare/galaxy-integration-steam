@@ -82,7 +82,7 @@ class ProtocolClient:
         self._authentication_cache : AuthenticationCache = authentication_cache
         self._user_info_cache : UserInfoCache = user_info_cache
         self._times_cache : TimesCache = times_cache
-        self._auth_lost_handler = None #i have no idea what this is for but we set it everywhere.
+        self._auth_lost_handler = None
         self._rsa_future: Optional[Future] = None
         self._login_future: Optional[Future] = None
         self._two_factor_future: Optional[Future] = None
@@ -177,7 +177,7 @@ class ProtocolClient:
             if self._user_info_cache.steam_id != message.steamid:
                 self._user_info_cache.steam_id = message.steamid;
 
-            allowables_with_message : dict[TwoFactorMethod, str]= {zip(to_TwoFactorWithMessage(allowed)) for allowed in message.allowed_confirmations}
+            allowables_with_message : dict[TwoFactorMethod, str]= dict(map(to_TwoFactorWithMessage, message.allowed_confirmations))
 
             data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, allowables_with_message, message.extended_error_message)
 

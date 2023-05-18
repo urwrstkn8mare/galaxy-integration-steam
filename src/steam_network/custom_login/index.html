@@ -177,7 +177,7 @@
 
 			//display the proper form content
 			let view = urlParams.get("view");
-			let errored = urlParams.get["errored"] == 'true';
+			let errored = urlParams.get("errored") == 'true';
 			let act, loc, inp, err = null;
 
 			switch (view)
@@ -222,9 +222,9 @@
 			//if we have set err, un-hide all the error members. 
 			if (err)
 			{
-				for (errorField of err)
+				for (let k = 0; k < err.length; k++)
 				{
-					errorField.classList.remove("no-error");
+					err[k].classList.remove("no-error");
 				}
 			}
 

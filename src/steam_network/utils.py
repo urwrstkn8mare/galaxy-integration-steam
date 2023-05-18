@@ -131,9 +131,9 @@ _NEXT_STEP = {
     "end_uri_regex": None
 }
 
-def next_step_response_simple(display: DisplayUriHelper, username: str, errored:bool = False, **kwargs) -> NextStep:
+def next_step_response_simple(display: DisplayUriHelper, errored:bool = False, **kwargs) -> NextStep:
     next_step = _NEXT_STEP
-    next_step['start_uri'] = display.GetStartUri(username, errored, **kwargs)
+    next_step['start_uri'] = display.GetStartUri(errored, **kwargs)
     next_step['end_uri_regex'] = display.GetEndUriRegex()
 
     return NextStep("web_session", next_step)

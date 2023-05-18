@@ -29,32 +29,25 @@
 				<span class="tooltip padlock-tooltip">GOG Galaxy does not hold your data. Your login and password will be sent as encrypted data to Steam servers.</span>
 			</div>
 		</header>
-		<main class="main-content">
+		<main class="main-content" style="display:flex; flex-direction:column">
 			<form id="main-form" class="main-form" action="/" method="GET">
-				<fieldset id="getUserName" style="display:none;">
+				<fieldset id="getLoginInfo" style="display: none;">
+					<legend>Login with your Steam account below to access your Steam games and friends from GOG Galaxy.</legend>
 					<div class="field-group">
-						<label for="step-0-username">Enter your username</label>
-						<input class="basic-input login-input" type="text" id="step-0-username" name="username" disabled="disabled">
+						<label for="step-1-username">Steam username</label>
+						<input class="basic-input login-input" type="text" id="step-1-username" name="username" disabled="disabled">
 					</div>
-					<p class="error-message error-message--start no-error">
-						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon error-icon--aligned-top"> The username does not exist or cannot be found. Try ensuring the user name is valid.
-					</p>
-				</fieldset>
-				<fieldset id="getPassword" style="display:none;">
-					<legend id="say-hello">Please Enter your password to finish logging in.</legend> <!--TODO: Change this to say: "Welcome <user name>. Please Enter your password to finish logging in"-->
 					<div class="field-group">
 						<label for="step-1-password">Password</label>
-						<input class="basic-input login-input" type="password" id="step-1-password" name="password" disabled="disabled">
-						<div class="show-password">
-			                            <span class="tooltip password-tooltip">Show password</span>
-                        			</div>
+						<div class="password-forgot-holder">
+							<input class="basic-input login-input" type="password" id="step-1-password" name="password" disabled="disabled">
+							<div class="show-password">
+								<span class="tooltip password-tooltip">Show password</span>
+							</div>
+						</div>
 					</div>
-					<p class="resend-code">
-						Not you?
-						<a href="/login_finished?switch_user=True" class="resend-button">Log in with a different User.</a>
-					</p>
 					<p class="error-message error-message--start no-error">
-						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon error-icon--aligned-top"> You have entered your password incorrectly. Please check your password and try again.
+						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon error-icon--aligned-top" /> You have entered your username or password incorrectly. Please check your username and password and try again.
 					</p>
 				</fieldset>
 				<fieldset id="steamGuardEmail" style="display:none;">
@@ -124,7 +117,7 @@
 
 		const toggleButton = document.querySelector(".show-password");
 		const actionButtonsSelector = document.querySelector("#actionButtons");
-		const input = document.getElementById("step-2-password-errored");
+		const input = document.getElementById("step-1-password");
 
 		function togglePasswordVisibility() 
 		{
@@ -142,7 +135,6 @@
 		// Handling urlParams, form actions and enabling inputs
 
 		const viewLookup = {
-			user: "user",
 			login: "login",
 			steamGuard: "steamguard",
 			steamAuthenticator: "steamauthenticator",
@@ -152,13 +144,9 @@
 		//HtmlElements that deal with errors are hidden by default, using the no-error class. Therefore, we can simply query the no-error class to get all our errors. 
 		//It may be smart to give errors a common class so we could differentiate between hidden errors and displayed ones, but as of this writing that's not necessary.
 		const fieldSetsObj = {
-			userFieldSet: document.querySelector("#getUserName"),
-			userInputs: document.querySelectorAll("#getUserName input"),
-			userError: document.querySelectorAll("#getUserName .no-error"),
-
-			loginFieldSet: document.querySelector("#getPassword"),
-			loginInputs: document.querySelectorAll("#getPassword input"),
-			loginError: document.querySelectorAll("#getPassword .no-error"),
+			loginFieldSet: document.querySelector("#getLoginInfo"),
+			loginInputs: document.querySelectorAll("#getLoginInfo input"),
+			loginError: document.querySelectorAll("#getLoginInfo .no-error"),
 
 			steamGuardFieldSet: document.querySelector("#steamGuardEmail"),
 			steamGuardInputs: document.querySelectorAll("#steamGuardEmail input"),
@@ -194,13 +182,7 @@
 
 			switch (view)
 			{
-				case viewLookup.login:
-					loc = fieldSetsObj.loginFieldSet;
-					inp = fieldSetsObj.loginInputs;
-					act = "/login_finished";
-					err = errored ? fieldSetsObj.loginError : null;
-					forgotPasswordButtonElement.style.display = "block";
-					break;
+				
 				case viewLookup.steamGuard:
 					loc = fieldSetsObj.steamGuardFieldSet;
 					inp = fieldSetsObj.steamGuardInputs;
@@ -219,12 +201,13 @@
 					act = "/two_factor_confirm_finished";
 					err = errored ? fieldSetsObj.steamAuthenticatorConfirmError : null;
 					break;
-				case viewLookup.user:
+				case viewLookup.login:
 				default:
-					loc = fieldSetsObj.userFieldSet;
-					inp = fieldSetsObj.userInputs;
-					act = "/user_finished";
-					err = errored ? fieldSetsObj.userError : null;
+					loc = fieldSetsObj.loginFieldSet;
+					inp = fieldSetsObj.loginInputs;
+					act = "/login_finished";
+					err = errored ? fieldSetsObj.loginError : null;
+					forgotPasswordButtonElement.style.display = "block";
 					break;
 			}
 
@@ -246,14 +229,6 @@
 			}
 
 			loc.style.display = "block";
-
-			//parse the user name if it's there and we're on the login page
-			let user = urlParams["user"];
-			if (view== viewLookup.login && user)
-			{
-				let helloMsg = document.getElementById("say-hello")
-				helloMsg.textContent = "Hello " + user + "! Please enter your password to finish logging in!";
-			}
 		}
 
 		window.addEventListener("load", handleParamsAndForms);

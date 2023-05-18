@@ -193,9 +193,10 @@ class SteamNetworkBackend(BackendInterface):
 
     async def pass_login_credentials(self, step, credentials, cookies):
         end_uri = credentials["end_uri"]
-        if (DisplayUriHelper.GET_USER.EndUri() in end_uri):
-            return await self._handle_get_user_finished(credentials)
-        elif (DisplayUriHelper.LOGIN.EndUri() in end_uri):
+        #if (DisplayUriHelper.GET_USER.EndUri() in end_uri):
+        #    return await self._handle_get_user_finished(credentials)
+        #elif (DisplayUriHelper.LOGIN.EndUri() in end_uri):
+        if (DisplayUriHelper.LOGIN.EndUri() in end_uri):
             return await self._handle_login_finished(credentials)
         elif (DisplayUriHelper.TWO_FACTOR_MAIL.EndUri() in end_uri):
             return await self._handle_steam_guard(credentials, DisplayUriHelper.TWO_FACTOR_MAIL)
@@ -204,39 +205,17 @@ class SteamNetworkBackend(BackendInterface):
         elif (DisplayUriHelper.TWO_FACTOR_CONFIRM.EndUri() in end_uri):
             return await self._handle_steam_guard_check(DisplayUriHelper.TWO_FACTOR_MOBILE) #the fallback should be chosen based on the allowed_confirmations and not be hard-coded here
         else:
-            logger.warning("Not reimplemented yet")
-            raise BackendTimeout()
-        #elif "login_finished" in :
-        #    return await self._handle_login_finished(credentials)
-        #if "two_factor_mobile_finished" in credentials["end_uri"]:
-        #    return await self._handle_two_step_mobile_finished(credentials)
-        #if "two_factor_mail_finished" in credentials["end_uri"]:
-        #    return await self._handle_two_step_email_finished(credentials)
-
-    async def _handle_get_user_finished(self, credentials) -> NextStep:
-        parsed_url = parse.urlsplit(credentials["end_uri"])
-        params = parse.parse_qs(parsed_url.query)
-        if ("username" not in params):
-            return next_step_response_simple(DisplayUriHelper.GET_USER, None, True)
-        username = params["username"][0]
-        self._user_info_cache.account_username = username
-        await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.RSA })
-        result = await self._get_websocket_auth_step()
-        if (result == UserActionRequired.PasswordRequired):
-            return next_step_response_simple(DisplayUriHelper.LOGIN, self._user_info_cache.account_username)
-        else:
-            #invalid auth means the user name does not exist. any other response at this point would be something unexpected and would mean a bug somewhere. 
-            if (result != UserActionRequired.InvalidAuthData):
-                logger.warning("Unexpected return value optained in Get User Finished. Value: " + str(result))
-            return next_step_response_simple(DisplayUriHelper.GET_USER, None, True)
+            logger.warning("Unexpected state in pass_login_credentials")
+            raise UnknownBackendResponse()
 
     async def _handle_login_finished(self, credentials) -> Union[NextStep, Authentication]:
         parsed_url = parse.urlsplit(credentials["end_uri"])
         params = parse.parse_qs(parsed_url.query)
-        if ("password" not in params):
-            return next_step_response_simple(DisplayUriHelper.LOGIN, self._user_info_cache.account_username, True)
+        if ("password" not in params or "username" not in params):
+            return next_step_response_simple(DisplayUriHelper.LOGIN, True)
+        user = params["username"][0]
         pws = params["password"][0]
-        await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.LOGIN, 'password' : pws })
+        await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.RSA_AND_LOGIN, 'username' : user, 'password' : pws })
         result = await self._get_websocket_auth_step()
         if (result == UserActionRequired.NoActionConfirmLogin):
             #we still don't have the 2FA Confirmation. that's actually required for NoAction, but instead of waiting for us to input 2FA, it immediately returns what we need. 
@@ -394,7 +373,7 @@ class SteamNetworkBackend(BackendInterface):
     async def authenticate(self, stored_credentials=None):
         self._steam_run_task = asyncio.create_task(self._websocket_client.run())
         if stored_credentials is None:
-            return next_step_response_simple(DisplayUriHelper.GET_USER, None)
+            return next_step_response_simple(DisplayUriHelper.LOGIN, None)
         else:
             return await self._authenticate_with_stored_credentials(stored_credentials)
     
@@ -407,12 +386,12 @@ class SteamNetworkBackend(BackendInterface):
             if (result != UserActionRequired.NoActionRequired):
                 logger.info("Unexpected Action Required after token login. " + str(result) + ". Can be caused when credentials expire or are deactivated. Falling back to normal login")
                 self._user_info_cache.Clear()
-                return next_step_response_simple(DisplayUriHelper.GET_USER, None)
+                return next_step_response_simple(DisplayUriHelper.LOGIN, None)
             else:
                 return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
         else:
             logger.warning("User Info Cache not initialized properly. Falling back to normal login.")
-            return next_step_response_simple(DisplayUriHelper.GET_USER, None)
+            return next_step_response_simple(DisplayUriHelper.LOGIN, None)
 
     # features implementation
 

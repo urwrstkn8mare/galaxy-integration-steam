@@ -79,7 +79,6 @@ class WebSocketClient:
         self.used_server_cell_id: int = 0
         self._current_ws_address: Optional[str] = None
 
-        self._steam_public_key : Optional[SteamPublicKey] = None
         self._steam_polling_data : Optional[SteamPollingData] = None
 
     async def run(self, create_future_factory: Callable[[], Future]=asyncio_future):
@@ -241,30 +240,37 @@ class WebSocketClient:
             response : Dict[str,Any] = await self.communication_queues['websocket'].get()
             logger.info(f" Got {response.keys()} from queue")
             #change the way the code is done here. Since the workflow changed, on call on the protocol client isn't going to work anymore. we need to do a bunch of shit. 
-            mode = response.get('mode', 'rsa');
-            if (mode == AuthCall.RSA):
-                logger.info(f'Retrieving RSA Public Key for {"username" if self._user_info_cache.account_username else ""}')
-                (code, key) = await self._protocol_client.get_rsa_public_key(self._user_info_cache.account_username, auth_lost_handler)
-                self._steam_public_key = key
-                ret_code = code
-            elif (mode == AuthCall.LOGIN):
+            #mode = response.get('mode', AuthCall.RSA);
+            mode = response.get('mode', AuthCall.RSA_AND_LOGIN)
+            #if (mode == AuthCall.RSA):
+            if (mode == AuthCall.RSA_AND_LOGIN):
+                username :str = response.get('username', None)
                 password :str = response.get('password', None)
-                logger.info(f'Authenticating with {"username" if self._user_info_cache.account_username else ""}, {"password" if password else ""}')
-                if (password):
-                    enciphered = encrypt(password.encode('utf-8',errors="ignore"), self._steam_public_key.rsa_public_key)
-                    self._steam_polling_data = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, enciphered, self._steam_public_key.timestamp, auth_lost_handler)
-                    if (self._steam_polling_data):
-                        self._authentication_cache.two_factor_method = self._steam_polling_data.confirmation_method
-                        self._authentication_cache.error_message = self._steam_polling_data.extended_error_message
-                        self._authentication_cache.status_message = self._steam_polling_data.confirmation_message
-                        ret_code = to_UserAction(self._authentication_cache.two_factor_method)
+                
+                logger.info(f'Retrieving RSA Public Key for {username}')
+                (successful, key) = await self._protocol_client.get_rsa_public_key(username, auth_lost_handler)
+                if (successful):
+                    
+                    logger.info(f'Authenticating with {"username" if username else ""}, {"password" if password else ""}')
+                    if (password):
+                        enciphered = encrypt(password.encode('utf-8',errors="ignore"), key.rsa_public_key)
+                        self._steam_polling_data = await self._protocol_client.authenticate_password(username, enciphered, key.timestamp, auth_lost_handler)
+                        if (self._steam_polling_data):
+                            self._authentication_cache.two_factor_method = self._steam_polling_data.confirmation_method
+                            self._authentication_cache.error_message = self._steam_polling_data.extended_error_message
+                            self._authentication_cache.status_message = self._steam_polling_data.confirmation_message
+                            
+                            self._user_info_cache.account_username = username
+                            ret_code = to_UserAction(self._authentication_cache.two_factor_method)
+                        else:
+                            ret_code = UserActionRequired.InvalidAuthData
+
+                        if (ret_code != UserActionRequired.InvalidAuthData):
+                            logger.info("GOT THE LOGIN DONE! ON TO 2FA")
+                        else:
+                            logger.info("LOGIN FAILED :( But hey, at least you're here!")
                     else:
                         ret_code = UserActionRequired.InvalidAuthData
-
-                    if (ret_code != UserActionRequired.InvalidAuthData):
-                        logger.info("GOT THE LOGIN DONE! ON TO 2FA")
-                    else:
-                        logger.info("LOGIN FAILED :( But hey, at least you're here!")
                 else:
                     ret_code = UserActionRequired.InvalidAuthData
             elif (mode == AuthCall.UPDATE_TWO_FACTOR):

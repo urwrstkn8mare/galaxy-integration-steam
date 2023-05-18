@@ -24,30 +24,26 @@ logger = logging.getLogger(__name__)
 #defines the modes we will send to the 'websocket' queue
 class AuthCall:
 
-    RSA =               'rsa'
-    LOGIN =             'login'
+    RSA_AND_LOGIN =     'rsa_login'
     UPDATE_TWO_FACTOR = 'two-factor-update'
     POLL_TWO_FACTOR =   'poll-two-factor'
     TOKEN =              'token'
 
 class DisplayUriHelper(enum.Enum):
-    GET_USER = 0
-    LOGIN = 1
-    TWO_FACTOR_MAIL = 2
-    TWO_FACTOR_MOBILE = 3
-    TWO_FACTOR_CONFIRM = 4
+    LOGIN = 0
+    TWO_FACTOR_MAIL = 1
+    TWO_FACTOR_MOBILE = 2
+    TWO_FACTOR_CONFIRM = 3
 
     def _add_view(self, args:Dict[str,str]) -> Dict[str, str] :
-        if (self == self.LOGIN):
-            args["view"] = "login"
-        elif (self == self.TWO_FACTOR_MAIL):
+        if (self == self.TWO_FACTOR_MAIL):
             args["view"] = "steamguard"
         elif (self == self.TWO_FACTOR_MOBILE):
             args["view"] = "steamauthenticator"
         elif (self == self.TWO_FACTOR_CONFIRM):
             args["view"] = "steamauthenticator_confirm"
-        else:
-            args["view"] = "user"
+        else: #if (self == self.LOGIN):
+            args["view"] = "login"
         return args
 
     def _get_errored(self, args: Dict[str,str], errored: bool, verbose: bool = False) -> Dict[str, str]:
@@ -57,7 +53,7 @@ class DisplayUriHelper(enum.Enum):
             args["errored"] = "false"
         return args
 
-    def GetStartUri(self, username: Optional[str] = None, errored : bool = False, **kwargs:str) -> str:
+    def GetStartUri(self, errored : bool = False, **kwargs:str) -> str:
         #imho this is the most intuitive way of getting the start url. it's not the most "Pythonic" of means, but it is infinitely more readable.
 
         #url params go into a dict. urllib.urlencode will autmatically convert a dict to a string of properly concatenated url params ('&'). 
@@ -67,11 +63,6 @@ class DisplayUriHelper(enum.Enum):
         result : str = str(DIRNAME) + WEBPAGE_RELATIVE_PATH + "?"
         args = self._add_view(args)
         args = self._get_errored(args, errored, False)
-        if (self == self.LOGIN):
-            if (username is None):
-                raise ValueError("username cannot be null in login view")
-            else:
-                args["username"] = username
 
         for key, value in kwargs:
             if (key not in args):
@@ -81,16 +72,14 @@ class DisplayUriHelper(enum.Enum):
         return result + urllib.parse.urlencode(args)
     
     def EndUri(self) -> str:
-         if (self == self.LOGIN):
-             return 'login_finished'
-         elif (self == self.TWO_FACTOR_MAIL):
+         if (self == self.TWO_FACTOR_MAIL):
              return 'two_factor_mail_finished'
          elif (self == self.TWO_FACTOR_MOBILE):
              return 'two_factor_mobile_finished'
          elif (self == self.TWO_FACTOR_CONFIRM):
              return 'two_factor_confirm_finished'
-         else:
-             return 'user_finished'
+         else: #if (self == self.LOGIN):
+             return 'login_finished'
 
     def GetEndUriRegex(self):
         return ".*" + self.EndUri() + ".*";
@@ -100,9 +89,8 @@ class UserActionRequired(enum.IntEnum):
     NoActionConfirmToken = 1
     NoActionConfirmLogin = 2 #No action required, but we still need to confirm login. New auth workflow requires we poll to get the login info. 
     TwoFactorRequired = 3 #any form of 2FA required. when set, check the related TwoFactorMethod enum for the thing we need to do. 
-    PasswordRequired = 4
-    TwoFactorExpired = 5
-    InvalidAuthData = 6
+    TwoFactorExpired = 4
+    InvalidAuthData = 5
 
 #We're going to store this in the User Info Cache so we don't need to pass it everywhere. 
 #WARNING! BE VERY CAREFUL WITH THIS: IT APPEARS IN THE USER INFO CACHE! IF IT IS EVER SAVED (toDict method), THIS ENUM BECOMES SOFT IMMUTABLE 

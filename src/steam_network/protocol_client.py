@@ -112,7 +112,7 @@ class ProtocolClient:
     async def finish_handshake(self):
         await self._protobuf_client.say_hello()
 
-    async def get_rsa_public_key(self, username:str, auth_lost_handler) -> Tuple[UserActionRequired, SteamPublicKey]:
+    async def get_rsa_public_key(self, username:str, auth_lost_handler) -> Tuple[bool, SteamPublicKey]:
         loop = asyncio.get_running_loop()
         self._rsa_future = loop.create_future()
         await self._protobuf_client.get_rsa_public_key(username)
@@ -125,12 +125,13 @@ class ProtocolClient:
         #If you provide a bad username, it still returns "OK" and gives you rsa key data. i have no idea why. it just does. so we have no way to determine bad login. 
         if (result == EResult.OK):
             self._auth_lost_handler = auth_lost_handler
-            return (UserActionRequired.PasswordRequired, key)
+            return (True, key)
         #the only way we get here afaik is if steam is down or busy or something network related. 
         else: 
         #    self._auth_lost_handler = auth_lost_handler
             logger.warning(f"Received unknown error, code: {result}")
-            return (UserActionRequired.InvalidAuthData, key)
+            #at this point, hopefully key would be null, so the bool part of the tuple would be redundant. but i can't seem to reach this state so idk. 
+            return (False, key)
 
     async def _rsa_handler(self, result: EResult, mod: int, exp: int, timestamp: int) -> Tuple[EResult, SteamPublicKey]:
         logger.info("In Protocol_Client RSA Handler")

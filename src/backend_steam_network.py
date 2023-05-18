@@ -52,7 +52,7 @@ from steam_network.w3_hack import (
 )
 
 from steam_network.utils import next_step_response_simple
-from steam_network.enums import UserActionRequired, AuthCall, DisplayUriHelper, TwoFactorMethod, to_url_string
+from steam_network.enums import UserActionRequired, AuthCall, DisplayUriHelper, TwoFactorMethod
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +178,20 @@ class SteamNetworkBackend(BackendInterface):
         except asyncio.TimeoutError:
             raise BackendTimeout()
 
+    def _get_mobile_confirm_kwargs(self, allowed_methods: Dict[TwoFactorMethod, str]):
+        fallbackData = {}
+        if len(allowed_methods) > 1:
+            fallback_meth, fallback_message = allowed_methods[1]
+        
+        if (fallback_meth == TwoFactorMethod.PhoneCode):
+            fallbackData["fallbackMethod"] = DisplayUriHelper.TWO_FACTOR_MOBILE.to_view_string()
+            fallbackData["fallbackMsg"] = fallback_message
+        elif (fallback_meth == TwoFactorMethod.EmailCode):
+            fallbackData["fallbackMethod"] = DisplayUriHelper.TWO_FACTOR_MAIL.to_view_string()
+            fallbackData["fallbackMsg"] = fallback_message
+
+        return fallbackData
+
     async def pass_login_credentials(self, step, credentials, cookies):
         end_uri = credentials["end_uri"]
         #if (DisplayUriHelper.GET_USER.EndUri() in end_uri):
@@ -190,7 +204,10 @@ class SteamNetworkBackend(BackendInterface):
         elif (DisplayUriHelper.TWO_FACTOR_MOBILE.EndUri() in end_uri):
             return await self._handle_steam_guard(credentials, TwoFactorMethod.PhoneCode, DisplayUriHelper.TWO_FACTOR_MOBILE)
         elif (DisplayUriHelper.TWO_FACTOR_CONFIRM.EndUri() in end_uri):
-            return await self._handle_steam_guard_check(DisplayUriHelper.TWO_FACTOR_MOBILE) #the fallback should be chosen based on the allowed_confirmations and not be hard-coded here
+            allowed_methods = self._authentication_cache.two_factor_allowed_methods
+            fallback_data = self._get_mobile_confirm_kwargs(allowed_methods)
+
+            return await self._handle_steam_guard_check(DisplayUriHelper.TWO_FACTOR_CONFIRM, **fallback_data) #go back to confirm. 
         else:
             logger.warning("Unexpected state in pass_login_credentials")
             raise UnknownBackendResponse()
@@ -217,15 +234,8 @@ class SteamNetworkBackend(BackendInterface):
             elif (method == TwoFactorMethod.EmailCode):
                 return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MAIL)
             elif (method == TwoFactorMethod.PhoneConfirm):
-                #determine if we have a fallback.
-                fallback = TwoFactorMethod.Unknown #default to no.
-
-                if len(allowed_methods) > 1:
-                    fallback = allowed_methods[1]
-
-                fallbackStr = to_url_string(fallback) #convert it to a string we can pass to the url
-
-                return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_CONFIRM, False, fallbackMethod=fallbackStr, message=msg)
+                fallback_data = self._get_mobile_confirm_kwargs(allowed_methods)
+                return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_CONFIRM, False, message=msg, **fallback_data)
             else:
                 raise UnknownBackendResponse()
         else:
@@ -256,7 +266,7 @@ class SteamNetworkBackend(BackendInterface):
         else:
             return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
 
-    async def _handle_steam_guard_check(self, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
+    async def _handle_steam_guard_check(self, fallback: DisplayUriHelper, **kwargs:str) -> Union[NextStep, Authentication]:
         result = await self._handle_2FA_PollOnce()
         logger.info(f"steam guard check next action: {result.name}")
         if (result == UserActionRequired.NoActionRequired): #should never be hit. we need to confirm the token.
@@ -266,9 +276,9 @@ class SteamNetworkBackend(BackendInterface):
         #returned if we somehow got here but poll did not succeed. If we get here, the code should have been successfully input so this should never happen. 
         elif(result == UserActionRequired.NoActionConfirmLogin or result == UserActionRequired.TwoFactorRequired):
             logger.info("Mobile Confirm did not complete. This is likely due to user error, but if not, this is something worth checking.")
-            return next_step_response_simple(fallback, True)
+            return next_step_response_simple(fallback, True, **kwargs)
         elif (result == UserActionRequired.TwoFactorExpired):
-            return next_step_response_simple(fallback, True, expired="true")
+            return next_step_response_simple(fallback, True, expired="true", **kwargs)
         else:
             raise UnknownBackendResponse()
 

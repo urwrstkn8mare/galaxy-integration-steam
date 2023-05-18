@@ -225,31 +225,31 @@ class SteamNetworkBackend(BackendInterface):
             if (method == TwoFactorMethod.Nothing):
                 result = await self._handle_steam_guard_none()
             elif (method == TwoFactorMethod.PhoneCode):
-                return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MOBILE, self._user_info_cache.account_username)
+                return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MOBILE)
             elif (method == TwoFactorMethod.EmailCode):
-                return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MAIL, self._user_info_cache.account_username)
+                return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MAIL)
             elif (method == TwoFactorMethod.PhoneConfirm):
-                return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_CONFIRM, self._user_info_cache.account_username)
+                return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_CONFIRM)
             else:
                 raise UnknownBackendResponse()
         else:
-            return next_step_response_simple(DisplayUriHelper.LOGIN, self._user_info_cache.account_username, True)
+            return next_step_response_simple(DisplayUriHelper.LOGIN, True)
         #result here should be password, or unathorized. 
 
     async def _handle_steam_guard(self, credentials, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
         parsed_url = parse.urlsplit(credentials["end_uri"])
         params = parse.parse_qs(parsed_url.query)
         if ("code" not in params):
-            return next_step_response_simple(fallback, self._user_info_cache.account_username, True)
+            return next_step_response_simple(fallback, True)
         code = params["code"][0]
         await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.UPDATE_TWO_FACTOR, 'two-factor-code' : code })
         result = await self._get_websocket_auth_step()
         if (result == UserActionRequired.NoActionConfirmLogin):
             return await self._handle_steam_guard_check(fallback)
         elif (result == UserActionRequired.TwoFactorExpired):
-            return next_step_response_simple(fallback, self._user_info_cache.account_username, True, expired="true")
+            return next_step_response_simple(fallback, True, expired="true")
         elif (result == UserActionRequired.InvalidAuthData):
-            return next_step_response_simple(fallback, self._user_info_cache.account_username, True)
+            return next_step_response_simple(fallback, True)
         else:
             raise UnknownBackendResponse()
 

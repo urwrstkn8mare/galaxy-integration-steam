@@ -272,7 +272,7 @@ class ProtocolClient:
         elif result == EResult.FileNotFound: #confirmed occurs with mobile confirm if you don't confirm it. May occur elsewhere, but that is unknown/unexpected.
             self._auth_lost_handler = auth_lost_handler
             if (two_factor_method == TwoFactorMethod.PhoneConfirm):
-                return (UserActionRequired.TwoFactorRequired, data.new_client_id)
+                return (UserActionRequired.NoActionConfirmLogin, data.new_client_id)
             else:
                 logger.warning("Received a file not found but were not using mobile confirm. This is unexpected, but maybe ok? no idea.")
                 return (UserActionRequired.InvalidAuthData, data.new_client_id)

@@ -2,10 +2,11 @@ import asyncio
 import logging
 import ssl
 from contextlib import suppress
-from typing import Callable, List, Any, Dict, Union
+from typing import Callable, List, Any, Dict, Union, Coroutine
 from urllib import parse
 from pprint import pformat
 
+from asyncio import Task
 
 from galaxy.api.errors import (
     AuthenticationRequired,
@@ -51,7 +52,7 @@ from steam_network.w3_hack import (
 )
 
 from steam_network.utils import next_step_response_simple
-from steam_network.enums import UserActionRequired, AuthCall, DisplayUriHelper, TwoFactorMethod
+from steam_network.enums import UserActionRequired, AuthCall, DisplayUriHelper, TwoFactorMethod, to_url_string
 
 logger = logging.getLogger(__name__)
 
@@ -73,34 +74,23 @@ def avatar_url_from_avatar_hash(a_hash: str):
 
 
 class SteamNetworkBackend(BackendInterface):
-    #def __init__(
-    #    self,
-    #    *,
-    #    http_client: HttpClient,
-    #    ssl_context: ssl.SSLContext,
-    #    persistent_storage_state: PersistentCacheState,
-    #    persistent_cache: Dict[str, Any],
-    #    update_user_presence: Callable[[UserPresence], None],
-    #    store_credentials: Callable[[Dict[str, Any]], None],
-    #    add_game: Callable[[Game], None],
-    #) -> None:
     def __init__(self, http_client: HttpClient, ssl_context: ssl.SSLContext, 
                  persistent_storage_state: PersistentCacheState, persistent_cache: Dict[str, Any], update_user_presence: Callable[[UserPresence], None], 
                  store_credentials: Callable[[Dict[str, Any]], None], add_game: Callable[[Game], None]):
 
-        self._add_game = add_game
-        self._persistent_cache = persistent_cache
-        self._persistent_storage_state = persistent_storage_state
+        self._add_game : Callable[[Game], None] = add_game
+        self._persistent_cache : Dict[str, Any] = persistent_cache
+        self._persistent_storage_state : PersistentCacheState = persistent_storage_state
 
-        self._store_credentials = store_credentials
-        self._authentication_cache = AuthenticationCache()
-        self._user_info_cache = UserInfoCache()
+        self._store_credentials : Callable[[Dict[str, Any]], None] = store_credentials
+        self._authentication_cache : AuthenticationCache = AuthenticationCache()
+        self._user_info_cache : UserInfoCache = UserInfoCache()
 
-        self._games_cache = GamesCache()
-        self._translations_cache = dict()
-        self._stats_cache = StatsCache()
-        self._times_cache = TimesCache()
-        self._friends_cache = FriendsCache()
+        self._games_cache : GamesCache = GamesCache()
+        self._translations_cache : Dict[int, str] = dict()
+        self._stats_cache :StatsCache = StatsCache()
+        self._times_cache : TimesCache = TimesCache()
+        self._friends_cache : FriendsCache = FriendsCache()
 
         async def user_presence_update_handler(user_id: str, proto_user_info: ProtoUserInfo):
             update_user_presence(
@@ -108,11 +98,9 @@ class SteamNetworkBackend(BackendInterface):
                 await presence_from_user_info(proto_user_info, self._translations_cache),
             )
 
-        self._friends_cache.updated_handler = user_presence_update_handler
+        self._friends_cache.updated_handler : Callable[[str, ProtoUserInfo], Coroutine[Any, Any, None]] = user_presence_update_handler
 
-        local_machine_cache = LocalMachineCache(
-            self._persistent_cache, self._persistent_storage_state
-        )
+        local_machine_cache : LocalMachineCache = LocalMachineCache(self._persistent_cache, self._persistent_storage_state)
 
         steam_http_client = SteamHttpClient(http_client)
         self._websocket_client = WebSocketClient(
@@ -128,9 +116,8 @@ class SteamNetworkBackend(BackendInterface):
             local_machine_cache,
         )
 
-        self._update_owned_games_task = asyncio.create_task(asyncio.sleep(0))
-        self._owned_games_parsed = None
-        self._auth_data = None
+        self._update_owned_games_task : Task[None] = asyncio.create_task(asyncio.sleep(0))
+        self._owned_games_parsed : bool = False
         
         self._load_persistent_cache()
     
@@ -199,9 +186,9 @@ class SteamNetworkBackend(BackendInterface):
         if (DisplayUriHelper.LOGIN.EndUri() in end_uri):
             return await self._handle_login_finished(credentials)
         elif (DisplayUriHelper.TWO_FACTOR_MAIL.EndUri() in end_uri):
-            return await self._handle_steam_guard(credentials, DisplayUriHelper.TWO_FACTOR_MAIL)
+            return await self._handle_steam_guard(credentials, TwoFactorMethod.EmailCode, DisplayUriHelper.TWO_FACTOR_MAIL)
         elif (DisplayUriHelper.TWO_FACTOR_MOBILE.EndUri() in end_uri):
-            return await self._handle_steam_guard(credentials, DisplayUriHelper.TWO_FACTOR_MOBILE)
+            return await self._handle_steam_guard(credentials, TwoFactorMethod.PhoneCode, DisplayUriHelper.TWO_FACTOR_MOBILE)
         elif (DisplayUriHelper.TWO_FACTOR_CONFIRM.EndUri() in end_uri):
             return await self._handle_steam_guard_check(DisplayUriHelper.TWO_FACTOR_MOBILE) #the fallback should be chosen based on the allowed_confirmations and not be hard-coded here
         else:
@@ -221,7 +208,8 @@ class SteamNetworkBackend(BackendInterface):
             #we still don't have the 2FA Confirmation. that's actually required for NoAction, but instead of waiting for us to input 2FA, it immediately returns what we need. 
             return await self._handle_steam_guard_none()
         elif (result == UserActionRequired.TwoFactorRequired):
-            method = self._authentication_cache.two_factor_method
+            allowed_methods = self._authentication_cache.two_factor_allowed_methods
+            method, msg = allowed_methods[0]
             if (method == TwoFactorMethod.Nothing):
                 result = await self._handle_steam_guard_none()
             elif (method == TwoFactorMethod.PhoneCode):
@@ -229,20 +217,28 @@ class SteamNetworkBackend(BackendInterface):
             elif (method == TwoFactorMethod.EmailCode):
                 return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MAIL)
             elif (method == TwoFactorMethod.PhoneConfirm):
-                return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_CONFIRM)
+                #determine if we have a fallback.
+                fallback = TwoFactorMethod.Unknown #default to no.
+
+                if len(allowed_methods) > 1:
+                    fallback = allowed_methods[1]
+
+                fallbackStr = to_url_string(fallback) #convert it to a string we can pass to the url
+
+                return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_CONFIRM, False, fallbackMethod=fallbackStr, message=msg)
             else:
                 raise UnknownBackendResponse()
         else:
             return next_step_response_simple(DisplayUriHelper.LOGIN, True)
         #result here should be password, or unathorized. 
 
-    async def _handle_steam_guard(self, credentials, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
+    async def _handle_steam_guard(self, credentials, method: TwoFactorMethod, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
         parsed_url = parse.urlsplit(credentials["end_uri"])
         params = parse.parse_qs(parsed_url.query)
         if ("code" not in params):
             return next_step_response_simple(fallback, True)
         code = params["code"][0]
-        await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.UPDATE_TWO_FACTOR, 'two-factor-code' : code })
+        await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.UPDATE_TWO_FACTOR, 'two-factor-code' : code, 'two-factor-method' : method })
         result = await self._get_websocket_auth_step()
         if (result == UserActionRequired.NoActionConfirmLogin):
             return await self._handle_steam_guard_check(fallback)
@@ -268,7 +264,7 @@ class SteamNetworkBackend(BackendInterface):
         elif (result == UserActionRequired.NoActionConfirmToken):
             return await self._finish_auth_process()
         #returned if we somehow got here but poll did not succeed. If we get here, the code should have been successfully input so this should never happen. 
-        elif(result == UserActionRequired.NoActionConfirmLogin):
+        elif(result == UserActionRequired.NoActionConfirmLogin or result == UserActionRequired.TwoFactorRequired):
             logger.info("Mobile Confirm did not complete. This is likely due to user error, but if not, this is something worth checking.")
             return next_step_response_simple(fallback, True)
         elif (result == UserActionRequired.TwoFactorExpired):
@@ -278,7 +274,7 @@ class SteamNetworkBackend(BackendInterface):
 
     #in the case of confirm, this needs to be called directly, because the user clicks a button saying "i confirmed it on steam's end"
     #but, to handle edge cases (expired, they lied), we need to potentially display a page again. 
-    async def _handle_2FA_PollOnce(self) -> UserActionRequired:
+    async def _handle_2FA_PollOnce(self, is_confirm : bool = False) -> UserActionRequired:
         """ Poll the steam authentication to see if we are logged in yet, and return whatever action is required. 
 
         If the poll succeeds, but we aren't logged in yet (waiting on a code or mobile confirm), it returns UserActionRequired.NoActionConfirmLogin
@@ -286,7 +282,8 @@ class SteamNetworkBackend(BackendInterface):
         If the poll fails with the Result "Expired", returns UserActionRequired.TwoFactorExpired
         If the poll otherwise fails, it return UserActionRequired.InvalidAuthData
         """
-        await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.POLL_TWO_FACTOR})
+        await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.POLL_TWO_FACTOR, 'is-confirm' : is_confirm})
+
         #can return NoActionConfirmToken, NoActionConfirmLogin (poll succeeded, but we haven't logged in ye)
         return await self._get_websocket_auth_step()
 
@@ -306,69 +303,6 @@ class SteamNetworkBackend(BackendInterface):
         else:
             logger.warning("User Info Cache not initialized after normal login. Unexpected")
             raise UnknownBackendResponse()
-
-    #async def _handle_login_finished(self, credentials):
-    #    parsed_url = parse.urlsplit(credentials["end_uri"])
-
-    #    params = parse.parse_qs(parsed_url.query)
-    #    if "username" not in params or "password" not in params:
-    #        return next_step_response(StartUri.LOGIN_FAILED, EndUri.LOGIN_FINISHED)
-
-    #    username = params["username"][0]
-    #    password = params["password"][0]
-    #    self._user_info_cache.account_username = username
-    #    self._auth_data = [username, password]
-    #    await self._websocket_client.communication_queues["websocket"].put({"password": password})
-    #    result = await self._get_websocket_auth_step()
-    #    if result == UserActionRequired.NoActionRequired:
-    #        self._auth_data = None
-    #        self._store_credentials(self._user_info_cache.to_dict())
-    #        return await self._check_public_profile()
-    #    if result == UserActionRequired.EmailTwoFactorInputRequired:
-    #        return next_step_response(StartUri.TWO_FACTOR_MAIL, EndUri.TWO_FACTOR_MAIL_FINISHED)
-    #    if result == UserActionRequired.PhoneTwoFactorInputRequired:
-    #        return next_step_response(StartUri.TWO_FACTOR_MOBILE, EndUri.TWO_FACTOR_MOBILE_FINISHED)
-    #    else:
-    #        return next_step_response(StartUri.LOGIN_FAILED, EndUri.LOGIN_FINISHED)
-
-    #async def _handle_two_step(self, params, fail, finish):
-    #    if "code" not in params:
-    #        return next_step_response(fail, finish)
-
-    #    two_factor = params["code"][0]
-    #    await self._websocket_client.communication_queues["websocket"].put(
-    #        {"password": self._auth_data[1], "two_factor": two_factor}
-    #    )
-    #    result = await self._get_websocket_auth_step()
-    #    logger.info(f"2fa result {result}")
-    #    if result != UserActionRequired.NoActionRequired:
-    #        return next_step_response(fail, finish)
-    #    else:
-    #        self._auth_data = None
-    #        self._store_credentials(self._user_info_cache.to_dict())
-    #        return await self._check_public_profile()
-
-    #async def _handle_two_step_mobile_finished(self, credentials):
-    #    parsed_url = parse.urlsplit(credentials["end_uri"])
-    #    params = parse.parse_qs(parsed_url.query)
-    #    return await self._handle_two_step(
-    #        params, StartUri.TWO_FACTOR_MOBILE_FAILED, EndUri.TWO_FACTOR_MOBILE_FINISHED
-    #    )
-
-    #async def _handle_two_step_email_finished(self, credentials):
-    #    parsed_url = parse.urlsplit(credentials["end_uri"])
-    #    params = parse.parse_qs(parsed_url.query)
-
-    #    if "resend" in params:
-    #        await self._websocket_client.communication_queues["websocket"].put(
-    #            {"password": self._auth_data[1]}
-    #        )
-    #        await self._get_websocket_auth_step()  # Clear the queue
-    #        return next_step_response(StartUri.TWO_FACTOR_MAIL, EndUri.TWO_FACTOR_MAIL_FINISHED)
-
-    #    return await self._handle_two_step(
-    #        params, StartUri.TWO_FACTOR_MAIL_FAILED, EndUri.TWO_FACTOR_MAIL_FINISHED
-    #    )
 
     async def authenticate(self, stored_credentials=None):
         self._steam_run_task = asyncio.create_task(self._websocket_client.run())

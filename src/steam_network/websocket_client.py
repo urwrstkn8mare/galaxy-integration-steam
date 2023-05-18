@@ -10,7 +10,7 @@ from galaxy.api.errors import BackendNotAvailable, BackendTimeout, BackendError,
 
 from rsa import PublicKey, encrypt
 
-from steam_network.authentication_cache import AuthenticationCache
+from .authentication_cache import AuthenticationCache
 
 from .websocket_list import WebSocketList
 from .friends_cache import FriendsCache
@@ -54,28 +54,28 @@ class WebSocketClient:
         ssl_context: ssl.SSLContext,
         friends_cache: FriendsCache,
         games_cache: GamesCache,
-        translations_cache: dict,
+        translations_cache: Dict[int, str],
         stats_cache: StatsCache,
         times_cache: TimesCache,
         authentication_cache: AuthenticationCache,
         user_info_cache: UserInfoCache,
         local_machine_cache: LocalMachineCache,
     ):
-        self._ssl_context = ssl_context
+        self._ssl_context : ssl.SSLContext = ssl_context
         self._websocket: Optional[websockets.client.WebSocketClientProtocol] = None
         self._protocol_client: Optional[ProtocolClient] = None
-        self._websocket_list = websocket_list
+        self._websocket_list : WebSocketList = websocket_list
 
-        self._friends_cache = friends_cache
-        self._games_cache = games_cache
-        self._translations_cache = translations_cache
-        self._stats_cache = stats_cache
-        self._authentication_cache = authentication_cache
-        self._user_info_cache = user_info_cache
-        self._local_machine_cache = local_machine_cache
-        self._times_cache = times_cache
+        self._friends_cache : FriendsCache = friends_cache
+        self._games_cache : GamesCache = games_cache
+        self._translations_cache : Dict[int, str] = translations_cache
+        self._stats_cache :StatsCache = stats_cache
+        self._authentication_cache : AuthenticationCache = authentication_cache
+        self._user_info_cache : UserInfoCache = user_info_cache
+        self._local_machine_cache : LocalMachineCache = local_machine_cache
+        self._times_cache : TimesCache = times_cache
 
-        self.communication_queues = {'plugin': asyncio.Queue(), 'websocket': asyncio.Queue(),}
+        self.communication_queues : Dict[str, asyncio.Queue] = {'plugin': asyncio.Queue(), 'websocket': asyncio.Queue(),}
         self.used_server_cell_id: int = 0
         self._current_ws_address: Optional[str] = None
 
@@ -255,13 +255,12 @@ class WebSocketClient:
                     if (password):
                         enciphered = encrypt(password.encode('utf-8',errors="ignore"), key.rsa_public_key)
                         self._steam_polling_data = await self._protocol_client.authenticate_password(username, enciphered, key.timestamp, auth_lost_handler)
-                        if (self._steam_polling_data):
-                            self._authentication_cache.two_factor_method = self._steam_polling_data.confirmation_method
-                            self._authentication_cache.error_message = self._steam_polling_data.extended_error_message
-                            self._authentication_cache.status_message = self._steam_polling_data.confirmation_message
+                        if (self._steam_polling_data and self._steam_polling_data.has_valid_confirmation_method()):
                             
                             self._user_info_cache.account_username = username
-                            ret_code = to_UserAction(self._authentication_cache.two_factor_method)
+                            self._authentication_cache.update_authentication_cache(self._steam_polling_data.allowed_confirmations, self._steam_polling_data.extended_error_message)
+
+                            ret_code = to_UserAction(self._authentication_cache.two_factor_allowed_methods[0])
                         else:
                             ret_code = UserActionRequired.InvalidAuthData
 
@@ -275,14 +274,16 @@ class WebSocketClient:
                     ret_code = UserActionRequired.InvalidAuthData
             elif (mode == AuthCall.UPDATE_TWO_FACTOR):
                 code : Optional[UserActionRequired] = response.get('two-factor-code', None)
-                if (self._steam_polling_data is None or self._steam_polling_data.confirmation_method == TwoFactorMethod.Unknown or not code):
+                method : Optional[UserActionRequired] = response.get('two-factor-method', None)
+                if (self._steam_polling_data is None or not self._steam_polling_data.has_valid_confirmation_method() or not code or not method):
                     ret_code = UserActionRequired.InvalidAuthData
                 else:
-                    logger.info(f'Updating two-factor with provided ' + to_helpful_string(self._authentication_cache.two_factor_method))
-                    ret_code = await self._protocol_client.update_two_factor(self._steam_polling_data.client_id, self._steam_polling_data.steam_id, code, self._authentication_cache.two_factor_method, auth_lost_handler)
+                    logger.info(f'Updating two-factor with provided ' + to_helpful_string(method))
+                    ret_code = await self._protocol_client.update_two_factor(self._steam_polling_data.client_id, self._steam_polling_data.steam_id, code, method, auth_lost_handler)
             elif (mode == AuthCall.POLL_TWO_FACTOR):
+                is_confirm : bool = response.get('is-confirm', False)
                 logger.info("Polling to see if the user has completed any steam-guard related stuff")
-                (ret_code, new_client_id) = await self._protocol_client.check_auth_status(self._steam_polling_data.client_id, self._steam_polling_data.request_id, self._authentication_cache.two_factor_method, auth_lost_handler)
+                (ret_code, new_client_id) = await self._protocol_client.check_auth_status(self._steam_polling_data.client_id, self._steam_polling_data.request_id, is_confirm, auth_lost_handler)
                 if (new_client_id is not None):
                     self._steam_polling_data.client_id = new_client_id
             elif (mode == AuthCall.TOKEN):

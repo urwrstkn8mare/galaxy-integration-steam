@@ -149,6 +149,18 @@ def to_helpful_string(method:TwoFactorMethod) -> str:
     else: #if TwoFactorMethod.InvalidAuthData or an invalid number
         return "<unknown>"
 
+def to_url_string(method:TwoFactorMethod) -> str:
+    if (method == TwoFactorMethod.Nothing):
+        return "none"
+    elif (method == TwoFactorMethod.EmailCode):
+        return "email code"
+    elif (method == TwoFactorMethod.PhoneCode):
+        return "phone code"
+    elif (method == TwoFactorMethod.PhoneConfirm):
+        return "phone confirmation"
+    else: #if TwoFactorMethod.InvalidAuthData or an invalid number
+        return "unknown"
+
 def to_UserAction(method: TwoFactorMethod) -> UserActionRequired:
     if (method == TwoFactorMethod.Nothing):
         return UserActionRequired.NoActionConfirmLogin

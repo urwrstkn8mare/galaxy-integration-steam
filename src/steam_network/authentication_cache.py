@@ -46,6 +46,6 @@ class AuthenticationCache:
         for (key, value) in two_factor_dict.items():
             self._two_factor_allowed_methods.append((key, value))
 
-        self._two_factor_allowed_methods.sort(key=self._auth_priority)
+        self._two_factor_allowed_methods.sort(key=self._auth_priority, reverse=True)
 
 

@@ -82,7 +82,7 @@ class ProtocolClient:
         self._authentication_cache : AuthenticationCache = authentication_cache
         self._user_info_cache : UserInfoCache = user_info_cache
         self._times_cache : TimesCache = times_cache
-        self._auth_lost_handler = None #i have no idea what this is for but we set it everywhere.
+        self._auth_lost_handler = None
         self._rsa_future: Optional[Future] = None
         self._login_future: Optional[Future] = None
         self._two_factor_future: Optional[Future] = None

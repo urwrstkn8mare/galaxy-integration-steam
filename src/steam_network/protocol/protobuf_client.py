@@ -6,7 +6,7 @@ import socket as sock
 import struct
 import ipaddress
 from itertools import count
-from typing import Awaitable, Callable, Dict, Optional, Any, List, NamedTuple, Iterator
+from typing import Awaitable, Callable, Coroutine, Dict, Optional, Any, List, NamedTuple, Iterator
 
 import base64
 
@@ -113,7 +113,6 @@ class ProtobufClient:
         self.login_handler:                 Optional[Callable[[EResult,CAuthentication_BeginAuthSessionViaCredentials_Response], Awaitable[None]]] = None
         self.two_factor_update_handler:     Optional[Callable[[EResult, str], Awaitable[None]]] = None
         self.poll_status_handler:           Optional[Callable[[EResult, CAuthentication_PollAuthSessionStatus_Response], Awaitable[None]]] = None
-        self.revoke_refresh_token_handler:  Optional[Callable[[EResult], Awaitable[None]]] = None
         #old auth flow. Used to confirm login and repeat logins using the refresh token.
         self.log_on_token_handler:          Optional[Callable[[EResult, Optional[int], Optional[int]], Awaitable[None]]] = None
         self._heartbeat_task:               Optional[asyncio.Task] = None #keeps our connection alive, essentially, by pinging the steam server.
@@ -136,8 +135,10 @@ class ProtobufClient:
 
         self.collections = {'event': asyncio.Event(),
                             'collections': dict()}
-
+        self._recv_task:                    Optional[Coroutine[Any, Any, Any]] = None
     async def close(self, send_log_off):
+        if (self._recv_task is not None):
+            self._recv_task.cancel()
         if send_log_off:
             await self.send_log_off_message()
         if self._heartbeat_task is not None:
@@ -162,11 +163,16 @@ class ProtobufClient:
                 else:
                     logger.warning(f'Unknown job {job}')
             try:
-                packet = await asyncio.wait_for(self._socket.recv(), 10)
-                #logger.info("Received Packet" + str(packet)) #bad idea when we start getting massive packets lol.
+                self._recv_task = asyncio.create_task(self._socket.recv())
+                packet = await asyncio.wait_for(self._recv_task, 10)
+                self._recv_task = None
                 await self._process_packet(packet)
             except asyncio.TimeoutError:
                 pass
+            except asyncio.CancelledError: #occurs when we cancel the recv. only should occur if the socket is closing anyway.
+                break
+            finally:
+                self._recv_task = None
 
     async def _send_service_method_with_name(self, message, target_job_name: str):
         emsg = EMsg.ServiceMethodCallFromClientNonAuthed if self.confirmed_steam_id is None else EMsg.ServiceMethodCallFromClient;
@@ -296,7 +302,7 @@ class ProtobufClient:
         else:
             logger.warning("NO POLL STATUS HANDLER SET!")
 
-    #old auth flow. Still necessary for remaining logged in and confirming after doing the new auth flow.
+    #old auth flow. Still necessary for remaining logged in and confirming after doing the new auth flow. 
     async def _get_obfuscated_private_ip(self) -> int:
         logger.info('Websocket state is: %s' % self._socket.state.name)
         await self._socket.ensure_open()
@@ -314,7 +320,7 @@ class ProtobufClient:
         #ClientLanguage = "english";
         #Username = pollResponse.AccountName,
         #AccessToken = pollResponse.RefreshToken,
-        #ShouldSavePassword = True #err on side of caution in case this not being set causes them to ignore access token. then try false.
+        #ShouldSavePassword = True #err on side of caution in case this not being set causes them to ignore access token. then try false. 
         """
             var logon = new ClientMsgProtobuf<CMsgClientLogon>( EMsg.ClientLogon );
 
@@ -346,7 +352,7 @@ class ProtobufClient:
             logon.Body.password = details.Password; //Null
             logon.Body.should_remember_password = details.ShouldRememberPassword; //false
 
-            logon.Body.protocol_version = MsgClientLogon.CurrentProtocol;
+            logon.Body.protocol_version = MsgClientLogon.CurrentProtocol; 
             logon.Body.client_os_type = ( uint )details.ClientOSType; //
             logon.Body.client_language = details.ClientLanguage;
             logon.Body.cell_id = details.CellID ?? Client.Configuration.CellID //
@@ -359,7 +365,7 @@ class ProtobufClient:
             logon.Body.machine_name = details.MachineName;
             logon.Body.machine_id = HardwareUtils.GetMachineID( Client.Configuration.MachineInfoProvider );
 
-            // steam guard
+            // steam guard 
             logon.Body.auth_code = details.AuthCode;
             logon.Body.two_factor_code = details.TwoFactorCode;
 

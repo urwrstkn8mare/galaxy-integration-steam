@@ -99,11 +99,12 @@ class WebSocketClient:
                     if auth_lost in done:
                         try:
                             await auth_lost
-                        except (InvalidCredentials, AccessDenied, AuthenticationRequired) as e:
+                        except (InvalidCredentials, AccessDenied) as e:
                             logger.warning(f"Auth lost by a reason: {repr(e)}")
                             await self._close_socket()
                             await self._close_protocol_client()
                             run_task.cancel()
+                            run_task = None
                             break
 
                     assert run_task in done
@@ -136,6 +137,11 @@ class WebSocketClient:
                 )
                 await sleep(RECONNECT_INTERVAL_SECONDS)
                 continue
+            except AuthenticationRequired:
+                logger.error("Authentication lost mid use. Restarting the socket, auth, and run loops")
+                #Interface checks if user name is info cache and raises an authentication required if it's note there. 
+                #Clearing the cache here will result in that error being raised, which lets gog know to redo auth.
+                self._user_info_cache.Clear() 
             except Exception as e:
                 logger.error(f"Failed to establish authenticated WebSocket connection {repr(e)}")
                 logger.error(format_exc())

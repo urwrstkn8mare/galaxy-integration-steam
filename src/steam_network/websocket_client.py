@@ -139,7 +139,9 @@ class WebSocketClient:
                 continue
             except AuthenticationRequired:
                 logger.error("Authentication lost mid use. Restarting the socket, auth, and run loops")
-                self._user_info_cache.Clear()
+                #Interface checks if user name is info cache and raises an authentication required if it's note there. 
+                #Clearing the cache here will result in that error being raised, which lets gog know to redo auth.
+                self._user_info_cache.Clear() 
             except Exception as e:
                 logger.error(f"Failed to establish authenticated WebSocket connection {repr(e)}")
                 logger.error(format_exc())

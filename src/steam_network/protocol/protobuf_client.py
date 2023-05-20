@@ -163,8 +163,8 @@ class ProtobufClient:
                 else:
                     logger.warning(f'Unknown job {job}')
             try:
-                self._recv_task = asyncio.create_task(self._socket.recv)
-                packet = asyncio.wait_for(self._recv_task, 10)
+                self._recv_task = asyncio.create_task(self._socket.recv())
+                packet = await asyncio.wait_for(self._recv_task, 10)
                 self._recv_task = None
                 await self._process_packet(packet)
             except asyncio.TimeoutError:

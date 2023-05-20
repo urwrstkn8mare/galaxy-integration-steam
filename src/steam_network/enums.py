@@ -71,7 +71,7 @@ class DisplayUriHelper(enum.Enum):
         args = self._add_view(args)
         args = self._get_errored(args, errored, False)
 
-        for key, value in kwargs:
+        for key, value in kwargs.items():
             if (key not in args):
                 args[key] = value
 

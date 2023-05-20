@@ -6,7 +6,7 @@ import socket as sock
 import struct
 import ipaddress
 from itertools import count
-from typing import Awaitable, Callable, Dict, Optional, Any, List, NamedTuple, Iterator
+from typing import Awaitable, Callable, Coroutine, Dict, Optional, Any, List, NamedTuple, Iterator
 
 import base64
 
@@ -135,8 +135,10 @@ class ProtobufClient:
 
         self.collections = {'event': asyncio.Event(),
                             'collections': dict()}
-
+        self._recv_task:                    Optional[Coroutine[Any, Any, Any]] = None
     async def close(self, send_log_off):
+        if (self._recv_task is not None):
+            self._recv_task.cancel()
         if send_log_off:
             await self.send_log_off_message()
         if self._heartbeat_task is not None:
@@ -161,10 +163,16 @@ class ProtobufClient:
                 else:
                     logger.warning(f'Unknown job {job}')
             try:
-                packet = await asyncio.wait_for(self._socket.recv(), 10)
+                self._recv_task = asyncio.create_task(self._socket.recv)
+                packet = asyncio.wait_for(self._recv_task, 10)
+                self._recv_task = None
                 await self._process_packet(packet)
             except asyncio.TimeoutError:
                 pass
+            except asyncio.CancelledError: #occurs when we cancel the recv. only should occur if the socket is closing anyway.
+                break
+            finally:
+                self._recv_task = None
 
     async def _send_service_method_with_name(self, message, target_job_name: str):
         emsg = EMsg.ServiceMethodCallFromClientNonAuthed if self.confirmed_steam_id is None else EMsg.ServiceMethodCallFromClient;

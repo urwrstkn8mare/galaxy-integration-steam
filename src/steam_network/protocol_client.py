@@ -255,7 +255,7 @@ class ProtocolClient:
                 return (UserActionRequired.NoActionConfirmLogin, data.new_client_id)
             else:
                 logger.warning("Received a file not found but were not using mobile confirm. This is unexpected, but maybe ok? no idea.")
-                return (UserActionRequired.InvalidAuthData, data.new_client_id)
+                return (UserActionRequired.TwoFactorExpired, data.new_client_id)
         #TODO: This will likely error if the code is bad. Figure out what to do here. 
         else:
             raise translate_error(result)

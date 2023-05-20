@@ -207,7 +207,7 @@ class SteamNetworkBackend(BackendInterface):
             allowed_methods = self._authentication_cache.two_factor_allowed_methods
             fallback_data = self._get_mobile_confirm_kwargs(allowed_methods)
 
-            return await self._handle_steam_guard_check(DisplayUriHelper.TWO_FACTOR_CONFIRM, **fallback_data) #go back to confirm. 
+            return await self._handle_steam_guard_check(DisplayUriHelper.TWO_FACTOR_CONFIRM, True, **fallback_data) #go back to confirm. 
         else:
             logger.warning("Unexpected state in pass_login_credentials")
             raise UnknownBackendResponse()
@@ -251,7 +251,7 @@ class SteamNetworkBackend(BackendInterface):
         await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.UPDATE_TWO_FACTOR, 'two-factor-code' : code, 'two-factor-method' : method })
         result = await self._get_websocket_auth_step()
         if (result == UserActionRequired.NoActionConfirmLogin):
-            return await self._handle_steam_guard_check(fallback)
+            return await self._handle_steam_guard_check(fallback, False)
         elif (result == UserActionRequired.TwoFactorExpired):
             return next_step_response_simple(fallback, True, expired="true")
         elif (result == UserActionRequired.InvalidAuthData):
@@ -266,8 +266,8 @@ class SteamNetworkBackend(BackendInterface):
         else:
             return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
 
-    async def _handle_steam_guard_check(self, fallback: DisplayUriHelper, **kwargs:str) -> Union[NextStep, Authentication]:
-        result = await self._handle_2FA_PollOnce()
+    async def _handle_steam_guard_check(self, fallback: DisplayUriHelper, is_confirm: bool, **kwargs:str) -> Union[NextStep, Authentication]:
+        result = await self._handle_2FA_PollOnce(is_confirm)
         logger.info(f"steam guard check next action: {result.name}")
         if (result == UserActionRequired.NoActionRequired): #should never be hit. we need to confirm the token.
             return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)

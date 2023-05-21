@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 class AuthCall:
 
     RSA_AND_LOGIN =     'rsa_login'
+    RESEND_LOGIN  =     'resend'
     UPDATE_TWO_FACTOR = 'two-factor-update'
     POLL_TWO_FACTOR =   'poll-two-factor'
     TOKEN =              'token'

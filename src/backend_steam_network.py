@@ -160,11 +160,14 @@ class SteamNetworkBackend(BackendInterface):
                 await asyncio.sleep(5)  # give Galaxy a breath in case of adding thousands games
 
     def tick(self):
-        if self._update_owned_games_task.done() and self._owned_games_parsed:
-            self._update_owned_games_task = asyncio.create_task(self._update_owned_games())
-
         if self._user_info_cache.changed:
             self._store_credentials(self._user_info_cache.to_dict())
+
+        if self._user_info_cache.steam_id is None:
+            raise AuthenticationRequired()
+
+        if self._update_owned_games_task.done() and self._owned_games_parsed:
+            self._update_owned_games_task = asyncio.create_task(self._update_owned_games())
 
     # authentication
 
@@ -245,7 +248,9 @@ class SteamNetworkBackend(BackendInterface):
     async def _handle_steam_guard(self, credentials, method: TwoFactorMethod, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
         parsed_url = parse.urlsplit(credentials["end_uri"])
         params = parse.parse_qs(parsed_url.query)
-        if ("code" not in params):
+        if ("resend" in params):
+            return self._handle_resend_code(fallback)
+        elif ("code" not in params):
             return next_step_response_simple(fallback, True)
         code = params["code"][0]
         await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.UPDATE_TWO_FACTOR, 'two-factor-code' : code, 'two-factor-method' : method })
@@ -258,6 +263,19 @@ class SteamNetworkBackend(BackendInterface):
             return next_step_response_simple(fallback, True)
         else:
             raise UnknownBackendResponse()
+
+    async def _handle_resend_code(self, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
+        await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.RESEND_LOGIN})
+        result = await self._get_websocket_auth_step()
+        if (result == UserActionRequired.TwoFactorRequired):
+            return next_step_response_simple(fallback)
+        elif (result == UserActionRequired.TwoFactorExpired):
+            return next_step_response_simple(DisplayUriHelper.LOGIN, True, expired="true")
+        elif (result == UserActionRequired.InvalidAuthData):
+            return next_step_response_simple(DisplayUriHelper.LOGIN, True)
+        else:
+            raise UnknownBackendResponse()
+
 
     async def _handle_steam_guard_none(self) -> Authentication:
         result = await self._handle_2FA_PollOnce()
@@ -278,7 +296,9 @@ class SteamNetworkBackend(BackendInterface):
             logger.info("Mobile Confirm did not complete. This is likely due to user error, but if not, this is something worth checking.")
             return next_step_response_simple(fallback, True, **kwargs)
         elif (result == UserActionRequired.TwoFactorExpired):
-            return next_step_response_simple(fallback, True, expired="true", **kwargs)
+            return next_step_response_simple(DisplayUriHelper.LOGIN, True, expired="true", **kwargs)
+            #try resending here? idk.
+            #return next_step_response_simple(fallback, True, expired="true", **kwargs)
         else:
             raise UnknownBackendResponse()
 

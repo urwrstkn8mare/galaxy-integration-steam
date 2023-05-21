@@ -253,7 +253,7 @@ class SteamNetworkBackend(BackendInterface):
         if (result == UserActionRequired.NoActionConfirmLogin):
             return await self._handle_steam_guard_check(fallback, False)
         elif (result == UserActionRequired.TwoFactorExpired):
-            return next_step_response_simple(fallback, True, expired="true")
+            return next_step_response_simple(DisplayUriHelper.LOGIN, True, expired="true")
         elif (result == UserActionRequired.InvalidAuthData):
             return next_step_response_simple(fallback, True)
         else:
@@ -278,7 +278,7 @@ class SteamNetworkBackend(BackendInterface):
             logger.info("Mobile Confirm did not complete. This is likely due to user error, but if not, this is something worth checking.")
             return next_step_response_simple(fallback, True, **kwargs)
         elif (result == UserActionRequired.TwoFactorExpired):
-            return next_step_response_simple(fallback, True, expired="true", **kwargs)
+            return next_step_response_simple(DisplayUriHelper.LOGIN, True, expired="true", **kwargs)
         else:
             raise UnknownBackendResponse()
 

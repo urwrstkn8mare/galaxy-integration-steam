@@ -236,9 +236,6 @@ class WebSocketClient:
             logger.warning("WebSocket client authentication lost")
             auth_lost_future.set_exception(error)
 
-        cachedPass : Optional[bytes] = None
-        cachedTimestamp : Optional[int] = None
-
         ret_code : Optional[UserActionRequired] = None
         while ret_code != UserActionRequired.NoActionRequired:
             if ret_code != None:
@@ -269,9 +266,6 @@ class WebSocketClient:
                             self._user_info_cache.account_username = username
                             self._authentication_cache.update_authentication_cache(self._steam_polling_data.allowed_confirmations, self._steam_polling_data.extended_error_message)
 
-                            cachedPass = enciphered
-                            cachedTimestamp = key.timestamp
-
                             ret_code = to_UserAction(self._authentication_cache.two_factor_allowed_methods[0])
                         else:
                             ret_code = UserActionRequired.InvalidAuthData
@@ -284,20 +278,6 @@ class WebSocketClient:
                         ret_code = UserActionRequired.InvalidAuthData
                 else:
                     ret_code = UserActionRequired.InvalidAuthData
-            elif (mode == AuthCall.RESEND_LOGIN):
-                if (self._user_info_cache.account_username is None or cachedPass is None or cachedTimestamp is None):
-                    ret_code = UserActionRequired.InvalidAuthData
-                else:
-                    new_data = await self._protocol_client.authenticate_password(self._user_info_cache.account_username, cachedPass, cachedTimestamp, auth_lost_handler)
-
-                    if (new_data and new_data.has_valid_confirmation_method()):
-                        
-                        self._steam_polling_data = new_data
-                        self._authentication_cache.update_authentication_cache(self._steam_polling_data.allowed_confirmations, self._steam_polling_data.extended_error_message)
-
-                        ret_code = to_UserAction(self._authentication_cache.two_factor_allowed_methods[0])
-                    else:
-                        ret_code = UserActionRequired.InvalidAuthData
             elif (mode == AuthCall.UPDATE_TWO_FACTOR):
                 code : Optional[UserActionRequired] = response.get('two-factor-code', None)
                 method : Optional[UserActionRequired] = response.get('two-factor-method', None)
@@ -306,10 +286,6 @@ class WebSocketClient:
                 else:
                     logger.info(f'Updating two-factor with provided ' + to_helpful_string(method))
                     ret_code = await self._protocol_client.update_two_factor(self._steam_polling_data.client_id, self._steam_polling_data.steam_id, code, method, auth_lost_handler)
-                    if (ret_code in [UserActionRequired.NoActionConfirmLogin, UserActionRequired.NoActionConfirmToken, UserActionRequired.TwoFactorExpired, UserActionRequired.NoActionRequired]):
-                        #clear these so they don't stick around and cause issues. I never wanted to save them to begin with but it's required for resend. 
-                        cachedTimestamp = None
-                        cachedPass = None
             elif (mode == AuthCall.POLL_TWO_FACTOR):
                 is_confirm : bool = response.get('is-confirm', False)
                 logger.info("Polling to see if the user has completed any steam-guard related stuff")
@@ -317,9 +293,6 @@ class WebSocketClient:
                 if (new_client_id is not None):
                     self._steam_polling_data.client_id = new_client_id
             elif (mode == AuthCall.TOKEN):
-                #clear these so they don't stick around and cause issues. I never wanted to save them to begin with but it's required for resend. 
-                cachedTimestamp = None
-                cachedPass = None
                 logger.info("Finalizing Log in using the new auth refresh token and the classic login call")
                 ret_code = await self._protocol_client.finalize_login(self._user_info_cache.account_username, self._user_info_cache.steam_id, self._user_info_cache.refresh_token, auth_lost_handler)
             else:

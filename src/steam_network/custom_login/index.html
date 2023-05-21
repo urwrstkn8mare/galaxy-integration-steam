@@ -46,8 +46,11 @@
 							</div>
 						</div>
 					</div>
-					<p class="error-message error-message--start no-error">
+					<p class="error-message error-message--start no-error" id="bad-password">
 						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon error-icon--aligned-top" /> You have entered your username or password incorrectly. Please check your username and password and try again.
+					</p>
+					<p class="error-message error-message--start no-error" id="steamguard-expired">
+						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon error-icon--aligned-top" /> Steam Guard expired. Please log in again. 
 					</p>
 				</fieldset>
 				<fieldset id="steamGuardEmail" style="display:none;">
@@ -57,7 +60,8 @@
 						<input class="basic-input steam-guard-input" type="text" id="step-1-code" name="code" disabled="disabled">
 					</div>
 					<p class="resend-code">
-						Steam has changed how Steam Guard works. You can no longer ask to resend a code. For more information, 
+						If you are logging in again after a time-out, the previous code may still be valid. If you do not receive a code within a minute or two, try that instead. 
+						Steam has also changed how Steam Guard works. You can no longer ask to resend a code. For more information,
 						<a href="https://help.steampowered.com/en/wizard/HelpWithSteamGuardCode" class="resend-button" target="_blank">see Steam's documentation</a>
 					</p>
 					<p class="error-message error-message--centered no-error">
@@ -261,6 +265,29 @@
 					for (let x = 0; x < fallbackHolder.length; x++)
 					{
 						fallbackHolder[x].classList.remove("no-fallback");
+					}
+				}
+			}
+
+			if (view == viewLookup.login && err)
+			{
+				let badPass = document.getElementById("bad-password");
+				let expiredError = document.getElementById("steamguard-expired");
+				let expired = urlParams.get("expired");
+				if (expired == "true")
+				{
+					expiredError.classList.remove("no-error");
+					if (!badPass.classList.contains("no-error"))
+					{
+						badPass.classList.add("no-error");
+					}
+				}
+				else
+				{
+					badPass.classList.remove("no-error");
+					if (!expiredError.classList.contains("no-error"))
+					{
+						expiredError.classList.add("no-error");
 					}
 				}
 			}

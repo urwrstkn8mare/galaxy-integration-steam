@@ -194,9 +194,7 @@ class SteamNetworkBackend(BackendInterface):
 
     async def pass_login_credentials(self, step, credentials, cookies):
         end_uri = credentials["end_uri"]
-        #if (DisplayUriHelper.GET_USER.EndUri() in end_uri):
-        #    return await self._handle_get_user_finished(credentials)
-        #elif (DisplayUriHelper.LOGIN.EndUri() in end_uri):
+
         if (DisplayUriHelper.LOGIN.EndUri() in end_uri):
             return await self._handle_login_finished(credentials)
         elif (DisplayUriHelper.TWO_FACTOR_MAIL.EndUri() in end_uri):

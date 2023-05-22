@@ -7,7 +7,7 @@ import platform
 
 from galaxy.api.errors import (AccessDenied, BackendError, BackendNotAvailable,
                                BackendTimeout, Banned, InvalidCredentials,
-                               NetworkError, TemporaryBlocked, UnknownError)
+                               NetworkError, TemporaryBlocked, AuthenticationRequired, UnknownError)
 from galaxy.api.types import NextStep
 import galaxy.api.errors
 
@@ -66,7 +66,9 @@ def translate_error(result: EResult):
     data = {
         "result": result
     }
-    if result in (
+    if result == EResult.LoggedInElsewhere:
+        return AuthenticationRequired(data)
+    elif result in (
         EResult.InvalidPassword,
         EResult.AccountNotFound,
         EResult.InvalidSteamID,
@@ -77,13 +79,13 @@ def translate_error(result: EResult):
         EResult.TwoFactorActivationCodeMismatch
     ):
         return InvalidCredentials(data)
-    if result in (
+    elif result in (
         EResult.ConnectFailed,
         EResult.IOFailure,
         EResult.RemoteDisconnect
     ):
         return NetworkError(data)
-    if result in (
+    elif result in (
         EResult.Busy,
         EResult.ServiceUnavailable,
         EResult.Pending,
@@ -92,9 +94,9 @@ def translate_error(result: EResult):
         EResult.Cancelled
     ):
         return BackendNotAvailable(data)
-    if result == EResult.Timeout:
+    elif result == EResult.Timeout:
         return BackendTimeout(data)
-    if result in (
+    elif result in (
         EResult.RateLimitExceeded,
         EResult.LimitExceeded,
         EResult.Suspended,
@@ -102,9 +104,9 @@ def translate_error(result: EResult):
         EResult.AccountLogonDeniedVerifiedEmailRequired
     ):
         return TemporaryBlocked(data)
-    if result == EResult.Banned:
+    elif result == EResult.Banned:
         return Banned(data)
-    if result in (
+    elif result in (
         EResult.AccessDenied,
         EResult.InsufficientPrivilege,
         EResult.LogonSessionReplaced,
@@ -114,7 +116,7 @@ def translate_error(result: EResult):
         EResult.AccountNotFeatured
     ):
         return AccessDenied(data)
-    if result in (
+    elif result in (
         EResult.DataCorruption,
         EResult.DiskFull,
         EResult.RemoteCallFailed,

@@ -1,18 +1,23 @@
 from .enums import UserActionRequired, TwoFactorMethod
 
+from typing import Dict
+
 class SteamPollingData:
     """ Contains the data needed to poll the steam api for login success.
    
     For the most part, this data is immutable, but the client id can update if two-factor authentication times out. 
     """
     #def __init__(self, cid: int, sid: int, rid:bytes, intv:float, confMeth:UserActionRequired, confMsg: str, eem: str):
-    def __init__(self, cid: int, sid: int, rid:bytes, intv:float, confMeth:TwoFactorMethod, confMsg: str, eem: str):
+    #def __init__(self, cid: int, sid: int, rid:bytes, intv:float, confMeth:TwoFactorMethod, confMsg: str, eem: str):
+    def __init__(self, cid: int, sid: int, rid:bytes, intv:float, conf: Dict[TwoFactorMethod, str], eem: str):
         self._client_id : int = cid     #the id assigned to us.
         self._steam_id : int = sid       #the id of the user that signed in
         self._request_id : bytes = rid  #unique request id. needed for the polling function.
         self._interval : float = intv   #interval to poll on.
-        self._confirmation_method: TwoFactorMethod = confMeth #shorthand for confirmation type being used. The auth 
-        self._confirmation_message: str = confMsg #the message Steam sent us along with the confirmation method we're using. This may be something like "we sent a message to q******@g****.com"
+
+        #list of pairs of two factor methods, which are used to determine which methods the user will allow, and a related message (something like "we sent a message to q******@g****.com")
+        self._allowed_confirmations : Dict[TwoFactorMethod, str] = conf
+
         self._extended_error_message : str = eem #used for errors. 
 
     @property
@@ -36,13 +41,21 @@ class SteamPollingData:
         return self._interval
 
     @property
-    def confirmation_method(self):
-        return self._confirmation_method
-
-    @property
-    def confirmation_message(self):
-        return self._confirmation_message
+    def allowed_confirmations(self):
+        return self._allowed_confirmations.copy()
 
     @property
     def extended_error_message(self):
         return self._extended_error_message
+
+    def has_valid_confirmation_method(self):
+        #there's probably a more pythonic way of doing this but idgaf.
+        if not self._allowed_confirmations: #dict is empty? return false
+            return False
+        else:
+            #any key valid? return true.
+            for key in self._allowed_confirmations.keys():
+                if (key != TwoFactorMethod.Unknown):
+                    return True
+            #no keys valid? return false.
+            return False

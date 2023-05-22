@@ -2,11 +2,29 @@
 
 GOG Galaxy 2.0 Community integration for Steam.
 
-This is a fork of the repository from FriendsOfGalaxy, intended to continue development until they resume their work.
+## Open Beta:
+This project is in open beta. It is not completely bulletproof, but it has been extensively tested. We are hoping that crowdsourcing the error checking will help find anything we may have missed.
 
-**This is unofficial and purely maintained by fans!**
+### Known Issues:
+* Large libraries are known to be a little wonky. Sometimes, the plugin may crash after initially starting it, but then immediately work properly once you hit "retry". There's not much we can do here.
+* If you take too long to enter a 2FA code, any login stuff after that have a small chance of crashing. This is because steam kicks us out after roughly a minute of inactivity. We reconnect, but if we were sending them something when they kicked us out, we'd never get a response and after a minute of waiting, the plugin will close. Restarting the plugin will fix this, but it is something we are looking at fixing in a later version. In our tests, it has happened, but is difficult to replicate. If this issue is more prevalent than we anticipate, it's something we will address immediately. 
+* Closing GOG immediately after connecting for the first time may cause GOG to crash. Similarly, disconnecting Steam immediately after connecting it may cause the plugin to crash, though you usually can hit retry and it'll work again. Basically, GOG thinks we are immediately done syncing once we connect, and that is not the case, especially for larger libraries. So, it thinks it can disconnect immediately too, and if we're in the middle of writing some data down, it has to wait, but has basically hamstrung us in the process. It's not an ideal situation. Fortunately, it only happens once, and won't happen at all if you give it time.
 
-### Alpha Testers: Please see Installation Steps below Setup For Developers
+### Installation:
+* There is a zip file in the releases directory. Download this.
+* Navigate to where GOG stores the steam plugin. 
+  * For windows, this is `%localappdata%\GOG.com\Galaxy\plugins\installed\steam_ca27391f-2675-49b1-92c0-896d43afa4f8`
+  * For MacOS, this is `~/Library/Application Support/GOG.com/Galaxy/plugins/installed/steam_ca27391f-2675-49b1-92c0-896d43afa4f8`
+* If the file does not exist, create it. If it does, delete everything inside it. 
+* Extract the zip release so all the contents are in that file. 
+* Start GOG Galaxy. 
+
+### Logging: 
+We tried to kill as many bugs and test as many behaviors as possible, but we aren't perfect. You may find some case we haven't tested. Please raise an issue here, and in the comment, attach your logs. They can be found here: 
+* For windows, this is `%programdata%\GOG.com\Galaxy\logs`
+* For MacOS, this is `/Users/Shared/GOG.com/Galaxy/Logs`
+
+We typically only need the `steam_<numbers and letters>.log` file.
 
 ## Setup (For Developers)
 * Download [Python 3.7.9 32-bit][Python379]

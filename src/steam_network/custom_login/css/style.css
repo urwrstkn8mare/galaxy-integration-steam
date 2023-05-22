@@ -1,5 +1,5 @@
 /* WINDOWS SCROLLBARS */
-.no-error {
+.no-error, .no-fallback {
 	display: none;
 }
 

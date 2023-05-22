@@ -4,7 +4,7 @@ import json
 import requests
 import tempfile
 import zipfile
-from shutil import rmtree, copy2
+from shutil import rmtree, copy2, which
 from distutils.dir_util import copy_tree
 from io import BytesIO
 
@@ -23,7 +23,11 @@ with open(os.path.join(BASE_DIR, "src", "manifest.json"), "r") as f:
 if sys.platform == 'win32':
     DIST_DIR = os.environ['localappdata'] + '\\GOG.com\\Galaxy\\plugins\\installed'
     PLATFORM = "win32"
-    PYTHON_EXE = "py"
+    ExeProbe = which("py")
+    if ExeProbe <> ""
+        PYTHON_EXE = "py -37"
+    else
+        PYTHON_EXE = "python"
 
     PROTOC_EXE = os.path.join(PROTOC_DIR, "bin", "protoc.exe")
     PROTOC_INCLUDE_DIR = os.path.join(PROTOC_DIR, "include")

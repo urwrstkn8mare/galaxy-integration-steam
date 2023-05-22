@@ -12,9 +12,11 @@ This project is in open beta. It is not completely bulletproof, but it has been 
 
 ### Installation:
 * There is a zip file in the releases directory. Download this.
-* Extract the contents to the location where GOG stores the plugins. 
-  * For windows, this is `%localappdata%\GOG.com\Galaxy\plugins\installed\`
-  * For MacOS, this is `~/Library/Application Support/GOG.com/Galaxy/plugins/installed`
+* Navigate to where GOG stores the steam plugin. 
+  * For windows, this is `%localappdata%\GOG.com\Galaxy\plugins\installed\steam_ca27391f-2675-49b1-92c0-896d43afa4f8`
+  * For MacOS, this is `~/Library/Application Support/GOG.com/Galaxy/plugins/installed/steam_ca27391f-2675-49b1-92c0-896d43afa4f8`
+* If the file does not exist, create it. If it does, delete everything inside it. 
+* Extract the zip release so all the contents are in that file. 
 * Start GOG Galaxy. 
 
 ### Logging: 

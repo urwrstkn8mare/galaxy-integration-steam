@@ -1,3 +1,6 @@
+#use specific pip version for dependencies to work nicely
+pip==22.0.4
+
 #protoc install.
 requests
 

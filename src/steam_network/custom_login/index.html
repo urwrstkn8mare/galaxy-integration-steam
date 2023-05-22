@@ -84,17 +84,18 @@
 				<fieldset id="steamGuardConfirm" style="display:none;">
 					<legend>
 						As an additional security measure, you’ll need to confirm the login attempt in the Steam
-						Mobile Authenticator on your phone.
+						Mobile Authenticator on your phone. If you deny this request, this login attempt will fail.
+						If you allow a mobile or email code as a backup, you can choose to ignore this request and use that login method instead.
 						<br /><br />
 						Continue this dialog once you completed the authentication on your phone.
 					</legend>
-					<div class="fallback-helper no-fallback"><a id="fallback-tag" href="#">placeholder</a></div>
+					<div class="fallback-helper no-fallback"><a id="fallback-tag" class="gog-link" href="#">placeholder</a></div>
 					<p class="error-message error-message--centered no-error">
 						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon"> Confirmation failed
 					</p>
 				</fieldset>
 			</form>
-			<p>This code is in development. There are significant changes under the hood. Please bear with us while we fix any errors!</p>
+			<p>This code is in beta. There are significant changes under the hood. Please report any errors you find!</p>
 		</main>
 		<footer class="main-footer">
 			<div class="main-footer__container">

@@ -106,6 +106,10 @@ body.windows::-webkit-resizer {
     visibility: visible;
 }
 
+.gog-link, .gog-link:visited, .gog-link:active {
+	color: #a380d1;
+}
+
 .note {
     display: flex;
     color: rgba(242, 242, 242, 0.4);

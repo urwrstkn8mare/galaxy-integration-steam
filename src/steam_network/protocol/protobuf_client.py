@@ -148,25 +148,31 @@ class ProtobufClient:
         pass
 
     async def run(self):
+        jobs_to_process = 0
         while True:
-            for job in self.job_list.copy():
-                logger.info(f"New job on list {job}")
-                if job['job_name'] == "import_game_stats":
-                    await self._import_game_stats(job['game_id'])
-                    self.job_list.remove(job)
-                elif job['job_name'] == "import_collections":
-                    await self._import_collections()
-                    self.job_list.remove(job)
-                elif job['job_name'] == "import_game_times":
-                    await self._import_game_time()
-                    self.job_list.remove(job)
-                else:
-                    logger.warning(f'Unknown job {job}')
+            if jobs_to_process < 2:
+                for job in self.job_list[:1].copy():
+                    logger.info(f"New job on list {job}")
+                    jobs_to_process += 1
+                    if job['job_name'] == "import_game_stats":
+                        await self._import_game_stats(job['game_id'])
+                        self.job_list.remove(job)
+                    elif job['job_name'] == "import_collections":
+                        await self._import_collections()
+                        self.job_list.remove(job)
+                    elif job['job_name'] == "import_game_times":
+                        await self._import_game_time()
+                        self.job_list.remove(job)
+                    else:
+                        self.job_list.remove(job)
+                        logger.warning(f'Unknown job {job}')
             try:
                 self._recv_task = asyncio.create_task(self._socket.recv())
                 packet = await asyncio.wait_for(self._recv_task, 10)
                 self._recv_task = None
                 await self._process_packet(packet)
+                if jobs_to_process > 0:
+                    jobs_to_process -= 1
             except asyncio.TimeoutError:
                 pass
             except asyncio.CancelledError: #occurs when we cancel the recv. only should occur if the socket is closing anyway.

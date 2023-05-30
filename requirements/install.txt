@@ -9,3 +9,5 @@ invoke==1.2.0
 wheel
 
 galaxy.plugin.api==0.69
+
+certifi==2023.5.7; sys_platform == 'darwin' #required to avoid certification issues. Afaik version unimportant, but you can never be sure because Python!

@@ -148,7 +148,11 @@ def InstallProtoc(c):
     with zipfile.PyZipFile(BytesIO(resp.content)) as zipf:
         zipf.extractall(PROTOC_DIR)
 
+    if sys.platform == 'darwin':
+        os.chmod(PROTOC_EXE, stat.S_IXOTH | stat.S_IXUSR) #give it execute permission for all users. 
+
     print("protoc successfully installed")
+
 
 
 #for whatever reason if i give this an _ in the name it can't find it. i have no idea why. so TitleCase

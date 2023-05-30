@@ -4,6 +4,7 @@ galaxy.plugin.api==0.69
 protobuf==3.19.4
 vdf==3.2
 pyobjc-framework-CoreServices==5.1.2; sys_platform == 'darwin'
+certifi==2023.5.7; sys_platform == 'darwin' #required to avoid certification issues. Afaik version unimportant. 
 websockets==8.1
 dataclasses-json==0.4.2
 rsa==4.9

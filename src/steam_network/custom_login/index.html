@@ -29,32 +29,28 @@
 				<span class="tooltip padlock-tooltip">GOG Galaxy does not hold your data. Your login and password will be sent as encrypted data to Steam servers.</span>
 			</div>
 		</header>
-		<main class="main-content">
+		<main class="main-content" style="display:flex; flex-direction:column">
 			<form id="main-form" class="main-form" action="/" method="GET">
-				<fieldset id="getUserName" style="display:none;">
+				<fieldset id="getLoginInfo" style="display: none;">
+					<legend>Login with your Steam account below to access your Steam games and friends from GOG Galaxy.</legend>
 					<div class="field-group">
-						<label for="step-0-username">Enter your username</label>
-						<input class="basic-input login-input" type="text" id="step-0-username" name="username" disabled="disabled">
+						<label for="step-1-username">Steam username</label>
+						<input class="basic-input login-input" type="text" id="step-1-username" name="username" disabled="disabled">
 					</div>
-					<p class="error-message error-message--start no-error">
-						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon error-icon--aligned-top"> The username does not exist or cannot be found. Try ensuring the user name is valid.
-					</p>
-				</fieldset>
-				<fieldset id="getPassword" style="display:none;">
-					<legend id="say-hello">Please Enter your password to finish logging in.</legend> <!--TODO: Change this to say: "Welcome <user name>. Please Enter your password to finish logging in"-->
 					<div class="field-group">
 						<label for="step-1-password">Password</label>
-						<input class="basic-input login-input" type="password" id="step-1-password" name="password" disabled="disabled">
-						<div class="show-password">
-			                            <span class="tooltip password-tooltip">Show password</span>
-                        			</div>
+						<div class="password-forgot-holder">
+							<input class="basic-input login-input" type="password" id="step-1-password" name="password" disabled="disabled">
+							<div class="show-password">
+								<span class="tooltip password-tooltip">Show password</span>
+							</div>
+						</div>
 					</div>
-					<p class="resend-code">
-						Not you?
-						<a href="/login_finished?switch_user=True" class="resend-button">Log in with a different User.</a>
+					<p class="error-message error-message--start no-error" id="bad-password">
+						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon error-icon--aligned-top" /> You have entered your username or password incorrectly. Please check your username and password and try again.
 					</p>
-					<p class="error-message error-message--start no-error">
-						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon error-icon--aligned-top"> You have entered your password incorrectly. Please check your password and try again.
+					<p class="error-message error-message--start no-error" id="steamguard-expired">
+						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon error-icon--aligned-top" /> Steam Guard expired. Please log in again. 
 					</p>
 				</fieldset>
 				<fieldset id="steamGuardEmail" style="display:none;">
@@ -64,8 +60,9 @@
 						<input class="basic-input steam-guard-input" type="text" id="step-1-code" name="code" disabled="disabled">
 					</div>
 					<p class="resend-code">
-						Haven’t received the email from Steam Support?
-						<a href="/two_factor_mail_finished?resend=True" class="resend-button">Resend it.</a>
+						If you are logging in again after a time-out, the previous code may still be valid. If you do not receive a code within a minute or two, try that instead. 
+						Steam has also changed how Steam Guard works. You can no longer ask to resend a code. For more information,
+						<a href="https://help.steampowered.com/en/wizard/HelpWithSteamGuardCode" class="resend-button" target="_blank">see Steam's documentation</a>
 					</p>
 					<p class="error-message error-message--centered no-error">
 						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon"> Invalid code
@@ -87,16 +84,18 @@
 				<fieldset id="steamGuardConfirm" style="display:none;">
 					<legend>
 						As an additional security measure, you’ll need to confirm the login attempt in the Steam
-						Mobile Authenticator on your phone.
+						Mobile Authenticator on your phone. If you deny this request, this login attempt will fail.
+						If you allow a mobile or email code as a backup, you can choose to ignore this request and use that login method instead.
 						<br /><br />
 						Continue this dialog once you completed the authentication on your phone.
 					</legend>
+					<div class="fallback-helper no-fallback"><a id="fallback-tag" class="gog-link" href="#">placeholder</a></div>
 					<p class="error-message error-message--centered no-error">
 						<img src="../../commonWeb/img/icon-error.svg" alt="" class="error-icon"> Confirmation failed
 					</p>
 				</fieldset>
 			</form>
-			<p>This code is in development. There are significant changes under the hood. Please bear with us while we fix any errors!</p>
+			<p>This code is in beta. There are significant changes under the hood. Please report any errors you find!</p>
 		</main>
 		<footer class="main-footer">
 			<div class="main-footer__container">
@@ -124,7 +123,7 @@
 
 		const toggleButton = document.querySelector(".show-password");
 		const actionButtonsSelector = document.querySelector("#actionButtons");
-		const input = document.getElementById("step-2-password-errored");
+		const input = document.getElementById("step-1-password");
 
 		function togglePasswordVisibility() 
 		{
@@ -142,7 +141,6 @@
 		// Handling urlParams, form actions and enabling inputs
 
 		const viewLookup = {
-			user: "user",
 			login: "login",
 			steamGuard: "steamguard",
 			steamAuthenticator: "steamauthenticator",
@@ -152,13 +150,9 @@
 		//HtmlElements that deal with errors are hidden by default, using the no-error class. Therefore, we can simply query the no-error class to get all our errors. 
 		//It may be smart to give errors a common class so we could differentiate between hidden errors and displayed ones, but as of this writing that's not necessary.
 		const fieldSetsObj = {
-			userFieldSet: document.querySelector("#getUserName"),
-			userInputs: document.querySelectorAll("#getUserName input"),
-			userError: document.querySelectorAll("#getUserName .no-error"),
-
-			loginFieldSet: document.querySelector("#getPassword"),
-			loginInputs: document.querySelectorAll("#getPassword input"),
-			loginError: document.querySelectorAll("#getPassword .no-error"),
+			loginFieldSet: document.querySelector("#getLoginInfo"),
+			loginInputs: document.querySelectorAll("#getLoginInfo input"),
+			loginError: document.querySelectorAll("#getLoginInfo .no-error"),
 
 			steamGuardFieldSet: document.querySelector("#steamGuardEmail"),
 			steamGuardInputs: document.querySelectorAll("#steamGuardEmail input"),
@@ -189,18 +183,12 @@
 
 			//display the proper form content
 			let view = urlParams.get("view");
-			let errored = urlParams.get["errored"] == 'true';
+			let errored = urlParams.get("errored") == 'true';
 			let act, loc, inp, err = null;
 
 			switch (view)
 			{
-				case viewLookup.login:
-					loc = fieldSetsObj.loginFieldSet;
-					inp = fieldSetsObj.loginInputs;
-					act = "/login_finished";
-					err = errored ? fieldSetsObj.loginError : null;
-					forgotPasswordButtonElement.style.display = "block";
-					break;
+				
 				case viewLookup.steamGuard:
 					loc = fieldSetsObj.steamGuardFieldSet;
 					inp = fieldSetsObj.steamGuardInputs;
@@ -219,12 +207,13 @@
 					act = "/two_factor_confirm_finished";
 					err = errored ? fieldSetsObj.steamAuthenticatorConfirmError : null;
 					break;
-				case viewLookup.user:
+				case viewLookup.login:
 				default:
-					loc = fieldSetsObj.userFieldSet;
-					inp = fieldSetsObj.userInputs;
-					act = "/user_finished";
-					err = errored ? fieldSetsObj.userError : null;
+					loc = fieldSetsObj.loginFieldSet;
+					inp = fieldSetsObj.loginInputs;
+					act = "/login_finished";
+					err = errored ? fieldSetsObj.loginError : null;
+					forgotPasswordButtonElement.style.display = "block";
 					break;
 			}
 
@@ -239,20 +228,69 @@
 			//if we have set err, un-hide all the error members. 
 			if (err)
 			{
-				for (errorField of err)
+				for (let k = 0; k < err.length; k++)
 				{
-					errorField.classList.remove("no-error");
+					err[k].classList.remove("no-error");
 				}
 			}
 
 			loc.style.display = "block";
 
-			//parse the user name if it's there and we're on the login page
-			let user = urlParams["user"];
-			if (view== viewLookup.login && user)
+			if (view == viewLookup.steamAuthenticatorConfirm)
 			{
-				let helloMsg = document.getElementById("say-hello")
-				helloMsg.textContent = "Hello " + user + "! Please enter your password to finish logging in!";
+				let fallbackMeth = urlParams.get("fallbackMethod");
+				let fallbackStr = urlParams.get("fallbackMsg");
+				if (fallbackMeth) 
+				{
+					let fallbackTag = document.getElementById("fallback-tag");
+					let fallbackHolder = document.getElementsByClassName("fallback-helper no-fallback");
+
+					let curr_href = new URL(window.location.href);
+
+					curr_href.searchParams.set('view', fallbackMeth);
+					curr_href.searchParams.set('view-msg', fallbackStr);
+					console.log(curr_href.href)
+					fallbackTag.href = curr_href.href;
+
+					let niceText = "Use a fallback (unknown). Well, this is unexpected.";
+					if (fallbackMeth == viewLookup.steamGuard)
+					{
+						niceText = "Enter a Steam Guard code using email instead";
+					}
+					else if (fallbackMeth = viewLookup.steamAuthenticator)
+					{
+						niceText = "Enter a Steam Guard mobile code instead";
+					}
+					fallbackTag.innerHTML = niceText
+
+					for (let x = 0; x < fallbackHolder.length; x++)
+					{
+						fallbackHolder[x].classList.remove("no-fallback");
+					}
+				}
+			}
+
+			if (view == viewLookup.login && err)
+			{
+				let badPass = document.getElementById("bad-password");
+				let expiredError = document.getElementById("steamguard-expired");
+				let expired = urlParams.get("expired");
+				if (expired == "true")
+				{
+					expiredError.classList.remove("no-error");
+					if (!badPass.classList.contains("no-error"))
+					{
+						badPass.classList.add("no-error");
+					}
+				}
+				else
+				{
+					badPass.classList.remove("no-error");
+					if (!expiredError.classList.contains("no-error"))
+					{
+						expiredError.classList.add("no-error");
+					}
+				}
 			}
 		}
 

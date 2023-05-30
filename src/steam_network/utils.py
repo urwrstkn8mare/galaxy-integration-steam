@@ -7,13 +7,15 @@ import platform
 
 from galaxy.api.errors import (AccessDenied, BackendError, BackendNotAvailable,
                                BackendTimeout, Banned, InvalidCredentials,
-                               NetworkError, TemporaryBlocked, UnknownError)
+                               NetworkError, TemporaryBlocked, AuthenticationRequired, UnknownError)
 from galaxy.api.types import NextStep
 import galaxy.api.errors
 
 from .enums import DisplayUriHelper
 from .protocol.consts import EOSType, EResult
+import logging
 
+logger = logging.getLogger(__name__)
 
 def get_os() -> EOSType:
     system = platform.system()
@@ -57,11 +59,16 @@ def get_os() -> EOSType:
 
 
 def translate_error(result: EResult):
+    if isinstance(result, int):
+        result = EResult(result)
+    logger.error("Error Received: " + result.name)
     assert result != EResult.OK
     data = {
         "result": result
     }
-    if result in (
+    if result == EResult.LoggedInElsewhere:
+        return AuthenticationRequired(data)
+    elif result in (
         EResult.InvalidPassword,
         EResult.AccountNotFound,
         EResult.InvalidSteamID,
@@ -72,13 +79,13 @@ def translate_error(result: EResult):
         EResult.TwoFactorActivationCodeMismatch
     ):
         return InvalidCredentials(data)
-    if result in (
+    elif result in (
         EResult.ConnectFailed,
         EResult.IOFailure,
         EResult.RemoteDisconnect
     ):
         return NetworkError(data)
-    if result in (
+    elif result in (
         EResult.Busy,
         EResult.ServiceUnavailable,
         EResult.Pending,
@@ -87,9 +94,9 @@ def translate_error(result: EResult):
         EResult.Cancelled
     ):
         return BackendNotAvailable(data)
-    if result == EResult.Timeout:
+    elif result == EResult.Timeout:
         return BackendTimeout(data)
-    if result in (
+    elif result in (
         EResult.RateLimitExceeded,
         EResult.LimitExceeded,
         EResult.Suspended,
@@ -97,9 +104,9 @@ def translate_error(result: EResult):
         EResult.AccountLogonDeniedVerifiedEmailRequired
     ):
         return TemporaryBlocked(data)
-    if result == EResult.Banned:
+    elif result == EResult.Banned:
         return Banned(data)
-    if result in (
+    elif result in (
         EResult.AccessDenied,
         EResult.InsufficientPrivilege,
         EResult.LogonSessionReplaced,
@@ -109,7 +116,7 @@ def translate_error(result: EResult):
         EResult.AccountNotFeatured
     ):
         return AccessDenied(data)
-    if result in (
+    elif result in (
         EResult.DataCorruption,
         EResult.DiskFull,
         EResult.RemoteCallFailed,
@@ -128,9 +135,9 @@ _NEXT_STEP = {
     "end_uri_regex": None
 }
 
-def next_step_response_simple(display: DisplayUriHelper, username: str, errored:bool = False, **kwargs) -> NextStep:
+def next_step_response_simple(display: DisplayUriHelper, errored:bool = False, **kwargs) -> NextStep:
     next_step = _NEXT_STEP
-    next_step['start_uri'] = display.GetStartUri(username, errored, **kwargs)
+    next_step['start_uri'] = display.GetStartUri(errored, **kwargs)
     next_step['end_uri_regex'] = display.GetEndUriRegex()
 
     return NextStep("web_session", next_step)

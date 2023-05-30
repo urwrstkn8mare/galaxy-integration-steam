@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import secrets
-from typing import Callable, List, TYPE_CHECKING, Optional, Tuple
+from typing import Callable, List, TYPE_CHECKING, Optional, Tuple, Dict
 
 from .steam_public_key import SteamPublicKey
 from .steam_auth_polling_data import SteamPollingData
@@ -19,7 +19,7 @@ from .user_info_cache import UserInfoCache
 from .times_cache import TimesCache
 from .authentication_cache import AuthenticationCache
 
-from .enums import TwoFactorMethod, UserActionRequired, to_TwoFactorWithMessage
+from .enums import TwoFactorMethod, UserActionRequired, to_TwoFactorWithMessage, to_EAuthSessionGuardType
 from .utils import get_os, translate_error
 
 from rsa import PublicKey
@@ -44,15 +44,15 @@ class ProtocolClient:
         socket,
         friends_cache: FriendsCache,
         games_cache: GamesCache,
-        translations_cache: dict,
+        translations_cache: Dict[int, str],
         stats_cache: StatsCache,
         times_cache: TimesCache,
         authentication_cache: AuthenticationCache,
         user_info_cache: UserInfoCache,
         local_machine_cache: LocalMachineCache,
-        used_server_cell_id,
+        used_server_cell_id : int,
     ):
-
+        #all of this is being refactored away (eventually), so i'm not bothering type hinting this shit. 
         self._protobuf_client = ProtobufClient(socket)
         #new auth
         self._protobuf_client.rsa_handler = self._rsa_handler
@@ -74,24 +74,26 @@ class ProtocolClient:
         self._protobuf_client.times_handler = self._times_handler
         self._protobuf_client.user_authentication_handler = self._user_authentication_handler
         self._protobuf_client.times_import_finished_handler = self._times_import_finished_handler
-        self._friends_cache = friends_cache
-        self._games_cache = games_cache
-        self._translations_cache = translations_cache
-        self._stats_cache = stats_cache
-        self._authentication_cache = authentication_cache
-        self._user_info_cache = user_info_cache
-        self._times_cache = times_cache
+
+        self._friends_cache : FriendsCache = friends_cache
+        self._games_cache : GamesCache = games_cache
+        self._translations_cache : Dict[int, str] = translations_cache
+        self._stats_cache : StatsCache = stats_cache
+        self._authentication_cache : AuthenticationCache = authentication_cache
+        self._user_info_cache : UserInfoCache = user_info_cache
+        self._times_cache : TimesCache = times_cache
         self._auth_lost_handler = None
         self._rsa_future: Optional[Future] = None
         self._login_future: Optional[Future] = None
         self._two_factor_future: Optional[Future] = None
         self._poll_future: Optional[Future] = None
         self._token_login_future: Optional[Future] = None
-        self._used_server_cell_id = used_server_cell_id
-        self._local_machine_cache = local_machine_cache
+
+        self._used_server_cell_id : int = used_server_cell_id
+        self._local_machine_cache : LocalMachineCache = local_machine_cache
         if not self._local_machine_cache.machine_id:
             self._local_machine_cache.machine_id = self._generate_machine_id()
-        self._machine_id = self._local_machine_cache.machine_id
+        self._machine_id : bytes = self._local_machine_cache.machine_id
 
     @staticmethod
     def _generate_machine_id():
@@ -112,25 +114,26 @@ class ProtocolClient:
     async def finish_handshake(self):
         await self._protobuf_client.say_hello()
 
-    async def get_rsa_public_key(self, username:str, auth_lost_handler) -> Tuple[UserActionRequired, SteamPublicKey]:
+    async def get_rsa_public_key(self, username:str, auth_lost_handler) -> Tuple[bool, SteamPublicKey]:
         loop = asyncio.get_running_loop()
         self._rsa_future = loop.create_future()
         await self._protobuf_client.get_rsa_public_key(username)
+
+        key:Optional[SteamPublicKey]
+        result: EResult
         (result, key) = await self._rsa_future
         self._rsa_future = None
         logger.info ("GOT RSA KEY IN PROTOCOL_CLIENT")
+        #If you provide a bad username, it still returns "OK" and gives you rsa key data. i have no idea why. it just does. so we have no way to determine bad login. 
         if (result == EResult.OK):
             self._auth_lost_handler = auth_lost_handler
-            return (UserActionRequired.PasswordRequired, key)
-        elif True: #TODO: FIX ME! If you enter an improper username an error should pop but idk what eresult it is yet.
+            return (True, key)
+        #the only way we get here afaik is if steam is down or busy or something network related. 
+        else: 
         #    self._auth_lost_handler = auth_lost_handler
             logger.warning(f"Received unknown error, code: {result}")
-            return (UserActionRequired.InvalidAuthData, key)
-        #elif (result == EResult.):
-        #    return UserActionRequired.InvalidAuthData
-        else:
-            logger.warning(f"Received unknown error, code: {result}")
-            raise translate_error(result)
+            #at this point, hopefully key would be null, so the bool part of the tuple would be redundant. but i can't seem to reach this state so idk. 
+            return (False, key)
 
     async def _rsa_handler(self, result: EResult, mod: int, exp: int, timestamp: int) -> Tuple[EResult, SteamPublicKey]:
         logger.info("In Protocol_Client RSA Handler")
@@ -171,48 +174,14 @@ class ProtocolClient:
     async def _login_handler(self, result: EResult, message : CAuthentication_BeginAuthSessionViaCredentials_Response):
         data : Optional[SteamPollingData] = None
         if (result == EResult.OK):
-            auth_method : TwoFactorMethod = TwoFactorMethod.Unknown
-            auth_message: str = ""
             if self._user_info_cache.steam_id != message.steamid:
                 self._user_info_cache.steam_id = message.steamid;
-            allowed : CAuthentication_AllowedConfirmation
-            #loop through all the allowed confirmation methods. we will prioritize Codes over confirmation, and phone code over email code.
-            # We arguably should let the user choose but this is already complicated enouh.
-            #This SHOULD be a list of CAuthentication_AllowedConfirmation, but seems instead to be a list of EAuthTokenState. I DO NOT understand
-            for allowed in message.allowed_confirmations:
-                action, msg = to_TwoFactorWithMessage(allowed)
-                #this could all be one massive if statement but imo this is easier to read. 
-                if (action == TwoFactorMethod.PhoneCode):
-                    auth_method = action
-                    auth_message = msg
-                elif (action == TwoFactorMethod.EmailCode):
-                    auth_method = action
-                    auth_message = msg
-                    #since the highest priority stops the loop immediately, we will only ever get here if any previous iterations had a lower priority. 
-                    #but, we may still have the phone 2FA after us, so do not break.
-                elif (action == TwoFactorMethod.PhoneConfirm and auth_method != TwoFactorMethod.EmailCode):
-                    auth_method = action
-                    auth_message = msg
-                    #mobile confirm is the easiest for the user so we're prioritizing it here.
-                    break
-                elif (action == TwoFactorMethod.Nothing and auth_method == TwoFactorMethod.Unknown):
-                    auth_method = action #force this to Confirm Login. No Action Required should never be here but just in case some legacy something or other. 
-                    auth_message = msg
-                    #in theory if this is set, none of the others should be, so this gets lowest priority. If somehow none and one of the other options is set, 
-                    #steam messed up somehow, so err on the side of caution.
-            data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, auth_method, auth_message, message.extended_error_message)
-        else:
-            #logger.error("Login failed")
-            logger.error("Login failed. Reason: " + message.extended_error_message)
-            # sometimes Steam sends LogOnResponse message even if plugin didn't send LogOnRequest
-            # known example is LogOnResponse with result=EResult.TryAnotherCM
 
-            #if i had to guess, some other random machine is trying to use the connection without going through a handshake. 
-            #Steam detects it's not right, but for whatever reason we also get the response. -BaumherA
-            raise translate_error(result)
+            allowables_with_message : dict[TwoFactorMethod, str]= dict(map(to_TwoFactorWithMessage, message.allowed_confirmations))
+
+            data = SteamPollingData(message.client_id, message.steamid, message.request_id, message.interval, allowables_with_message, message.extended_error_message)
 
         if self._login_future is not None:
-            logger.info(f"selecting login method {auth_method.name}")
             self._login_future.set_result((result, data))
         else:
             logger.warning("NO LOGIN FUTURE SET")
@@ -220,7 +189,8 @@ class ProtocolClient:
     async def update_two_factor(self, client_id: int, steam_id:int, code: str, method: TwoFactorMethod, auth_lost_handler:Callable) -> UserActionRequired:
         loop = asyncio.get_running_loop()
         self._two_factor_future = loop.create_future()
-        await self._protobuf_client.update_steamguard_data(client_id, steam_id, code, method)
+        converted_meth = to_EAuthSessionGuardType(method)
+        await self._protobuf_client.update_steamguard_data(client_id, steam_id, code, converted_meth)
         result = await self._two_factor_future
         self._two_factor_future = None
         logger.info ("GOT TWO FACTOR UPDATE RESULT IN PROTOCOL CLIENT")
@@ -245,7 +215,7 @@ class ProtocolClient:
         else:
             logger.warning("NO TWO FACTOR FUTURE SET")
 
-    async def check_auth_status(self, client_id:int, request_id:bytes, auth_lost_handler:Callable) -> Tuple[UserActionRequired, Optional[int]]:
+    async def check_auth_status(self, client_id:int, request_id:bytes, two_factor_is_confirm: bool, auth_lost_handler:Callable) -> Tuple[UserActionRequired, Optional[int]]:
         loop = asyncio.get_running_loop()
         self._poll_future = loop.create_future()
 
@@ -279,6 +249,13 @@ class ProtocolClient:
         elif result == EResult.Expired:
             self._auth_lost_handler = auth_lost_handler
             return (UserActionRequired.TwoFactorExpired, data.new_client_id)
+        elif result == EResult.FileNotFound: #confirmed occurs with mobile confirm if you don't confirm it. May occur elsewhere, but that is unknown/unexpected.
+            self._auth_lost_handler = auth_lost_handler
+            if (two_factor_is_confirm):
+                return (UserActionRequired.NoActionConfirmLogin, data.new_client_id)
+            else:
+                logger.warning("Received a file not found but were not using mobile confirm. This is unexpected, but maybe ok? no idea.")
+                return (UserActionRequired.TwoFactorExpired, data.new_client_id)
         #TODO: This will likely error if the code is bad. Figure out what to do here. 
         else:
             raise translate_error(result)

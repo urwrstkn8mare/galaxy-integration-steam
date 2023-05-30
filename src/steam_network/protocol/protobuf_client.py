@@ -6,7 +6,7 @@ import socket as sock
 import struct
 import ipaddress
 from itertools import count
-from typing import Awaitable, Callable, Dict, Optional, Any, List, NamedTuple, Iterator, Tuple
+from typing import Awaitable, Callable, Coroutine, Dict, Optional, Any, List, NamedTuple, Iterator
 
 import base64
 
@@ -80,8 +80,6 @@ from .messages.steammessages_webui_friends_pb2 import (
 
 from .steam_types import SteamId, ProtoUserInfo
 
-from .rsa_message import RSAMessage
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 LOG_SENSITIVE_DATA = False
@@ -102,12 +100,6 @@ class SteamLicense(NamedTuple):
 
 
 class ProtobufClient:
-    """Handles communication between steam and this application. 
-
-    This class deals with the nitty-gritty and protobuf formats, parsing it so the rest of the application can use nicely defined classes and objects. It also 
-
-    """
-
     _PROTO_MASK = 0x80000000
     _ACCOUNT_ID_MASK = 0x0110000100000000
     _IP_OBFUSCATION_MASK = 0x606573A4
@@ -117,6 +109,7 @@ class ProtobufClient:
     def __init__(self, set_socket : WebSocketClientProtocol):
         self._socket :                      WebSocketClientProtocol = set_socket
         #new auth flow
+        self.rsa_handler:                   Optional[Callable[[EResult, int, int, int], Awaitable[None]]] = None
         self.login_handler:                 Optional[Callable[[EResult,CAuthentication_BeginAuthSessionViaCredentials_Response], Awaitable[None]]] = None
         self.two_factor_update_handler:     Optional[Callable[[EResult, str], Awaitable[None]]] = None
         self.poll_status_handler:           Optional[Callable[[EResult, CAuthentication_PollAuthSessionStatus_Response], Awaitable[None]]] = None
@@ -142,8 +135,10 @@ class ProtobufClient:
 
         self.collections = {'event': asyncio.Event(),
                             'collections': dict()}
-
+        self._recv_task:                    Optional[Coroutine[Any, Any, Any]] = None
     async def close(self, send_log_off):
+        if (self._recv_task is not None):
+            self._recv_task.cancel()
         if send_log_off:
             await self.send_log_off_message()
         if self._heartbeat_task is not None:
@@ -153,33 +148,42 @@ class ProtobufClient:
         pass
 
     async def run(self):
+        jobs_to_process = 0
         while True:
-            for job in self.job_list.copy():
-                logger.info(f"New job on list {job}")
-                if job['job_name'] == "import_game_stats":
-                    await self._import_game_stats(job['game_id'])
-                    self.job_list.remove(job)
-                elif job['job_name'] == "import_collections":
-                    await self._import_collections()
-                    self.job_list.remove(job)
-                elif job['job_name'] == "import_game_times":
-                    await self._import_game_time()
-                    self.job_list.remove(job)
-                else:
-                    logger.warning(f'Unknown job {job}')
+            if jobs_to_process < 2:
+                for job in self.job_list[:1].copy():
+                    logger.info(f"New job on list {job}")
+                    jobs_to_process += 1
+                    if job['job_name'] == "import_game_stats":
+                        await self._import_game_stats(job['game_id'])
+                        self.job_list.remove(job)
+                    elif job['job_name'] == "import_collections":
+                        await self._import_collections()
+                        self.job_list.remove(job)
+                    elif job['job_name'] == "import_game_times":
+                        await self._import_game_time()
+                        self.job_list.remove(job)
+                    else:
+                        self.job_list.remove(job)
+                        logger.warning(f'Unknown job {job}')
             try:
-                packet = await asyncio.wait_for(self._socket.recv(), 10)
+                self._recv_task = asyncio.create_task(self._socket.recv())
+                packet = await asyncio.wait_for(self._recv_task, 10)
+                self._recv_task = None
                 await self._process_packet(packet)
+                if jobs_to_process > 0:
+                    jobs_to_process -= 1
             except asyncio.TimeoutError:
                 pass
+            except asyncio.CancelledError: #occurs when we cancel the recv. only should occur if the socket is closing anyway.
+                break
+            finally:
+                self._recv_task = None
 
     async def _send_service_method_with_name(self, message, target_job_name: str):
         emsg = EMsg.ServiceMethodCallFromClientNonAuthed if self.confirmed_steam_id is None else EMsg.ServiceMethodCallFromClient;
         job_id = next(self._job_id_iterator)
         await self._send(emsg, message, source_job_id=job_id, target_job_name= target_job_name)
-
-    async def _send_service_method_and_wait(self, message, target_job_name : str) -> Tuple[EResult, Any]:
-        pass
 
     #new workflow:  say hello -> get rsa public key -> log on with password -> handle steam guard -> confirm login
     #each is getting a dedicated function so i don't go insane.
@@ -194,16 +198,23 @@ class ProtobufClient:
         message.protocol_version = self._MSG_PROTOCOL_VERSION
         await self._send(EMsg.ClientHello,message)
 
-    async def get_rsa_key_async(self, account_name: str) -> RSAMessage:
+    #send the get rsa key request
+    #imho we should just do a send and receive back to back instead of this bouncing around, but whatever.
+    async def get_rsa_public_key(self, account_name: str):
         message = CAuthentication_GetPasswordRSAPublicKey_Request()
         message.account_name = account_name
+        await self._send_service_method_with_name(message, GET_RSA_KEY) #parsed from SteamKit's gobbledygook
 
-        response, body = await self._send_service_method_and_wait(message, GET_RSA_KEY)
+    #process the received the rsa key response. Because we will need all the information about this process, we send the entire message up the chain.
+    async def _process_rsa(self, result, body):
         message = CAuthentication_GetPasswordRSAPublicKey_Response()
         message.ParseFromString(body)
-
-        return RSAMessage(response, int(message.publickey_mod, 16), int(message.publickey_exp, 16), message.timestamp)
-
+        logger.info("Received RSA KEY")
+        #logger.info(pformat(message))
+        if (self.rsa_handler is not None):
+            await self.rsa_handler(result, int(message.publickey_mod, 16), int(message.publickey_exp, 16), message.timestamp)
+        else:
+            logger.warning("NO RSA HANDLER SET!")
 
     async def log_on_password(self, account_name, enciphered_password: str, timestamp: int, os_value):
         friendly_name: str = sock.gethostname() + " (GOG Galaxy)"

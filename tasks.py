@@ -4,7 +4,7 @@ import json
 import requests
 import tempfile
 import zipfile
-from shutil import rmtree, copy2, which
+from shutil import rmtree, which
 from distutils.dir_util import copy_tree
 from io import BytesIO
 
@@ -13,6 +13,9 @@ from http.client import HTTPResponse
 
 from invoke import task
 from galaxy.tools import zip_folder_to_file
+
+from typing import List, Text, TextIO
+import re
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 PROTOC_DIR = os.path.join(BASE_DIR, "protoc")
@@ -24,10 +27,7 @@ if sys.platform == 'win32':
     DIST_DIR = os.environ['localappdata'] + '\\GOG.com\\Galaxy\\plugins\\installed'
     PLATFORM = "win32"
     
-    if which("py"):
-        PYTHON_EXE = "py -3.7"
-    else:
-        PYTHON_EXE = "python"
+    PYTHON_EXE = "py -3.7" if which("py") else "python"
 
     PROTOC_EXE = os.path.join(PROTOC_DIR, "bin", "protoc.exe")
     PROTOC_INCLUDE_DIR = os.path.join(PROTOC_DIR, "include")
@@ -89,14 +89,15 @@ def _get_filename_from_url(url: str) -> str:
     return url.split("/")[-1]
 
 
-def _pull_protobufs_internal(c, selection: str, silent: bool = False):
+def _pull_protobufs_internal(c, selection: str, silent: bool = False, deleteFiles = True):
     target_dir = os.path.join(BASE_DIR, "protobuf_files", "proto")
     list_file = os.path.join(BASE_DIR, "protobuf_files", f"protobuf_{selection}.txt")
 
-    try:
-        rmtree(target_dir)
-    except Exception:
-        pass  # directory probably just already exists
+    if (deleteFiles):
+        try:
+            rmtree(target_dir)
+        except Exception:
+            pass  # directory probably just already exists
 
     os.makedirs(target_dir, exist_ok=True)
 
@@ -126,6 +127,7 @@ def _pull_protobufs_internal(c, selection: str, silent: bool = False):
             data = data.replace("common_base.proto", "steammessages_unified_base.proto")
             data = data.replace("common.proto", "steammessages_base.proto")
 
+
         # force proto2 syntax if not yet enforced
         if "proto2" not in data:
             data = f'syntax = "proto2";\n' + data
@@ -150,20 +152,21 @@ def InstallProtoc(c):
 
     print("protoc successfully installed")
 
+#warning: Type hinting any task will break python 3.7 It uses getargspec which is deprecated, instead of getfullargspec, which isn't. This is the built-in library, not external modules. Python!
 
 #for whatever reason if i give this an _ in the name it can't find it. i have no idea why. so TitleCase
 @task
-def PullProtobufSteamMessages(c, silent=False):
-   _pull_protobufs_internal(c, "steammessages", silent)
+def PullProtobufSteamMessages(c, silent = False, deleteFiles = True):
+   _pull_protobufs_internal(c, "steammessages", silent, deleteFiles)
 
 @task
-def PullProtobufWebui(c, silent=False):
-   _pull_protobufs_internal(c, "webui", silent)
+def PullProtobufWebui(c, silent = False, deleteFiles = True):
+   _pull_protobufs_internal(c, "webui", silent, deleteFiles)
 
 @task
-def PullAllProtobufFiles(c, silent=False):
-    PullProtobufSteamMessages(c, silent)
-    PullProtobufWebui(c, silent)
+def PullAllProtobufFiles(c, silent = False, deleteFiles = True):
+    PullProtobufSteamMessages(c, silent, deleteFiles)
+    PullProtobufWebui(c, silent, False)
 
 @task
 def ClearProtobufFiles(c):
@@ -171,28 +174,41 @@ def ClearProtobufFiles(c):
     for f in filelist:
         os.remove(os.path.join("protobuf_files/proto", f))
 
-
-
 @task
 def GenerateProtobufMessages(c):
     proto_files_dir = os.path.join(BASE_DIR, "protobuf_files", "proto")
 
     out_dir = os.path.join(BASE_DIR, "src", "steam_network", "protocol", "messages")
+    #out_dir = os.path.join(BASE_DIR, "protobuf_files", "gen")
 
-    try:
-        rmtree(os.path.join(out_dir))
-    except Exception:
-        pass  # directory probably just didn't exist
+    #try:
+    #    rmtree(os.path.join(out_dir))
+    #except Exception:
+    #    pass  # directory probably just didn't exist
 
-    os.makedirs(os.path.join(out_dir), exist_ok=True)
+    #os.makedirs(os.path.join(out_dir), exist_ok=True)
 
-    # make sure __init__.py is there
-    with open(os.path.join(out_dir, "__init__.py"), "wb") as fp:
-        fp.write(b"")
+    #all_files = " ".join(map(lambda x: '"' + os.path.join(proto_files_dir, x) + '"', os.listdir(proto_files_dir)))
+    ##print(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_out="{out_dir}" {all_files}')
+    ##c.run(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_out="{out_dir}" {all_files}')
+    #print(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_betterproto_out="{out_dir}" {all_files}')
+    #c.run(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_betterproto_out="{out_dir}" {all_files}')
 
-    all_files = " ".join(map(lambda x: '"' + os.path.join(proto_files_dir, x) + '"', os.listdir(proto_files_dir)))
-    print(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_out="{out_dir}" {all_files}')
-    c.run(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_out="{out_dir}" {all_files}')
+    #some of the services mess up, so fix them. basically, read init line by line, and if we detect a snake_case string where a TitleCase class should be, fix it. Then write it to a new file
+    #finally, delete and rename the out file back to init.
+    init = os.path.join(out_dir, "__init__.py")
+    out = os.path.join(out_dir, "__init__.py2")
+    with open(init, "r") as file:
+        with open (out, "w") as out_file:
+            for line in file:
+                if re.match("^\s+\w+_\w*,\s*$", line and "TYPE_CHECKING" not in line):
+                    #here's some python nonsense. Split the line on every underscore. capitalize each split word. then join them together without any spaces.
+                    line = ''.join(map(lambda x: x.title(), line.split("_")))
+                out_file.write(line)
+
+    #os.remove(init)
+    #os.rename(out, init)
+
 
 
 @task

@@ -295,6 +295,7 @@ message CMsgSystemPerfSettingsGlobal {
 	optional bool debug_force_hdr_support = 18;
 	optional bool force_hdr_10pq_output_debug = 19;
 	optional bool is_display_oc_enabled = 20;
+	optional bool is_color_management_enabled = 21;
 }
 
 message CMsgSystemPerfSettingsPerApp {
@@ -616,4 +617,13 @@ message CMsgMonitorInfo {
 
 	required string selected_display_name = 1;
 	repeated .CMsgMonitorInfo.MonitorInfo monitors = 2;
+}
+
+message CMsgGenerateSystemReportReply {
+	optional string report_id = 1;
+}
+
+message CMsgWebUITransportInfo {
+	optional uint32 port = 1;
+	optional string auth_key = 2;
 }

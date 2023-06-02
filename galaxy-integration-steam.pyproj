@@ -13,6 +13,7 @@
     <LaunchProvider>Standard Python launcher</LaunchProvider>
     <InterpreterId>MSBuild|env1|$(MSBuildProjectFullPath)</InterpreterId>
     <TestFramework>Pytest</TestFramework>
+    <SuppressConfigureTestFrameworkPrompt>true</SuppressConfigureTestFrameworkPrompt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
   <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
@@ -84,21 +85,6 @@
     <Compile Include="src\steam_network\presence.py" />
     <Compile Include="src\steam_network\protocol\consts.py" />
     <Compile Include="src\steam_network\protocol\job.py" />
-    <Compile Include="src\steam_network\protocol\messages\encrypted_app_ticket_pb2.py" />
-    <Compile Include="src\steam_network\protocol\messages\enums_pb2.py" />
-    <Compile Include="src\steam_network\protocol\messages\resolved_service_messages_pb2.py" />
-    <Compile Include="src\steam_network\protocol\messages\steammessages_auth_pb2.py" />
-    <Compile Include="src\steam_network\protocol\messages\steammessages_base_pb2.py" />
-    <Compile Include="src\steam_network\protocol\messages\steammessages_chat_pb2.py" />
-    <Compile Include="src\steam_network\protocol\messages\steammessages_clientserver_2_pb2.py" />
-    <Compile Include="src\steam_network\protocol\messages\steammessages_clientserver_appinfo_pb2.py" />
-    <Compile Include="src\steam_network\protocol\messages\steammessages_clientserver_friends_pb2.py" />
-    <Compile Include="src\steam_network\protocol\messages\steammessages_clientserver_login_pb2.py" />
-    <Compile Include="src\steam_network\protocol\messages\steammessages_clientserver_pb2.py" />
-    <Compile Include="src\steam_network\protocol\messages\steammessages_clientserver_userstats_pb2.py" />
-    <Compile Include="src\steam_network\protocol\messages\steammessages_client_objects_pb2.py" />
-    <Compile Include="src\steam_network\protocol\messages\steammessages_player_pb2.py" />
-    <Compile Include="src\steam_network\protocol\messages\steammessages_unified_base_pb2.py" />
     <Compile Include="src\steam_network\protocol\messages\__init__.py" />
     <Compile Include="src\steam_network\protocol\protobuf_client.py" />
     <Compile Include="src\steam_network\protocol\protobuf_parser.py" />
@@ -184,11 +170,11 @@
     <Interpreter Include="env1\">
       <Id>env1</Id>
       <Version>3.7</Version>
-      <Description>env1 (Python 3.7 (64-bit))</Description>
+      <Description>env1 (Python 3.7 (32-bit))</Description>
       <InterpreterPath>Scripts\python.exe</InterpreterPath>
       <WindowsInterpreterPath>Scripts\pythonw.exe</WindowsInterpreterPath>
       <PathEnvironmentVariable>PYTHONPATH</PathEnvironmentVariable>
-      <Architecture>X64</Architecture>
+      <Architecture>X86</Architecture>
     </Interpreter>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />

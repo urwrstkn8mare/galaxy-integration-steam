@@ -7074,7 +7074,7 @@ class CloudConfigStoreStub(betterproto.ServiceStub):
     ) -> "CCloudConfigStoreDownloadResponse":
         return await self._unary_unary(
             "/CloudConfigStore/Download",
-            c_cloud_config_store_download_request,
+            CCloudConfigStoreDownloadRequest,
             CCloudConfigStoreDownloadResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7090,7 +7090,7 @@ class CloudConfigStoreStub(betterproto.ServiceStub):
     ) -> "CCloudConfigStoreUploadResponse":
         return await self._unary_unary(
             "/CloudConfigStore/Upload",
-            c_cloud_config_store_upload_request,
+            CCloudConfigStoreUploadRequest,
             CCloudConfigStoreUploadResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7108,7 +7108,7 @@ class CloudConfigStoreClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/CloudConfigStoreClient/NotifyChange",
-            c_cloud_config_store_change_notification,
+            CCloudConfigStoreChangeNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7126,7 +7126,7 @@ class AuthenticationStub(betterproto.ServiceStub):
     ) -> "CAuthenticationGetPasswordRsaPublicKeyResponse":
         return await self._unary_unary(
             "/Authentication/GetPasswordRSAPublicKey",
-            c_authentication_get_password_rsa_public_key_request,
+            CAuthenticationGetPasswordRsaPublicKeyRequest,
             CAuthenticationGetPasswordRsaPublicKeyResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7142,7 +7142,7 @@ class AuthenticationStub(betterproto.ServiceStub):
     ) -> "CAuthenticationBeginAuthSessionViaQrResponse":
         return await self._unary_unary(
             "/Authentication/BeginAuthSessionViaQR",
-            c_authentication_begin_auth_session_via_qr_request,
+            CAuthenticationBeginAuthSessionViaQrRequest,
             CAuthenticationBeginAuthSessionViaQrResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7158,7 +7158,7 @@ class AuthenticationStub(betterproto.ServiceStub):
     ) -> "CAuthenticationBeginAuthSessionViaCredentialsResponse":
         return await self._unary_unary(
             "/Authentication/BeginAuthSessionViaCredentials",
-            c_authentication_begin_auth_session_via_credentials_request,
+            CAuthenticationBeginAuthSessionViaCredentialsRequest,
             CAuthenticationBeginAuthSessionViaCredentialsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7174,7 +7174,7 @@ class AuthenticationStub(betterproto.ServiceStub):
     ) -> "CAuthenticationPollAuthSessionStatusResponse":
         return await self._unary_unary(
             "/Authentication/PollAuthSessionStatus",
-            c_authentication_poll_auth_session_status_request,
+            CAuthenticationPollAuthSessionStatusRequest,
             CAuthenticationPollAuthSessionStatusResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7190,7 +7190,7 @@ class AuthenticationStub(betterproto.ServiceStub):
     ) -> "CAuthenticationGetAuthSessionInfoResponse":
         return await self._unary_unary(
             "/Authentication/GetAuthSessionInfo",
-            c_authentication_get_auth_session_info_request,
+            CAuthenticationGetAuthSessionInfoRequest,
             CAuthenticationGetAuthSessionInfoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7206,7 +7206,7 @@ class AuthenticationStub(betterproto.ServiceStub):
     ) -> "CAuthenticationUpdateAuthSessionWithMobileConfirmationResponse":
         return await self._unary_unary(
             "/Authentication/UpdateAuthSessionWithMobileConfirmation",
-            c_authentication_update_auth_session_with_mobile_confirmation_request,
+            CAuthenticationUpdateAuthSessionWithMobileConfirmationRequest,
             CAuthenticationUpdateAuthSessionWithMobileConfirmationResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7222,7 +7222,7 @@ class AuthenticationStub(betterproto.ServiceStub):
     ) -> "CAuthenticationUpdateAuthSessionWithSteamGuardCodeResponse":
         return await self._unary_unary(
             "/Authentication/UpdateAuthSessionWithSteamGuardCode",
-            c_authentication_update_auth_session_with_steam_guard_code_request,
+            CAuthenticationUpdateAuthSessionWithSteamGuardCodeRequest,
             CAuthenticationUpdateAuthSessionWithSteamGuardCodeResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7238,7 +7238,7 @@ class AuthenticationStub(betterproto.ServiceStub):
     ) -> "CAuthenticationAccessTokenGenerateForAppResponse":
         return await self._unary_unary(
             "/Authentication/GenerateAccessTokenForApp",
-            c_authentication_access_token_generate_for_app_request,
+            CAuthenticationAccessTokenGenerateForAppRequest,
             CAuthenticationAccessTokenGenerateForAppResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7254,7 +7254,7 @@ class AuthenticationStub(betterproto.ServiceStub):
     ) -> "CAuthenticationRefreshTokenEnumerateResponse":
         return await self._unary_unary(
             "/Authentication/EnumerateTokens",
-            c_authentication_refresh_token_enumerate_request,
+            CAuthenticationRefreshTokenEnumerateRequest,
             CAuthenticationRefreshTokenEnumerateResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7270,7 +7270,7 @@ class AuthenticationStub(betterproto.ServiceStub):
     ) -> "CAuthenticationGetAuthSessionsForAccountResponse":
         return await self._unary_unary(
             "/Authentication/GetAuthSessionsForAccount",
-            c_authentication_get_auth_sessions_for_account_request,
+            CAuthenticationGetAuthSessionsForAccountRequest,
             CAuthenticationGetAuthSessionsForAccountResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7286,7 +7286,7 @@ class AuthenticationStub(betterproto.ServiceStub):
     ) -> "CAuthenticationMigrateMobileSessionResponse":
         return await self._unary_unary(
             "/Authentication/MigrateMobileSession",
-            c_authentication_migrate_mobile_session_request,
+            CAuthenticationMigrateMobileSessionRequest,
             CAuthenticationMigrateMobileSessionResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7302,7 +7302,7 @@ class AuthenticationStub(betterproto.ServiceStub):
     ) -> "CAuthenticationTokenRevokeResponse":
         return await self._unary_unary(
             "/Authentication/RevokeToken",
-            c_authentication_token_revoke_request,
+            CAuthenticationTokenRevokeRequest,
             CAuthenticationTokenRevokeResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7318,7 +7318,7 @@ class AuthenticationStub(betterproto.ServiceStub):
     ) -> "CAuthenticationRefreshTokenRevokeResponse":
         return await self._unary_unary(
             "/Authentication/RevokeRefreshToken",
-            c_authentication_refresh_token_revoke_request,
+            CAuthenticationRefreshTokenRevokeRequest,
             CAuthenticationRefreshTokenRevokeResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7336,7 +7336,7 @@ class AuthenticationSupportStub(betterproto.ServiceStub):
     ) -> "CAuthenticationSupportQueryRefreshTokensByAccountResponse":
         return await self._unary_unary(
             "/AuthenticationSupport/QueryRefreshTokensByAccount",
-            c_authentication_support_query_refresh_tokens_by_account_request,
+            CAuthenticationSupportQueryRefreshTokensByAccountRequest,
             CAuthenticationSupportQueryRefreshTokensByAccountResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7352,7 +7352,7 @@ class AuthenticationSupportStub(betterproto.ServiceStub):
     ) -> "CAuthenticationSupportQueryRefreshTokenByIdResponse":
         return await self._unary_unary(
             "/AuthenticationSupport/QueryRefreshTokenByID",
-            c_authentication_support_query_refresh_token_by_id_request,
+            CAuthenticationSupportQueryRefreshTokenByIdRequest,
             CAuthenticationSupportQueryRefreshTokenByIdResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7368,7 +7368,7 @@ class AuthenticationSupportStub(betterproto.ServiceStub):
     ) -> "CAuthenticationSupportRevokeTokenResponse":
         return await self._unary_unary(
             "/AuthenticationSupport/RevokeToken",
-            c_authentication_support_revoke_token_request,
+            CAuthenticationSupportRevokeTokenRequest,
             CAuthenticationSupportRevokeTokenResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7384,7 +7384,7 @@ class AuthenticationSupportStub(betterproto.ServiceStub):
     ) -> "CAuthenticationSupportGetTokenHistoryResponse":
         return await self._unary_unary(
             "/AuthenticationSupport/GetTokenHistory",
-            c_authentication_support_get_token_history_request,
+            CAuthenticationSupportGetTokenHistoryRequest,
             CAuthenticationSupportGetTokenHistoryResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7402,7 +7402,7 @@ class CloudGamingStub(betterproto.ServiceStub):
     ) -> "CCloudGamingCreateNonceResponse":
         return await self._unary_unary(
             "/CloudGaming/CreateNonce",
-            c_cloud_gaming_create_nonce_request,
+            CCloudGamingCreateNonceRequest,
             CCloudGamingCreateNonceResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7418,7 +7418,7 @@ class CloudGamingStub(betterproto.ServiceStub):
     ) -> "CCloudGamingGetTimeRemainingResponse":
         return await self._unary_unary(
             "/CloudGaming/GetTimeRemaining",
-            c_cloud_gaming_get_time_remaining_request,
+            CCloudGamingGetTimeRemainingRequest,
             CCloudGamingGetTimeRemainingResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7436,7 +7436,7 @@ class ChatStub(betterproto.ServiceStub):
     ) -> "CChatRequestFriendPersonaStatesResponse":
         return await self._unary_unary(
             "/Chat/RequestFriendPersonaStates",
-            c_chat_request_friend_persona_states_request,
+            CChatRequestFriendPersonaStatesRequest,
             CChatRequestFriendPersonaStatesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7454,7 +7454,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomCreateChatRoomGroupResponse":
         return await self._unary_unary(
             "/ChatRoom/CreateChatRoomGroup",
-            c_chat_room_create_chat_room_group_request,
+            CChatRoomCreateChatRoomGroupRequest,
             CChatRoomCreateChatRoomGroupResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7470,7 +7470,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomSaveChatRoomGroupResponse":
         return await self._unary_unary(
             "/ChatRoom/SaveChatRoomGroup",
-            c_chat_room_save_chat_room_group_request,
+            CChatRoomSaveChatRoomGroupRequest,
             CChatRoomSaveChatRoomGroupResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7486,7 +7486,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomRenameChatRoomGroupResponse":
         return await self._unary_unary(
             "/ChatRoom/RenameChatRoomGroup",
-            c_chat_room_rename_chat_room_group_request,
+            CChatRoomRenameChatRoomGroupRequest,
             CChatRoomRenameChatRoomGroupResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7502,7 +7502,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomSetChatRoomGroupTaglineResponse":
         return await self._unary_unary(
             "/ChatRoom/SetChatRoomGroupTagline",
-            c_chat_room_set_chat_room_group_tagline_request,
+            CChatRoomSetChatRoomGroupTaglineRequest,
             CChatRoomSetChatRoomGroupTaglineResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7518,7 +7518,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomSetChatRoomGroupAvatarResponse":
         return await self._unary_unary(
             "/ChatRoom/SetChatRoomGroupAvatar",
-            c_chat_room_set_chat_room_group_avatar_request,
+            CChatRoomSetChatRoomGroupAvatarRequest,
             CChatRoomSetChatRoomGroupAvatarResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7534,7 +7534,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomSetChatRoomGroupWatchingBroadcastResponse":
         return await self._unary_unary(
             "/ChatRoom/SetChatRoomGroupWatchingBroadcast",
-            c_chat_room_set_chat_room_group_watching_broadcast_request,
+            CChatRoomSetChatRoomGroupWatchingBroadcastRequest,
             CChatRoomSetChatRoomGroupWatchingBroadcastResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7550,7 +7550,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomJoinMiniGameForChatRoomGroupResponse":
         return await self._unary_unary(
             "/ChatRoom/JoinMiniGameForChatRoomGroup",
-            c_chat_room_join_mini_game_for_chat_room_group_request,
+            CChatRoomJoinMiniGameForChatRoomGroupRequest,
             CChatRoomJoinMiniGameForChatRoomGroupResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7566,7 +7566,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomEndMiniGameForChatRoomGroupResponse":
         return await self._unary_unary(
             "/ChatRoom/EndMiniGameForChatRoomGroup",
-            c_chat_room_end_mini_game_for_chat_room_group_request,
+            CChatRoomEndMiniGameForChatRoomGroupRequest,
             CChatRoomEndMiniGameForChatRoomGroupResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7582,7 +7582,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomMuteUserResponse":
         return await self._unary_unary(
             "/ChatRoom/MuteUserInGroup",
-            c_chat_room_mute_user_request,
+            CChatRoomMuteUserRequest,
             CChatRoomMuteUserResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7598,7 +7598,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomKickUserResponse":
         return await self._unary_unary(
             "/ChatRoom/KickUserFromGroup",
-            c_chat_room_kick_user_request,
+            CChatRoomKickUserRequest,
             CChatRoomKickUserResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7614,7 +7614,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomSetUserBanStateResponse":
         return await self._unary_unary(
             "/ChatRoom/SetUserBanState",
-            c_chat_room_set_user_ban_state_request,
+            CChatRoomSetUserBanStateRequest,
             CChatRoomSetUserBanStateResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7630,7 +7630,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomRevokeInviteResponse":
         return await self._unary_unary(
             "/ChatRoom/RevokeInviteToGroup",
-            c_chat_room_revoke_invite_request,
+            CChatRoomRevokeInviteRequest,
             CChatRoomRevokeInviteResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7646,7 +7646,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomCreateRoleResponse":
         return await self._unary_unary(
             "/ChatRoom/CreateRole",
-            c_chat_room_create_role_request,
+            CChatRoomCreateRoleRequest,
             CChatRoomCreateRoleResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7662,7 +7662,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomGetRolesResponse":
         return await self._unary_unary(
             "/ChatRoom/GetRoles",
-            c_chat_room_get_roles_request,
+            CChatRoomGetRolesRequest,
             CChatRoomGetRolesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7678,7 +7678,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomRenameRoleResponse":
         return await self._unary_unary(
             "/ChatRoom/RenameRole",
-            c_chat_room_rename_role_request,
+            CChatRoomRenameRoleRequest,
             CChatRoomRenameRoleResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7694,7 +7694,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomReorderRoleResponse":
         return await self._unary_unary(
             "/ChatRoom/ReorderRole",
-            c_chat_room_reorder_role_request,
+            CChatRoomReorderRoleRequest,
             CChatRoomReorderRoleResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7710,7 +7710,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomDeleteRoleResponse":
         return await self._unary_unary(
             "/ChatRoom/DeleteRole",
-            c_chat_room_delete_role_request,
+            CChatRoomDeleteRoleRequest,
             CChatRoomDeleteRoleResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7726,7 +7726,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomGetRoleActionsResponse":
         return await self._unary_unary(
             "/ChatRoom/GetRoleActions",
-            c_chat_room_get_role_actions_request,
+            CChatRoomGetRoleActionsRequest,
             CChatRoomGetRoleActionsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7742,7 +7742,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomReplaceRoleActionsResponse":
         return await self._unary_unary(
             "/ChatRoom/ReplaceRoleActions",
-            c_chat_room_replace_role_actions_request,
+            CChatRoomReplaceRoleActionsRequest,
             CChatRoomReplaceRoleActionsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7758,7 +7758,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomAddRoleToUserResponse":
         return await self._unary_unary(
             "/ChatRoom/AddRoleToUser",
-            c_chat_room_add_role_to_user_request,
+            CChatRoomAddRoleToUserRequest,
             CChatRoomAddRoleToUserResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7774,7 +7774,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomGetRolesForUserResponse":
         return await self._unary_unary(
             "/ChatRoom/GetRolesForUser",
-            c_chat_room_get_roles_for_user_request,
+            CChatRoomGetRolesForUserRequest,
             CChatRoomGetRolesForUserResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7790,7 +7790,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomDeleteRoleFromUserResponse":
         return await self._unary_unary(
             "/ChatRoom/DeleteRoleFromUser",
-            c_chat_room_delete_role_from_user_request,
+            CChatRoomDeleteRoleFromUserRequest,
             CChatRoomDeleteRoleFromUserResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7806,7 +7806,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomJoinChatRoomGroupResponse":
         return await self._unary_unary(
             "/ChatRoom/JoinChatRoomGroup",
-            c_chat_room_join_chat_room_group_request,
+            CChatRoomJoinChatRoomGroupRequest,
             CChatRoomJoinChatRoomGroupResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7822,7 +7822,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomInviteFriendToChatRoomGroupResponse":
         return await self._unary_unary(
             "/ChatRoom/InviteFriendToChatRoomGroup",
-            c_chat_room_invite_friend_to_chat_room_group_request,
+            CChatRoomInviteFriendToChatRoomGroupRequest,
             CChatRoomInviteFriendToChatRoomGroupResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7838,7 +7838,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomLeaveChatRoomGroupResponse":
         return await self._unary_unary(
             "/ChatRoom/LeaveChatRoomGroup",
-            c_chat_room_leave_chat_room_group_request,
+            CChatRoomLeaveChatRoomGroupRequest,
             CChatRoomLeaveChatRoomGroupResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7854,7 +7854,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomCreateChatRoomResponse":
         return await self._unary_unary(
             "/ChatRoom/CreateChatRoom",
-            c_chat_room_create_chat_room_request,
+            CChatRoomCreateChatRoomRequest,
             CChatRoomCreateChatRoomResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7870,7 +7870,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomDeleteChatRoomResponse":
         return await self._unary_unary(
             "/ChatRoom/DeleteChatRoom",
-            c_chat_room_delete_chat_room_request,
+            CChatRoomDeleteChatRoomRequest,
             CChatRoomDeleteChatRoomResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7886,7 +7886,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomRenameChatRoomResponse":
         return await self._unary_unary(
             "/ChatRoom/RenameChatRoom",
-            c_chat_room_rename_chat_room_request,
+            CChatRoomRenameChatRoomRequest,
             CChatRoomRenameChatRoomResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7902,7 +7902,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomReorderChatRoomResponse":
         return await self._unary_unary(
             "/ChatRoom/ReorderChatRoom",
-            c_chat_room_reorder_chat_room_request,
+            CChatRoomReorderChatRoomRequest,
             CChatRoomReorderChatRoomResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7918,7 +7918,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomSendChatMessageResponse":
         return await self._unary_unary(
             "/ChatRoom/SendChatMessage",
-            c_chat_room_send_chat_message_request,
+            CChatRoomSendChatMessageRequest,
             CChatRoomSendChatMessageResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7934,7 +7934,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomJoinVoiceChatResponse":
         return await self._unary_unary(
             "/ChatRoom/JoinVoiceChat",
-            c_chat_room_join_voice_chat_request,
+            CChatRoomJoinVoiceChatRequest,
             CChatRoomJoinVoiceChatResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7950,7 +7950,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomLeaveVoiceChatResponse":
         return await self._unary_unary(
             "/ChatRoom/LeaveVoiceChat",
-            c_chat_room_leave_voice_chat_request,
+            CChatRoomLeaveVoiceChatRequest,
             CChatRoomLeaveVoiceChatResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7966,7 +7966,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomGetMessageHistoryResponse":
         return await self._unary_unary(
             "/ChatRoom/GetMessageHistory",
-            c_chat_room_get_message_history_request,
+            CChatRoomGetMessageHistoryRequest,
             CChatRoomGetMessageHistoryResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7982,7 +7982,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomGetMyChatRoomGroupsResponse":
         return await self._unary_unary(
             "/ChatRoom/GetMyChatRoomGroups",
-            c_chat_room_get_my_chat_room_groups_request,
+            CChatRoomGetMyChatRoomGroupsRequest,
             CChatRoomGetMyChatRoomGroupsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -7998,7 +7998,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomGetChatRoomGroupStateResponse":
         return await self._unary_unary(
             "/ChatRoom/GetChatRoomGroupState",
-            c_chat_room_get_chat_room_group_state_request,
+            CChatRoomGetChatRoomGroupStateRequest,
             CChatRoomGetChatRoomGroupStateResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8014,7 +8014,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomGetChatRoomGroupSummaryResponse":
         return await self._unary_unary(
             "/ChatRoom/GetChatRoomGroupSummary",
-            c_chat_room_get_chat_room_group_summary_request,
+            CChatRoomGetChatRoomGroupSummaryRequest,
             CChatRoomGetChatRoomGroupSummaryResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8030,7 +8030,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomSetAppChatRoomGroupForceActiveResponse":
         return await self._unary_unary(
             "/ChatRoom/SetAppChatRoomGroupForceActive",
-            c_chat_room_set_app_chat_room_group_force_active_request,
+            CChatRoomSetAppChatRoomGroupForceActiveRequest,
             CChatRoomSetAppChatRoomGroupForceActiveResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8046,7 +8046,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatRoom/SetAppChatRoomGroupStopForceActive",
-            c_chat_room_set_app_chat_room_group_stop_force_active_notification,
+            CChatRoomSetAppChatRoomGroupStopForceActiveNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8062,7 +8062,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatRoom/AckChatMessage",
-            c_chat_room_ack_chat_message_notification,
+            CChatRoomAckChatMessageNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8078,7 +8078,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomCreateInviteLinkResponse":
         return await self._unary_unary(
             "/ChatRoom/CreateInviteLink",
-            c_chat_room_create_invite_link_request,
+            CChatRoomCreateInviteLinkRequest,
             CChatRoomCreateInviteLinkResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8094,7 +8094,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomGetInviteLinkInfoResponse":
         return await self._unary_unary(
             "/ChatRoom/GetInviteLinkInfo",
-            c_chat_room_get_invite_link_info_request,
+            CChatRoomGetInviteLinkInfoRequest,
             CChatRoomGetInviteLinkInfoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8110,7 +8110,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomGetInviteInfoResponse":
         return await self._unary_unary(
             "/ChatRoom/GetInviteInfo",
-            c_chat_room_get_invite_info_request,
+            CChatRoomGetInviteInfoRequest,
             CChatRoomGetInviteInfoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8126,7 +8126,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomGetInviteLinksForGroupResponse":
         return await self._unary_unary(
             "/ChatRoom/GetInviteLinksForGroup",
-            c_chat_room_get_invite_links_for_group_request,
+            CChatRoomGetInviteLinksForGroupRequest,
             CChatRoomGetInviteLinksForGroupResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8142,7 +8142,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomGetBanListResponse":
         return await self._unary_unary(
             "/ChatRoom/GetBanList",
-            c_chat_room_get_ban_list_request,
+            CChatRoomGetBanListRequest,
             CChatRoomGetBanListResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8158,7 +8158,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomGetInviteListResponse":
         return await self._unary_unary(
             "/ChatRoom/GetInviteList",
-            c_chat_room_get_invite_list_request,
+            CChatRoomGetInviteListRequest,
             CChatRoomGetInviteListResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8174,7 +8174,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomDeleteInviteLinkResponse":
         return await self._unary_unary(
             "/ChatRoom/DeleteInviteLink",
-            c_chat_room_delete_invite_link_request,
+            CChatRoomDeleteInviteLinkRequest,
             CChatRoomDeleteInviteLinkResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8190,7 +8190,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomSetSessionActiveChatRoomGroupsResponse":
         return await self._unary_unary(
             "/ChatRoom/SetSessionActiveChatRoomGroups",
-            c_chat_room_set_session_active_chat_room_groups_request,
+            CChatRoomSetSessionActiveChatRoomGroupsRequest,
             CChatRoomSetSessionActiveChatRoomGroupsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8206,7 +8206,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomSetUserChatGroupPreferencesResponse":
         return await self._unary_unary(
             "/ChatRoom/SetUserChatGroupPreferences",
-            c_chat_room_set_user_chat_group_preferences_request,
+            CChatRoomSetUserChatGroupPreferencesRequest,
             CChatRoomSetUserChatGroupPreferencesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8222,7 +8222,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomDeleteChatMessagesResponse":
         return await self._unary_unary(
             "/ChatRoom/DeleteChatMessages",
-            c_chat_room_delete_chat_messages_request,
+            CChatRoomDeleteChatMessagesRequest,
             CChatRoomDeleteChatMessagesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8238,7 +8238,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatRoom/UpdateMemberListView",
-            c_chat_room_update_member_list_view_notification,
+            CChatRoomUpdateMemberListViewNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8254,7 +8254,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomSearchMembersResponse":
         return await self._unary_unary(
             "/ChatRoom/SearchMembers",
-            c_chat_room_search_members_request,
+            CChatRoomSearchMembersRequest,
             CChatRoomSearchMembersResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8270,7 +8270,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomUpdateMessageReactionResponse":
         return await self._unary_unary(
             "/ChatRoom/UpdateMessageReaction",
-            c_chat_room_update_message_reaction_request,
+            CChatRoomUpdateMessageReactionRequest,
             CChatRoomUpdateMessageReactionResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8286,7 +8286,7 @@ class ChatRoomStub(betterproto.ServiceStub):
     ) -> "CChatRoomGetMessageReactionReactorsResponse":
         return await self._unary_unary(
             "/ChatRoom/GetMessageReactionReactors",
-            c_chat_room_get_message_reaction_reactors_request,
+            CChatRoomGetMessageReactionReactorsRequest,
             CChatRoomGetMessageReactionReactorsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8304,7 +8304,7 @@ class ClanChatRoomsStub(betterproto.ServiceStub):
     ) -> "CClanChatRoomsGetClanChatRoomInfoResponse":
         return await self._unary_unary(
             "/ClanChatRooms/GetClanChatRoomInfo",
-            c_clan_chat_rooms_get_clan_chat_room_info_request,
+            CClanChatRoomsGetClanChatRoomInfoRequest,
             CClanChatRoomsGetClanChatRoomInfoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8320,7 +8320,7 @@ class ClanChatRoomsStub(betterproto.ServiceStub):
     ) -> "CClanChatRoomsSetClanChatRoomPrivateResponse":
         return await self._unary_unary(
             "/ClanChatRooms/SetClanChatRoomPrivate",
-            c_clan_chat_rooms_set_clan_chat_room_private_request,
+            CClanChatRoomsSetClanChatRoomPrivateRequest,
             CClanChatRoomsSetClanChatRoomPrivateResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8338,7 +8338,7 @@ class ChatRoomClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatRoomClient/NotifyIncomingChatMessage",
-            c_chat_room_incoming_chat_message_notification,
+            CChatRoomIncomingChatMessageNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8354,7 +8354,7 @@ class ChatRoomClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatRoomClient/NotifyChatMessageModified",
-            c_chat_room_chat_message_modified_notification,
+            CChatRoomChatMessageModifiedNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8370,7 +8370,7 @@ class ChatRoomClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatRoomClient/NotifyMemberStateChange",
-            c_chat_room_member_state_change_notification,
+            CChatRoomMemberStateChangeNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8386,7 +8386,7 @@ class ChatRoomClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatRoomClient/NotifyChatRoomHeaderStateChange",
-            c_chat_room_chat_room_header_state_notification,
+            CChatRoomChatRoomHeaderStateNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8402,7 +8402,7 @@ class ChatRoomClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatRoomClient/NotifyChatRoomGroupRoomsChange",
-            c_chat_room_chat_room_group_rooms_change_notification,
+            CChatRoomChatRoomGroupRoomsChangeNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8418,7 +8418,7 @@ class ChatRoomClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatRoomClient/NotifyShouldRejoinChatRoomVoiceChat",
-            c_chat_room_notify_should_rejoin_chat_room_voice_chat_notification,
+            CChatRoomNotifyShouldRejoinChatRoomVoiceChatNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8434,7 +8434,7 @@ class ChatRoomClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatRoomClient/NotifyChatGroupUserStateChanged",
-            chat_room_client_notify_chat_group_user_state_changed_notification,
+            ChatRoomClientNotifyChatGroupUserStateChangedNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8450,7 +8450,7 @@ class ChatRoomClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatRoomClient/NotifyAckChatMessageEcho",
-            c_chat_room_ack_chat_message_notification,
+            CChatRoomAckChatMessageNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8466,7 +8466,7 @@ class ChatRoomClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatRoomClient/NotifyChatRoomDisconnect",
-            chat_room_client_notify_chat_room_disconnect_notification,
+            ChatRoomClientNotifyChatRoomDisconnectNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8482,7 +8482,7 @@ class ChatRoomClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatRoomClient/NotifyMemberListViewUpdated",
-            c_chat_room_client_member_list_view_updated_notification,
+            CChatRoomClientMemberListViewUpdatedNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8498,7 +8498,7 @@ class ChatRoomClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatRoomClient/NotifyMessageReaction",
-            c_chat_room_message_reaction_notification,
+            CChatRoomMessageReactionNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8516,7 +8516,7 @@ class ChatUsabilityStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatUsability/NotifyClientUsabilityMetrics",
-            c_chat_usability_client_usability_metrics_notification,
+            CChatUsabilityClientUsabilityMetricsNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8534,7 +8534,7 @@ class ChatUsabilityClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ChatUsabilityClient/NotifyRequestClientUsabilityMetrics",
-            c_chat_usability_request_client_usability_metrics_notification,
+            CChatUsabilityRequestClientUsabilityMetricsNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8552,7 +8552,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetMutualFriendsForIncomingInvitesResponse":
         return await self._unary_unary(
             "/Player/GetMutualFriendsForIncomingInvites",
-            c_player_get_mutual_friends_for_incoming_invites_request,
+            CPlayerGetMutualFriendsForIncomingInvitesRequest,
             CPlayerGetMutualFriendsForIncomingInvitesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8568,7 +8568,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetOwnedGamesResponse":
         return await self._unary_unary(
             "/Player/GetOwnedGames",
-            c_player_get_owned_games_request,
+            CPlayerGetOwnedGamesRequest,
             CPlayerGetOwnedGamesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8584,7 +8584,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetPlayNextResponse":
         return await self._unary_unary(
             "/Player/GetPlayNext",
-            c_player_get_play_next_request,
+            CPlayerGetPlayNextRequest,
             CPlayerGetPlayNextResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8600,7 +8600,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetFriendsGameplayInfoResponse":
         return await self._unary_unary(
             "/Player/GetFriendsGameplayInfo",
-            c_player_get_friends_gameplay_info_request,
+            CPlayerGetFriendsGameplayInfoRequest,
             CPlayerGetFriendsGameplayInfoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8616,7 +8616,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetGameBadgeLevelsResponse":
         return await self._unary_unary(
             "/Player/GetGameBadgeLevels",
-            c_player_get_game_badge_levels_request,
+            CPlayerGetGameBadgeLevelsRequest,
             CPlayerGetGameBadgeLevelsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8632,7 +8632,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetProfileBackgroundResponse":
         return await self._unary_unary(
             "/Player/GetProfileBackground",
-            c_player_get_profile_background_request,
+            CPlayerGetProfileBackgroundRequest,
             CPlayerGetProfileBackgroundResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8648,7 +8648,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerSetProfileBackgroundResponse":
         return await self._unary_unary(
             "/Player/SetProfileBackground",
-            c_player_set_profile_background_request,
+            CPlayerSetProfileBackgroundRequest,
             CPlayerSetProfileBackgroundResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8664,7 +8664,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetMiniProfileBackgroundResponse":
         return await self._unary_unary(
             "/Player/GetMiniProfileBackground",
-            c_player_get_mini_profile_background_request,
+            CPlayerGetMiniProfileBackgroundRequest,
             CPlayerGetMiniProfileBackgroundResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8680,7 +8680,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerSetMiniProfileBackgroundResponse":
         return await self._unary_unary(
             "/Player/SetMiniProfileBackground",
-            c_player_set_mini_profile_background_request,
+            CPlayerSetMiniProfileBackgroundRequest,
             CPlayerSetMiniProfileBackgroundResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8696,7 +8696,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetAvatarFrameResponse":
         return await self._unary_unary(
             "/Player/GetAvatarFrame",
-            c_player_get_avatar_frame_request,
+            CPlayerGetAvatarFrameRequest,
             CPlayerGetAvatarFrameResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8712,7 +8712,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerSetAvatarFrameResponse":
         return await self._unary_unary(
             "/Player/SetAvatarFrame",
-            c_player_set_avatar_frame_request,
+            CPlayerSetAvatarFrameRequest,
             CPlayerSetAvatarFrameResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8728,7 +8728,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetAnimatedAvatarResponse":
         return await self._unary_unary(
             "/Player/GetAnimatedAvatar",
-            c_player_get_animated_avatar_request,
+            CPlayerGetAnimatedAvatarRequest,
             CPlayerGetAnimatedAvatarResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8744,7 +8744,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerSetAnimatedAvatarResponse":
         return await self._unary_unary(
             "/Player/SetAnimatedAvatar",
-            c_player_set_animated_avatar_request,
+            CPlayerSetAnimatedAvatarRequest,
             CPlayerSetAnimatedAvatarResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8760,7 +8760,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetSteamDeckKeyboardSkinResponse":
         return await self._unary_unary(
             "/Player/GetSteamDeckKeyboardSkin",
-            c_player_get_steam_deck_keyboard_skin_request,
+            CPlayerGetSteamDeckKeyboardSkinRequest,
             CPlayerGetSteamDeckKeyboardSkinResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8776,7 +8776,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerSetSteamDeckKeyboardSkinResponse":
         return await self._unary_unary(
             "/Player/SetSteamDeckKeyboardSkin",
-            c_player_set_steam_deck_keyboard_skin_request,
+            CPlayerSetSteamDeckKeyboardSkinRequest,
             CPlayerSetSteamDeckKeyboardSkinResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8792,7 +8792,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetProfileItemsOwnedResponse":
         return await self._unary_unary(
             "/Player/GetProfileItemsOwned",
-            c_player_get_profile_items_owned_request,
+            CPlayerGetProfileItemsOwnedRequest,
             CPlayerGetProfileItemsOwnedResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8808,7 +8808,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetProfileItemsEquippedResponse":
         return await self._unary_unary(
             "/Player/GetProfileItemsEquipped",
-            c_player_get_profile_items_equipped_request,
+            CPlayerGetProfileItemsEquippedRequest,
             CPlayerGetProfileItemsEquippedResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8824,7 +8824,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerSetEquippedProfileItemFlagsResponse":
         return await self._unary_unary(
             "/Player/SetEquippedProfileItemFlags",
-            c_player_set_equipped_profile_item_flags_request,
+            CPlayerSetEquippedProfileItemFlagsRequest,
             CPlayerSetEquippedProfileItemFlagsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8840,7 +8840,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetEmoticonListResponse":
         return await self._unary_unary(
             "/Player/GetEmoticonList",
-            c_player_get_emoticon_list_request,
+            CPlayerGetEmoticonListRequest,
             CPlayerGetEmoticonListResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8856,7 +8856,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetTopAchievementsForGamesResponse":
         return await self._unary_unary(
             "/Player/GetTopAchievementsForGames",
-            c_player_get_top_achievements_for_games_request,
+            CPlayerGetTopAchievementsForGamesRequest,
             CPlayerGetTopAchievementsForGamesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8872,7 +8872,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetAchievementsProgressResponse":
         return await self._unary_unary(
             "/Player/GetAchievementsProgress",
-            c_player_get_achievements_progress_request,
+            CPlayerGetAchievementsProgressRequest,
             CPlayerGetAchievementsProgressResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8888,7 +8888,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetGameAchievementsResponse":
         return await self._unary_unary(
             "/Player/GetGameAchievements",
-            c_player_get_game_achievements_request,
+            CPlayerGetGameAchievementsRequest,
             CPlayerGetGameAchievementsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8904,7 +8904,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetFavoriteBadgeResponse":
         return await self._unary_unary(
             "/Player/GetFavoriteBadge",
-            c_player_get_favorite_badge_request,
+            CPlayerGetFavoriteBadgeRequest,
             CPlayerGetFavoriteBadgeResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8920,7 +8920,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerSetFavoriteBadgeResponse":
         return await self._unary_unary(
             "/Player/SetFavoriteBadge",
-            c_player_set_favorite_badge_request,
+            CPlayerSetFavoriteBadgeRequest,
             CPlayerSetFavoriteBadgeResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8936,7 +8936,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetProfileCustomizationResponse":
         return await self._unary_unary(
             "/Player/GetProfileCustomization",
-            c_player_get_profile_customization_request,
+            CPlayerGetProfileCustomizationRequest,
             CPlayerGetProfileCustomizationResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8952,7 +8952,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetPurchasedProfileCustomizationsResponse":
         return await self._unary_unary(
             "/Player/GetPurchasedProfileCustomizations",
-            c_player_get_purchased_profile_customizations_request,
+            CPlayerGetPurchasedProfileCustomizationsRequest,
             CPlayerGetPurchasedProfileCustomizationsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8968,7 +8968,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetPurchasedAndUpgradedProfileCustomizationsResponse":
         return await self._unary_unary(
             "/Player/GetPurchasedAndUpgradedProfileCustomizations",
-            c_player_get_purchased_and_upgraded_profile_customizations_request,
+            CPlayerGetPurchasedAndUpgradedProfileCustomizationsRequest,
             CPlayerGetPurchasedAndUpgradedProfileCustomizationsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -8984,7 +8984,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetProfileThemesAvailableResponse":
         return await self._unary_unary(
             "/Player/GetProfileThemesAvailable",
-            c_player_get_profile_themes_available_request,
+            CPlayerGetProfileThemesAvailableRequest,
             CPlayerGetProfileThemesAvailableResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9000,7 +9000,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerSetProfileThemeResponse":
         return await self._unary_unary(
             "/Player/SetProfileTheme",
-            c_player_set_profile_theme_request,
+            CPlayerSetProfileThemeRequest,
             CPlayerSetProfileThemeResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9016,7 +9016,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerSetProfilePreferencesResponse":
         return await self._unary_unary(
             "/Player/SetProfilePreferences",
-            c_player_set_profile_preferences_request,
+            CPlayerSetProfilePreferencesRequest,
             CPlayerSetProfilePreferencesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9032,7 +9032,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerPostStatusToFriendsResponse":
         return await self._unary_unary(
             "/Player/PostStatusToFriends",
-            c_player_post_status_to_friends_request,
+            CPlayerPostStatusToFriendsRequest,
             CPlayerPostStatusToFriendsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9048,7 +9048,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetPostedStatusResponse":
         return await self._unary_unary(
             "/Player/GetPostedStatus",
-            c_player_get_posted_status_request,
+            CPlayerGetPostedStatusRequest,
             CPlayerGetPostedStatusResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9064,7 +9064,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerDeletePostedStatusResponse":
         return await self._unary_unary(
             "/Player/DeletePostedStatus",
-            c_player_delete_posted_status_request,
+            CPlayerDeletePostedStatusRequest,
             CPlayerDeletePostedStatusResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9080,7 +9080,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetLastPlayedTimesResponse":
         return await self._unary_unary(
             "/Player/ClientGetLastPlayedTimes",
-            c_player_get_last_played_times_request,
+            CPlayerGetLastPlayedTimesRequest,
             CPlayerGetLastPlayedTimesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9096,7 +9096,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetTimeSsaAcceptedResponse":
         return await self._unary_unary(
             "/Player/GetTimeSSAAccepted",
-            c_player_get_time_ssa_accepted_request,
+            CPlayerGetTimeSsaAcceptedRequest,
             CPlayerGetTimeSsaAcceptedResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9112,7 +9112,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerAcceptSsaResponse":
         return await self._unary_unary(
             "/Player/AcceptSSA",
-            c_player_accept_ssa_request,
+            CPlayerAcceptSsaRequest,
             CPlayerAcceptSsaResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9128,7 +9128,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetNicknameListResponse":
         return await self._unary_unary(
             "/Player/GetNicknameList",
-            c_player_get_nickname_list_request,
+            CPlayerGetNicknameListRequest,
             CPlayerGetNicknameListResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9144,7 +9144,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetPerFriendPreferencesResponse":
         return await self._unary_unary(
             "/Player/GetPerFriendPreferences",
-            c_player_get_per_friend_preferences_request,
+            CPlayerGetPerFriendPreferencesRequest,
             CPlayerGetPerFriendPreferencesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9160,7 +9160,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerSetPerFriendPreferencesResponse":
         return await self._unary_unary(
             "/Player/SetPerFriendPreferences",
-            c_player_set_per_friend_preferences_request,
+            CPlayerSetPerFriendPreferencesRequest,
             CPlayerSetPerFriendPreferencesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9176,7 +9176,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerAddFriendResponse":
         return await self._unary_unary(
             "/Player/AddFriend",
-            c_player_add_friend_request,
+            CPlayerAddFriendRequest,
             CPlayerAddFriendResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9192,7 +9192,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerRemoveFriendResponse":
         return await self._unary_unary(
             "/Player/RemoveFriend",
-            c_player_remove_friend_request,
+            CPlayerRemoveFriendRequest,
             CPlayerRemoveFriendResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9208,7 +9208,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerIgnoreFriendResponse":
         return await self._unary_unary(
             "/Player/IgnoreFriend",
-            c_player_ignore_friend_request,
+            CPlayerIgnoreFriendRequest,
             CPlayerIgnoreFriendResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9224,7 +9224,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetCommunityPreferencesResponse":
         return await self._unary_unary(
             "/Player/GetCommunityPreferences",
-            c_player_get_community_preferences_request,
+            CPlayerGetCommunityPreferencesRequest,
             CPlayerGetCommunityPreferencesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9240,7 +9240,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerSetCommunityPreferencesResponse":
         return await self._unary_unary(
             "/Player/SetCommunityPreferences",
-            c_player_set_community_preferences_request,
+            CPlayerSetCommunityPreferencesRequest,
             CPlayerSetCommunityPreferencesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9256,7 +9256,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetTextFilterWordsResponse":
         return await self._unary_unary(
             "/Player/GetTextFilterWords",
-            c_player_get_text_filter_words_request,
+            CPlayerGetTextFilterWordsRequest,
             CPlayerGetTextFilterWordsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9272,7 +9272,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetNewSteamAnnouncementStateResponse":
         return await self._unary_unary(
             "/Player/GetNewSteamAnnouncementState",
-            c_player_get_new_steam_announcement_state_request,
+            CPlayerGetNewSteamAnnouncementStateRequest,
             CPlayerGetNewSteamAnnouncementStateResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9288,7 +9288,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerUpdateSteamAnnouncementLastReadResponse":
         return await self._unary_unary(
             "/Player/UpdateSteamAnnouncementLastRead",
-            c_player_update_steam_announcement_last_read_request,
+            CPlayerUpdateSteamAnnouncementLastReadRequest,
             CPlayerUpdateSteamAnnouncementLastReadResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9304,7 +9304,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetPrivacySettingsResponse":
         return await self._unary_unary(
             "/Player/GetPrivacySettings",
-            c_player_get_privacy_settings_request,
+            CPlayerGetPrivacySettingsRequest,
             CPlayerGetPrivacySettingsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9320,7 +9320,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerGetDurationControlResponse":
         return await self._unary_unary(
             "/Player/GetDurationControl",
-            c_player_get_duration_control_request,
+            CPlayerGetDurationControlRequest,
             CPlayerGetDurationControlResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9336,7 +9336,7 @@ class PlayerStub(betterproto.ServiceStub):
     ) -> "CPlayerRecordDisconnectedPlaytimeResponse":
         return await self._unary_unary(
             "/Player/RecordDisconnectedPlaytime",
-            c_player_record_disconnected_playtime_request,
+            CPlayerRecordDisconnectedPlaytimeRequest,
             CPlayerRecordDisconnectedPlaytimeResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9354,7 +9354,7 @@ class PlayerClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/PlayerClient/NotifyLastPlayedTimes",
-            c_player_last_played_times_notification,
+            CPlayerLastPlayedTimesNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9370,7 +9370,7 @@ class PlayerClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/PlayerClient/NotifyFriendNicknameChanged",
-            c_player_friend_nickname_changed_notification,
+            CPlayerFriendNicknameChangedNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9386,7 +9386,7 @@ class PlayerClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/PlayerClient/NotifyFriendEquippedProfileItemsChanged",
-            c_player_friend_equipped_profile_items_changed_notification,
+            CPlayerFriendEquippedProfileItemsChangedNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9402,7 +9402,7 @@ class PlayerClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/PlayerClient/NotifyNewSteamAnnouncementState",
-            c_player_new_steam_announcement_state_notification,
+            CPlayerNewSteamAnnouncementStateNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9418,7 +9418,7 @@ class PlayerClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/PlayerClient/NotifyCommunityPreferencesChanged",
-            c_player_community_preferences_changed_notification,
+            CPlayerCommunityPreferencesChangedNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9434,7 +9434,7 @@ class PlayerClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/PlayerClient/NotifyTextFilterWordsChanged",
-            c_player_text_filter_words_changed_notification,
+            CPlayerTextFilterWordsChangedNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9450,7 +9450,7 @@ class PlayerClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/PlayerClient/NotifyPerFriendPreferencesChanged",
-            c_player_per_friend_preferences_changed_notification,
+            CPlayerPerFriendPreferencesChangedNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9466,7 +9466,7 @@ class PlayerClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/PlayerClient/NotifyPrivacyPrivacySettingsChanged",
-            c_player_privacy_settings_changed_notification,
+            CPlayerPrivacySettingsChangedNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9484,7 +9484,7 @@ class HelpRequestLogsStub(betterproto.ServiceStub):
     ) -> "CHelpRequestLogsUploadUserApplicationLogResponse":
         return await self._unary_unary(
             "/HelpRequestLogs/UploadUserApplicationLog",
-            c_help_request_logs_upload_user_application_log_request,
+            CHelpRequestLogsUploadUserApplicationLogRequest,
             CHelpRequestLogsUploadUserApplicationLogResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9502,7 +9502,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityGetAppsResponse":
         return await self._unary_unary(
             "/Community/GetApps",
-            c_community_get_apps_request,
+            CCommunityGetAppsRequest,
             CCommunityGetAppsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9518,7 +9518,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityGetAppRichPresenceLocalizationResponse":
         return await self._unary_unary(
             "/Community/GetAppRichPresenceLocalization",
-            c_community_get_app_rich_presence_localization_request,
+            CCommunityGetAppRichPresenceLocalizationRequest,
             CCommunityGetAppRichPresenceLocalizationResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9534,7 +9534,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityGetCommentThreadResponse":
         return await self._unary_unary(
             "/Community/GetCommentThread",
-            c_community_get_comment_thread_request,
+            CCommunityGetCommentThreadRequest,
             CCommunityGetCommentThreadResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9550,7 +9550,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityPostCommentToThreadResponse":
         return await self._unary_unary(
             "/Community/PostCommentToThread",
-            c_community_post_comment_to_thread_request,
+            CCommunityPostCommentToThreadRequest,
             CCommunityPostCommentToThreadResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9566,7 +9566,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityDeleteCommentFromThreadResponse":
         return await self._unary_unary(
             "/Community/DeleteCommentFromThread",
-            c_community_delete_comment_from_thread_request,
+            CCommunityDeleteCommentFromThreadRequest,
             CCommunityDeleteCommentFromThreadResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9582,7 +9582,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityRateCommentThreadResponse":
         return await self._unary_unary(
             "/Community/RateCommentThread",
-            c_community_rate_comment_thread_request,
+            CCommunityRateCommentThreadRequest,
             CCommunityRateCommentThreadResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9598,7 +9598,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityGetCommentThreadRatingsResponse":
         return await self._unary_unary(
             "/Community/GetCommentThreadRatings",
-            c_community_get_comment_thread_ratings_request,
+            CCommunityGetCommentThreadRatingsRequest,
             CCommunityGetCommentThreadRatingsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9614,7 +9614,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityRateClanAnnouncementResponse":
         return await self._unary_unary(
             "/Community/RateClanAnnouncement",
-            c_community_rate_clan_announcement_request,
+            CCommunityRateClanAnnouncementRequest,
             CCommunityRateClanAnnouncementResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9630,7 +9630,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityGetClanAnnouncementVoteForUserResponse":
         return await self._unary_unary(
             "/Community/GetClanAnnouncementVoteForUser",
-            c_community_get_clan_announcement_vote_for_user_request,
+            CCommunityGetClanAnnouncementVoteForUserRequest,
             CCommunityGetClanAnnouncementVoteForUserResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9646,7 +9646,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityGetUserPartnerEventNewsResponse":
         return await self._unary_unary(
             "/Community/GetUserPartnerEventNews",
-            c_community_get_user_partner_event_news_request,
+            CCommunityGetUserPartnerEventNewsRequest,
             CCommunityGetUserPartnerEventNewsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9662,7 +9662,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityGetBestEventsForUserResponse":
         return await self._unary_unary(
             "/Community/GetBestEventsForUser",
-            c_community_get_best_events_for_user_request,
+            CCommunityGetBestEventsForUserRequest,
             CCommunityGetBestEventsForUserResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9678,7 +9678,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityMarkPartnerEventsForUserResponse":
         return await self._unary_unary(
             "/Community/MarkPartnerEventsForUser",
-            c_community_mark_partner_events_for_user_request,
+            CCommunityMarkPartnerEventsForUserRequest,
             CCommunityMarkPartnerEventsForUserResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9694,7 +9694,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityPartnerEventsShowMoreForAppResponse":
         return await self._unary_unary(
             "/Community/PartnerEventsShowMoreForApp",
-            c_community_partner_events_show_more_for_app_request,
+            CCommunityPartnerEventsShowMoreForAppRequest,
             CCommunityPartnerEventsShowMoreForAppResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9710,7 +9710,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityPartnerEventsShowLessForAppResponse":
         return await self._unary_unary(
             "/Community/PartnerEventsShowLessForApp",
-            c_community_partner_events_show_less_for_app_request,
+            CCommunityPartnerEventsShowLessForAppRequest,
             CCommunityPartnerEventsShowLessForAppResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9726,7 +9726,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityClearUserPartnerEventsAppPrioritiesResponse":
         return await self._unary_unary(
             "/Community/ClearUserPartnerEventsAppPriorities",
-            c_community_clear_user_partner_events_app_priorities_request,
+            CCommunityClearUserPartnerEventsAppPrioritiesRequest,
             CCommunityClearUserPartnerEventsAppPrioritiesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9742,7 +9742,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityGetUserPartnerEventsAppPrioritiesResponse":
         return await self._unary_unary(
             "/Community/GetUserPartnerEventsAppPriorities",
-            c_community_get_user_partner_events_app_priorities_request,
+            CCommunityGetUserPartnerEventsAppPrioritiesRequest,
             CCommunityGetUserPartnerEventsAppPrioritiesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9758,7 +9758,7 @@ class CommunityStub(betterproto.ServiceStub):
     ) -> "CCommunityClearSinglePartnerEventsAppPriorityResponse":
         return await self._unary_unary(
             "/Community/ClearSinglePartnerEventsAppPriority",
-            c_community_clear_single_partner_events_app_priority_request,
+            CCommunityClearSinglePartnerEventsAppPriorityRequest,
             CCommunityClearSinglePartnerEventsAppPriorityResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9777,7 +9777,7 @@ class ExperimentServiceStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/ExperimentService/ReportProductImpressionsFromClient",
-            unknown_proto,
+            UnknownProto,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9795,7 +9795,7 @@ class FriendsListStub(betterproto.ServiceStub):
     ) -> "CFriendsListGetCategoriesResponse":
         return await self._unary_unary(
             "/FriendsList/GetCategories",
-            c_friends_list_get_categories_request,
+            CFriendsListGetCategoriesRequest,
             CFriendsListGetCategoriesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9811,7 +9811,7 @@ class FriendsListStub(betterproto.ServiceStub):
     ) -> "CFriendsListGetFriendsListResponse":
         return await self._unary_unary(
             "/FriendsList/GetFriendsList",
-            c_friends_list_get_friends_list_request,
+            CFriendsListGetFriendsListRequest,
             CFriendsListGetFriendsListResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9827,7 +9827,7 @@ class FriendsListStub(betterproto.ServiceStub):
     ) -> "CFriendsListGetFavoritesResponse":
         return await self._unary_unary(
             "/FriendsList/GetFavorites",
-            c_friends_list_get_favorites_request,
+            CFriendsListGetFavoritesRequest,
             CFriendsListGetFavoritesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9843,7 +9843,7 @@ class FriendsListStub(betterproto.ServiceStub):
     ) -> "CFriendsListSetFavoritesResponse":
         return await self._unary_unary(
             "/FriendsList/SetFavorites",
-            c_friends_list_set_favorites_request,
+            CFriendsListSetFavoritesRequest,
             CFriendsListSetFavoritesResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9861,7 +9861,7 @@ class FriendsListClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/FriendsListClient/FavoritesChanged",
-            c_friends_list_favorites_changed_notification,
+            CFriendsListFavoritesChangedNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9879,7 +9879,7 @@ class ClanStub(betterproto.ServiceStub):
     ) -> "CClanRespondToClanInviteResponse":
         return await self._unary_unary(
             "/Clan/RespondToClanInvite",
-            c_clan_respond_to_clan_invite_request,
+            CClanRespondToClanInviteRequest,
             CClanRespondToClanInviteResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9897,7 +9897,7 @@ class VoiceChatStub(betterproto.ServiceStub):
     ) -> "CVoiceChatUpdateVoiceChatWebRtcDataResponse":
         return await self._unary_unary(
             "/VoiceChat/UpdateVoiceChatWebRTCData",
-            c_voice_chat_update_voice_chat_web_rtc_data_request,
+            CVoiceChatUpdateVoiceChatWebRtcDataRequest,
             CVoiceChatUpdateVoiceChatWebRtcDataResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9913,7 +9913,7 @@ class VoiceChatStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/VoiceChat/NotifyUserVoiceStatus",
-            c_voice_chat_user_voice_status_notification,
+            CVoiceChatUserVoiceStatusNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9929,7 +9929,7 @@ class VoiceChatStub(betterproto.ServiceStub):
     ) -> "CVoiceChatUploadClientVoiceChatLogsResponse":
         return await self._unary_unary(
             "/VoiceChat/UploadClientVoiceChatLogs",
-            c_voice_chat_upload_client_voice_chat_logs_request,
+            CVoiceChatUploadClientVoiceChatLogsRequest,
             CVoiceChatUploadClientVoiceChatLogsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9945,7 +9945,7 @@ class VoiceChatStub(betterproto.ServiceStub):
     ) -> "CVoiceChatLeaveVoiceChatResponse":
         return await self._unary_unary(
             "/VoiceChat/LeaveVoiceChat",
-            c_voice_chat_leave_voice_chat_request,
+            CVoiceChatLeaveVoiceChatRequest,
             CVoiceChatLeaveVoiceChatResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9961,7 +9961,7 @@ class VoiceChatStub(betterproto.ServiceStub):
     ) -> "CVoiceChatRequestOneOnOneChatResponse":
         return await self._unary_unary(
             "/VoiceChat/RequestOneOnOneChat",
-            c_voice_chat_request_one_on_one_chat_request,
+            CVoiceChatRequestOneOnOneChatRequest,
             CVoiceChatRequestOneOnOneChatResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9977,7 +9977,7 @@ class VoiceChatStub(betterproto.ServiceStub):
     ) -> "CVoiceChatAnswerOneOnOneChatResponse":
         return await self._unary_unary(
             "/VoiceChat/AnswerOneOnOneChat",
-            c_voice_chat_answer_one_on_one_chat_request,
+            CVoiceChatAnswerOneOnOneChatRequest,
             CVoiceChatAnswerOneOnOneChatResponse,
             timeout=timeout,
             deadline=deadline,
@@ -9993,7 +9993,7 @@ class VoiceChatStub(betterproto.ServiceStub):
     ) -> "CVoiceChatEndOneOnOneChatResponse":
         return await self._unary_unary(
             "/VoiceChat/EndOneOnOneChat",
-            c_voice_chat_end_one_on_one_chat_request,
+            CVoiceChatEndOneOnOneChatRequest,
             CVoiceChatEndOneOnOneChatResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10009,7 +10009,7 @@ class VoiceChatStub(betterproto.ServiceStub):
     ) -> "CVoiceChatLeaveOneOnOneChatResponse":
         return await self._unary_unary(
             "/VoiceChat/LeaveOneOnOneChat",
-            c_voice_chat_leave_one_on_one_chat_request,
+            CVoiceChatLeaveOneOnOneChatRequest,
             CVoiceChatLeaveOneOnOneChatResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10027,7 +10027,7 @@ class VoiceChatClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/VoiceChatClient/NotifyUserJoinedVoiceChat",
-            c_voice_chat_user_joined_voice_chat_notification,
+            CVoiceChatUserJoinedVoiceChatNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10043,7 +10043,7 @@ class VoiceChatClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/VoiceChatClient/NotifyUserLeftVoiceChat",
-            c_voice_chat_user_left_voice_chat_notification,
+            CVoiceChatUserLeftVoiceChatNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10059,7 +10059,7 @@ class VoiceChatClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/VoiceChatClient/NotifyVoiceChatEnded",
-            c_voice_chat_voice_chat_ended_notification,
+            CVoiceChatVoiceChatEndedNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10075,7 +10075,7 @@ class VoiceChatClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/VoiceChatClient/NotifyUserVoiceStatus",
-            c_voice_chat_user_voice_status_notification,
+            CVoiceChatUserVoiceStatusNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10091,7 +10091,7 @@ class VoiceChatClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/VoiceChatClient/NotifyAllUsersVoiceStatus",
-            c_voice_chat_all_members_status_notification,
+            CVoiceChatAllMembersStatusNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10107,7 +10107,7 @@ class VoiceChatClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/VoiceChatClient/NotifyOneOnOneChatRequested",
-            c_voice_chat_one_on_one_chat_requested_notification,
+            CVoiceChatOneOnOneChatRequestedNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10123,7 +10123,7 @@ class VoiceChatClientStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/VoiceChatClient/NotifyOneOnOneChatResponse",
-            c_voice_chat_one_on_one_chat_request_response_notification,
+            CVoiceChatOneOnOneChatRequestResponseNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10141,7 +10141,7 @@ class WebRtcClientStub(betterproto.ServiceStub):
     ) -> "CWebRtcClientInitiateWebRtcConnectionResponse":
         return await self._unary_unary(
             "/WebRTCClient/InitiateWebRTCConnection",
-            c_web_rtc_client_initiate_web_rtc_connection_request,
+            CWebRtcClientInitiateWebRtcConnectionRequest,
             CWebRtcClientInitiateWebRtcConnectionResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10157,7 +10157,7 @@ class WebRtcClientStub(betterproto.ServiceStub):
     ) -> "CWebRtcClientAcknowledgeUpdatedRemoteDescriptionResponse":
         return await self._unary_unary(
             "/WebRTCClient/AcknowledgeUpdatedRemoteDescription",
-            c_web_rtc_client_acknowledge_updated_remote_description_request,
+            CWebRtcClientAcknowledgeUpdatedRemoteDescriptionRequest,
             CWebRtcClientAcknowledgeUpdatedRemoteDescriptionResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10175,7 +10175,7 @@ class WebRtcClientNotificationsStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/WebRTCClientNotifications/NotifyWebRTCSessionConnected",
-            c_web_rtc_web_rtc_session_connected_notification,
+            CWebRtcWebRtcSessionConnectedNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10191,7 +10191,7 @@ class WebRtcClientNotificationsStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/WebRTCClientNotifications/NotifyWebRTCUpdateRemoteDescription",
-            c_web_rtc_web_rtc_update_remote_description_notification,
+            CWebRtcWebRtcUpdateRemoteDescriptionNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10209,7 +10209,7 @@ class MobilePerAccountStub(betterproto.ServiceStub):
     ) -> "CMobilePerAccountGetSettingsResponse":
         return await self._unary_unary(
             "/MobilePerAccount/GetSettings",
-            c_mobile_per_account_get_settings_request,
+            CMobilePerAccountGetSettingsRequest,
             CMobilePerAccountGetSettingsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10225,7 +10225,7 @@ class MobilePerAccountStub(betterproto.ServiceStub):
     ) -> "CMobilePerAccountSetSettingsResponse":
         return await self._unary_unary(
             "/MobilePerAccount/SetSettings",
-            c_mobile_per_account_set_settings_request,
+            CMobilePerAccountSetSettingsRequest,
             CMobilePerAccountSetSettingsResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10243,7 +10243,7 @@ class MobileDeviceStub(betterproto.ServiceStub):
     ) -> "CMobileDeviceRegisterMobileDeviceResponse":
         return await self._unary_unary(
             "/MobileDevice/RegisterMobileDevice",
-            c_mobile_device_register_mobile_device_request,
+            CMobileDeviceRegisterMobileDeviceRequest,
             CMobileDeviceRegisterMobileDeviceResponse,
             timeout=timeout,
             deadline=deadline,
@@ -10259,7 +10259,7 @@ class MobileDeviceStub(betterproto.ServiceStub):
     ) -> "NoResponse":
         return await self._unary_unary(
             "/MobileDevice/DeregisterMobileDevice",
-            c_mobile_device_deregister_mobile_device_notification,
+            CMobileDeviceDeregisterMobileDeviceNotification,
             NoResponse,
             timeout=timeout,
             deadline=deadline,

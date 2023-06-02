@@ -5,7 +5,7 @@ pip==22.0.4
 requests
 
 #install requirements. 
-invoke==1.2.0
+invoke==1.7.0
 wheel
 
 galaxy.plugin.api==0.69

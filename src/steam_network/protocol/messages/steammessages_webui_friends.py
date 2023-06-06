@@ -6,6 +6,14 @@ from typing import List
 
 import betterproto
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+
+    from steammessages_base import CMsgIPAddress, CCDDBAppDetailCommon, CClanMatchEventByRange
+
+    from steammessages_clientserver_friends import CMsgClientFriendsList
+
 
 @dataclass
 class CHelpRequestLogs_UploadUserApplicationLog_Request(betterproto.Message):

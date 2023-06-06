@@ -19,7 +19,8 @@ import re
 
 from re import Match
 
-from .TaskHelper import cleanup_all_dependencies
+from task_helper import cleanup_all_dependencies
+from pprint import pprint
 
 Span = Tuple[int, int]
 
@@ -247,36 +248,24 @@ def GenerateProtobufMessages(c):
 
     os.makedirs(os.path.join(out_dir), exist_ok=True)
 
-    def to_proto_file(file_name: str) -> str:
+    def to_quoted_proto_file(file_name: str) -> str:
         return  '"' + os.path.join(proto_files_dir, file_name) + '"'
+    def to_proto_file(file_name: str) -> str:
+        return  os.path.join(proto_files_dir, file_name) + ".proto"
     def to_compile_file(file_name: str) -> str:
-        return  '"' + os.path.join(out_dir, file_name) + '"'
+        return  os.path.join(out_dir, file_name) + ".py"
 
     all_file_names = os.listdir(proto_files_dir)
-    all_files = " ".join(map(to_proto_file, all_file_names))
-    #print(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_out="{out_dir}" {all_files}')
-    #c.run(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_out="{out_dir}" {all_files}')
-    print(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_betterproto_out="{out_dir}" {all_files}')
+    all_files = " ".join(map(to_quoted_proto_file, all_file_names))
+    ##print(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_betterproto_out="{out_dir}" {all_files}')
     c.run(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_betterproto_out="{out_dir}" {all_files}')
 
+    all_file_names = list(map(lambda x : os.path.splitext(x)[0], all_file_names))
+    
+    with open (os.path.join(out_dir, "__init__.py"), "w"):
+        pass #just create it
+
     cleanup_all_dependencies(all_file_names, to_proto_file, to_compile_file)
-
-    #some of the services mess up, so fix them. basically, read init line by line, and if we detect a snake_case string where a TitleCase class should be, fix it. Then write it to a new file
-    #finally, delete and rename the out file back to init.
-    #init = os.path.join(out_dir, "__init__.py")
-    #out = os.path.join(out_dir, "__init__.py2")
-    #with open(init, "r") as file:
-    #    with open (out, "w") as out_file:
-    #        for line in file:
-    #            if re.match("^\s+\w+_\w*,\s*$", line) and "TYPE_CHECKING" not in line:
-    #                #here's some python nonsense. Split the line on every underscore. capitalize each split word. then join them together without any spaces.
-    #                line = ''.join(map(lambda x: x.title(), line.split("_")))
-    #            out_file.write(line)
-
-    #os.remove(init)
-    #os.rename(out, init)
-
-
 
 @task
 def ClearGeneratedProtobufs(c, genFile = True):

@@ -125,8 +125,8 @@
     <Compile Include="src\steam_network\__init__.py" />
     <Compile Include="src\uri_scheme_handler.py" />
     <Compile Include="src\version.py" />
-    <Compile Include="TaskHelper.py" />
     <Compile Include="tasks.py" />
+    <Compile Include="task_helper.py" />
     <Compile Include="tests\async_mock.py" />
     <Compile Include="tests\conftest.py" />
     <Compile Include="tests\tests_public_profiles\conftest.py" />

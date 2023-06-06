@@ -1,4 +1,3 @@
-syntax = "proto2";
 import "steammessages_base.proto";
 import "steammessages_unified_base.proto";
 import "steammessages_clientserver_friends.proto";
@@ -978,14 +977,14 @@ message CChatUsability_ClientUsabilityMetrics_Notification {
 message CChatUsability_RequestClientUsabilityMetrics_Notification {
 	optional uint32 metrics_run_id = 1;
 }
-
+/*
 service Chat {
 	option (service_description) = "Chat-related services";
 
 	rpc RequestFriendPersonaStates (.CChat_RequestFriendPersonaStates_Request) returns (.CChat_RequestFriendPersonaStates_Response) {
 		option (method_description) = "Request to be notified of online friend persona state information.  Responses sent via CMsgClientPersonaState.";
 	}
-}
+}*//*
 
 service ChatRoom {
 	option (service_description) = "Service for joining, managing, and using multi-user chat rooms";
@@ -1201,7 +1200,7 @@ service ChatRoom {
 	rpc GetMessageReactionReactors (.CChatRoom_GetMessageReactionReactors_Request) returns (.CChatRoom_GetMessageReactionReactors_Response) {
 		option (method_description) = "Fetches a list of reactors for a specified reaction";
 	}
-}
+}*//*
 
 service ClanChatRooms {
 	option (service_description) = "Methods for getting clan chat information";
@@ -1213,7 +1212,7 @@ service ClanChatRooms {
 	rpc SetClanChatRoomPrivate (.CClanChatRooms_SetClanChatRoomPrivate_Request) returns (.CClanChatRooms_SetClanChatRoomPrivate_Response) {
 		option (method_description) = "Set a clan chat room to be members only (or public)";
 	}
-}
+}*//*
 
 service ChatRoomClient {
 	option (service_description) = "Client notifications for chat events";
@@ -1262,7 +1261,7 @@ service ChatRoomClient {
 	rpc NotifyMessageReaction (.CChatRoom_MessageReaction_Notification) returns (.NoResponse) {
 		option (method_description) = "New message reaction";
 	}
-}
+}*//*
 
 service ChatUsability {
 	option (service_description) = "Client notifications for chat events";
@@ -1270,7 +1269,7 @@ service ChatUsability {
 	rpc NotifyClientUsabilityMetrics (.CChatUsability_ClientUsabilityMetrics_Notification) returns (.NoResponse) {
 		option (method_description) = "Incoming metrics from the client";
 	}
-}
+}*//*
 
 service ChatUsabilityClient {
 	option (service_description) = "Client notifications for chat usability";
@@ -1279,4 +1278,4 @@ service ChatUsabilityClient {
 	rpc NotifyRequestClientUsabilityMetrics (.CChatUsability_RequestClientUsabilityMetrics_Notification) returns (.NoResponse) {
 		option (method_description) = "Request client send usability metrics";
 	}
-}
+}*/

@@ -14,8 +14,14 @@ from http.client import HTTPResponse
 from invoke import task
 from galaxy.tools import zip_folder_to_file
 
-from typing import List, Text, TextIO
+from typing import List, Text, TextIO, Tuple, Optional
 import re
+
+from re import Match
+
+from .TaskHelper import cleanup_all_dependencies
+
+Span = Tuple[int, int]
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 PROTOC_DIR = os.path.join(BASE_DIR, "protoc")
@@ -48,9 +54,6 @@ def build(c, output='output', ziparchive=None):
     if os.path.exists(output):
         print('--> Removing {} directory'.format(output))
         rmtree(output)
-
-    print('--> Fixing a pip issue, failing to import `BAR_TYPES` from `pip._internal.cli.progress_bars`')
-    c.run(PYTHON_EXE + ' -m pip install --upgrade pip==22.0.4')
 
     # Firstly dependencies need to be "flattened" with pip-compile,
     # as pip requires --no-deps if --platform is used.
@@ -88,6 +91,61 @@ def _read_url(response :HTTPResponse) -> str:
 def _get_filename_from_url(url: str) -> str:
     return url.split("/")[-1]
 
+def _re_search(rex: re.Pattern, text: str) -> int:
+    mat : Optional[Match[str]] = re.search(rex, text)
+    return mat.start() if mat else -1
+
+def _remove_service_calls(text:str) -> str:
+    """
+    Removes the service calls from the protobuf files by commenting them out.
+
+    This is done so it's easier to understand how our calls will be used, but we use websockets instead of rpc.
+    The request/response should be identical, but we don't use these calls. so we don't want them compiled (it bloats __init__)
+    But we do want to be able to view them in the raw proto. 
+    """
+    retVal: str = ""
+    rex = re.compile("^\s*service \w+\s*\r?\n?\s*{", re.MULTILINE)
+    
+    index: int = _re_search(rex, text)
+    #for all bad strings we find
+    while(index >= 0):
+        #append all the previous good text to the return string. ignore if it's whitespace or empty. 
+        good_text : str = text[:index]
+        #print("index: " + str(index) + "; good_text: ***" + good_text + "***")
+        #print("Is text good? " + ("true" if good_text is not None else "false"))
+        #print("Is text not empty? " + ("true" if not good_text.isspace() else "false"))
+        if (good_text is not None and not good_text.isspace()):
+            retVal += good_text
+
+        count: int = 0
+        x:int = index;
+        #then loop over the next characters until we hit a bracket
+        for x in range(index, len(text)):
+            character = text[x]
+            #every time we hit an open bracket, increment a count
+            if character == '{': # found bracket
+                count += 1
+            #and decrease it when we hit a close.
+            elif  character == '}':
+                count -= 1
+                if (count < 0): #if count drops below 0 it's unexpected. should never happen.
+                    count = 0
+                #if we get back to zero it's our closing bracket for the service, so mark this as the start of a new good string
+                #find the next service call, and repeat this process until all services are found 
+                if (count == 0):
+                    #include the end bracket, so x+1
+                    retVal += "/*" + text[index:x+1] + "*/" #comment out service instead of deleting it.
+                    text = text[x + 1:]
+                    index = _re_search(rex, text)
+                    break #return to while loop.
+            elif(x == len(text) - 1):
+                text = ""
+                index = -1
+
+    if (text is not None and not text.isspace()):
+        retVal += text
+
+    return retVal
 
 def _pull_protobufs_internal(c, selection: str, silent: bool = False, deleteFiles = True):
     target_dir = os.path.join(BASE_DIR, "protobuf_files", "proto")
@@ -127,10 +185,11 @@ def _pull_protobufs_internal(c, selection: str, silent: bool = False, deleteFile
             data = data.replace("common_base.proto", "steammessages_unified_base.proto")
             data = data.replace("common.proto", "steammessages_base.proto")
 
+        data = _remove_service_calls(data)
 
         # force proto2 syntax if not yet enforced
-        if "proto2" not in data:
-            data = f'syntax = "proto2";\n' + data
+        #if "proto2" not in data:
+        #    data = f'syntax = "proto2";\n' + data
 
         with open(os.path.join(target_dir, file_name), "w") as dest:
             dest.write(data)
@@ -181,30 +240,38 @@ def GenerateProtobufMessages(c):
     out_dir = os.path.join(BASE_DIR, "src", "steam_network", "protocol", "messages")
     #out_dir = os.path.join(BASE_DIR, "protobuf_files", "gen")
 
-    #try:
-    #    rmtree(os.path.join(out_dir))
-    #except Exception:
-    #    pass  # directory probably just didn't exist
+    try:
+        rmtree(os.path.join(out_dir))
+    except Exception:
+        pass  # directory probably just didn't exist
 
-    #os.makedirs(os.path.join(out_dir), exist_ok=True)
+    os.makedirs(os.path.join(out_dir), exist_ok=True)
 
-    #all_files = " ".join(map(lambda x: '"' + os.path.join(proto_files_dir, x) + '"', os.listdir(proto_files_dir)))
-    ##print(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_out="{out_dir}" {all_files}')
-    ##c.run(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_out="{out_dir}" {all_files}')
-    #print(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_betterproto_out="{out_dir}" {all_files}')
-    #c.run(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_betterproto_out="{out_dir}" {all_files}')
+    def to_proto_file(file_name: str) -> str:
+        return  '"' + os.path.join(proto_files_dir, file_name) + '"'
+    def to_compile_file(file_name: str) -> str:
+        return  '"' + os.path.join(out_dir, file_name) + '"'
+
+    all_file_names = os.listdir(proto_files_dir)
+    all_files = " ".join(map(to_proto_file, all_file_names))
+    #print(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_out="{out_dir}" {all_files}')
+    #c.run(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_out="{out_dir}" {all_files}')
+    print(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_betterproto_out="{out_dir}" {all_files}')
+    c.run(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_betterproto_out="{out_dir}" {all_files}')
+
+    cleanup_all_dependencies(all_file_names, to_proto_file, to_compile_file)
 
     #some of the services mess up, so fix them. basically, read init line by line, and if we detect a snake_case string where a TitleCase class should be, fix it. Then write it to a new file
     #finally, delete and rename the out file back to init.
-    init = os.path.join(out_dir, "__init__.py")
-    out = os.path.join(out_dir, "__init__.py2")
-    with open(init, "r") as file:
-        with open (out, "w") as out_file:
-            for line in file:
-                if re.match("^\s+\w+_\w*,\s*$", line and "TYPE_CHECKING" not in line):
-                    #here's some python nonsense. Split the line on every underscore. capitalize each split word. then join them together without any spaces.
-                    line = ''.join(map(lambda x: x.title(), line.split("_")))
-                out_file.write(line)
+    #init = os.path.join(out_dir, "__init__.py")
+    #out = os.path.join(out_dir, "__init__.py2")
+    #with open(init, "r") as file:
+    #    with open (out, "w") as out_file:
+    #        for line in file:
+    #            if re.match("^\s+\w+_\w*,\s*$", line) and "TYPE_CHECKING" not in line:
+    #                #here's some python nonsense. Split the line on every underscore. capitalize each split word. then join them together without any spaces.
+    #                line = ''.join(map(lambda x: x.title(), line.split("_")))
+    #            out_file.write(line)
 
     #os.remove(init)
     #os.rename(out, init)

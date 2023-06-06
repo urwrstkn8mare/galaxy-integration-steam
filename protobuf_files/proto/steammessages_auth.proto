@@ -1,4 +1,3 @@
-syntax = "proto2";
 import "steammessages_base.proto";
 import "steammessages_unified_base.proto";
 import "enums.proto";
@@ -346,7 +345,7 @@ message CCloudGaming_TimeRemaining {
 message CCloudGaming_GetTimeRemaining_Response {
 	repeated .CCloudGaming_TimeRemaining entries = 2;
 }
-
+/*
 service Authentication {
 	option (service_description) = "Authentication Service";
 
@@ -401,7 +400,7 @@ service Authentication {
 	rpc RevokeRefreshToken (.CAuthentication_RefreshToken_Revoke_Request) returns (.CAuthentication_RefreshToken_Revoke_Response) {
 		option (method_description) = "Mark the given refresh token as revoked";
 	}
-}
+}*//*
 
 service AuthenticationSupport {
 	option (service_description) = "Authentication Support Service";
@@ -421,7 +420,7 @@ service AuthenticationSupport {
 	rpc GetTokenHistory (.CAuthenticationSupport_GetTokenHistory_Request) returns (.CAuthenticationSupport_GetTokenHistory_Response) {
 		option (method_description) = "Gets the audit history for a user's auth token";
 	}
-}
+}*//*
 
 service CloudGaming {
 	option (service_description) = "Methods for Steam cloud gaming operations";
@@ -433,4 +432,4 @@ service CloudGaming {
 	rpc GetTimeRemaining (.CCloudGaming_GetTimeRemaining_Request) returns (.CCloudGaming_GetTimeRemaining_Response) {
 		option (method_description) = "Get the amount of streaming time remaining for a set of apps";
 	}
-}
+}*/

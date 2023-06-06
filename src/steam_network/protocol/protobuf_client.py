@@ -15,11 +15,11 @@ import vdf
 from websockets.client import WebSocketClientProtocol
 
 from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
-from .messages.steammessages_base_pb2 import (
+from .messages.steammessages_base import (
     CMsgMulti,
     CMsgProtoBufHeader,
 )
-from .messages.steammessages_clientserver_login_pb2 import (
+from .messages.steammessages_clientserver_login import (
     CMsgClientAccountInfo,
     CMsgClientHeartBeat,
     CMsgClientHello,
@@ -28,7 +28,7 @@ from .messages.steammessages_clientserver_login_pb2 import (
     CMsgClientLogon,
     CMsgClientLogonResponse,
 )
-from .messages.steammessages_auth_pb2 import (
+from .messages.steammessages_auth import (
     CAuthentication_BeginAuthSessionViaCredentials_Request,
     CAuthentication_BeginAuthSessionViaCredentials_Response,
     CAuthentication_GetPasswordRSAPublicKey_Request,
@@ -40,40 +40,40 @@ from .messages.steammessages_auth_pb2 import (
     EAuthSessionGuardType,
     EAuthTokenPlatformType,
 )
-from .messages.steammessages_player_pb2 import (
+from .messages.steammessages_player import (
     CPlayer_GetLastPlayedTimes_Request,
     CPlayer_GetLastPlayedTimes_Response,
 )
-from .messages.steammessages_clientserver_friends_pb2 import (
+from .messages.steammessages_clientserver_friends import (
     CMsgClientChangeStatus,
     CMsgClientFriendsList,
     CMsgClientPersonaState,
     CMsgClientPlayerNicknameList,
     CMsgClientRequestFriendData,
 )
-from .messages.steammessages_clientserver_pb2 import (
+from .messages.steammessages_clientserver import (
     CMsgClientLicenseList,
 )
-from .messages.steammessages_chat_pb2 import (
+from .messages.steammessages_chat import (
     CChat_RequestFriendPersonaStates_Request,
 )
-from .messages.steammessages_clientserver_2_pb2 import (
+from .messages.steammessages_clientserver_2 import (
     CMsgClientUpdateMachineAuthResponse,
 )
-from .messages.steammessages_clientserver_userstats_pb2 import (
+from .messages.steammessages_clientserver_userstats import (
     CMsgClientGetUserStats,
     CMsgClientGetUserStatsResponse,
 )
-from .messages.steammessages_clientserver_appinfo_pb2 import (
+from .messages.steammessages_clientserver_appinfo import (
     CMsgClientPICSProductInfoRequest,
     CMsgClientPICSProductInfoResponse,
 )
-from .messages.service_cloudconfigstore_pb2 import (
+from .messages.service_cloudconfigstore import (
     CCloudConfigStore_Download_Request,
     CCloudConfigStore_Download_Response,
     CCloudConfigStore_NamespaceVersion,
 )
-from .messages.steammessages_webui_friends_pb2 import (
+from .messages.steammessages_webui_friends import (
     CCommunity_GetAppRichPresenceLocalization_Request,
     CCommunity_GetAppRichPresenceLocalization_Response,
 )

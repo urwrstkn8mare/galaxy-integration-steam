@@ -1,4 +1,3 @@
-syntax = "proto2";
 import "steammessages_unified_base.proto";
 
 message CCloudConfigStore_Change_Notification {
@@ -40,13 +39,12 @@ message CCloudConfigStore_Upload_Request {
 message CCloudConfigStore_Upload_Response {
 	repeated .CCloudConfigStore_NamespaceVersion versions = 1;
 }
-
+/*
 service CloudConfigStore {
 	rpc Download (.CCloudConfigStore_Download_Request) returns (.CCloudConfigStore_Download_Response);
 	rpc Upload (.CCloudConfigStore_Upload_Request) returns (.CCloudConfigStore_Upload_Response);
-}
+}*//*
 
 service CloudConfigStoreClient {
 	rpc NotifyChange (.CCloudConfigStore_Change_Notification) returns (.NoResponse);
-}
-
+}*/

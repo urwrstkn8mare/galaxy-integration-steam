@@ -658,10 +658,10 @@ message CMobileDevice_DeregisterMobileDevice_Notification {
 
 message UnknownProto {
 }
-
+/*
 service HelpRequestLogs {
 	rpc UploadUserApplicationLog (.CHelpRequestLogs_UploadUserApplicationLog_Request) returns (.CHelpRequestLogs_UploadUserApplicationLog_Response);
-}
+}*//*
 
 service Community {
 	rpc GetApps (.CCommunity_GetApps_Request) returns (.CCommunity_GetApps_Response);
@@ -681,26 +681,26 @@ service Community {
 	rpc ClearUserPartnerEventsAppPriorities (.CCommunity_ClearUserPartnerEventsAppPriorities_Request) returns (.CCommunity_ClearUserPartnerEventsAppPriorities_Response);
 	rpc GetUserPartnerEventsAppPriorities (.CCommunity_GetUserPartnerEventsAppPriorities_Request) returns (.CCommunity_GetUserPartnerEventsAppPriorities_Response);
 	rpc ClearSinglePartnerEventsAppPriority (.CCommunity_ClearSinglePartnerEventsAppPriority_Request) returns (.CCommunity_ClearSinglePartnerEventsAppPriority_Response);
-}
+}*//*
 
 service ExperimentService {
 	rpc ReportProductImpressionsFromClient (.UnknownProto) returns (.NoResponse);
-}
+}*//*
 
 service FriendsList {
 	rpc GetCategories (.CFriendsList_GetCategories_Request) returns (.CFriendsList_GetCategories_Response);
 	rpc GetFriendsList (.CFriendsList_GetFriendsList_Request) returns (.CFriendsList_GetFriendsList_Response);
 	rpc GetFavorites (.CFriendsList_GetFavorites_Request) returns (.CFriendsList_GetFavorites_Response);
 	rpc SetFavorites (.CFriendsList_SetFavorites_Request) returns (.CFriendsList_SetFavorites_Response);
-}
+}*//*
 
 service FriendsListClient {
 	rpc FavoritesChanged (.CFriendsList_FavoritesChanged_Notification) returns (.NoResponse);
-}
+}*//*
 
 service Clan {
 	rpc RespondToClanInvite (.CClan_RespondToClanInvite_Request) returns (.CClan_RespondToClanInvite_Response);
-}
+}*//*
 
 service VoiceChat {
 	rpc UpdateVoiceChatWebRTCData (.CVoiceChat_UpdateVoiceChatWebRTCData_Request) returns (.CVoiceChat_UpdateVoiceChatWebRTCData_Response);
@@ -711,7 +711,7 @@ service VoiceChat {
 	rpc AnswerOneOnOneChat (.CVoiceChat_AnswerOneOnOneChat_Request) returns (.CVoiceChat_AnswerOneOnOneChat_Response);
 	rpc EndOneOnOneChat (.CVoiceChat_EndOneOnOneChat_Request) returns (.CVoiceChat_EndOneOnOneChat_Response);
 	rpc LeaveOneOnOneChat (.CVoiceChat_LeaveOneOnOneChat_Request) returns (.CVoiceChat_LeaveOneOnOneChat_Response);
-}
+}*//*
 
 service VoiceChatClient {
 	rpc NotifyUserJoinedVoiceChat (.CVoiceChat_UserJoinedVoiceChat_Notification) returns (.NoResponse);
@@ -721,25 +721,24 @@ service VoiceChatClient {
 	rpc NotifyAllUsersVoiceStatus (.CVoiceChat_AllMembersStatus_Notification) returns (.NoResponse);
 	rpc NotifyOneOnOneChatRequested (.CVoiceChat_OneOnOneChatRequested_Notification) returns (.NoResponse);
 	rpc NotifyOneOnOneChatResponse (.CVoiceChat_OneOnOneChatRequestResponse_Notification) returns (.NoResponse);
-}
+}*//*
 
 service WebRTCClient {
 	rpc InitiateWebRTCConnection (.CWebRTCClient_InitiateWebRTCConnection_Request) returns (.CWebRTCClient_InitiateWebRTCConnection_Response);
 	rpc AcknowledgeUpdatedRemoteDescription (.CWebRTCClient_AcknowledgeUpdatedRemoteDescription_Request) returns (.CWebRTCClient_AcknowledgeUpdatedRemoteDescription_Response);
-}
+}*//*
 
 service WebRTCClientNotifications {
 	rpc NotifyWebRTCSessionConnected (.CWebRTC_WebRTCSessionConnected_Notification) returns (.NoResponse);
 	rpc NotifyWebRTCUpdateRemoteDescription (.CWebRTC_WebRTCUpdateRemoteDescription_Notification) returns (.NoResponse);
-}
+}*//*
 
 service MobilePerAccount {
 	rpc GetSettings (.CMobilePerAccount_GetSettings_Request) returns (.CMobilePerAccount_GetSettings_Response);
 	rpc SetSettings (.CMobilePerAccount_SetSettings_Request) returns (.CMobilePerAccount_SetSettings_Response);
-}
+}*//*
 
 service MobileDevice {
 	rpc RegisterMobileDevice (.CMobileDevice_RegisterMobileDevice_Request) returns (.CMobileDevice_RegisterMobileDevice_Response);
 	rpc DeregisterMobileDevice (.CMobileDevice_DeregisterMobileDevice_Notification) returns (.NoResponse);
-}
-
+}*/

@@ -3,9 +3,9 @@
 # plugin: python-betterproto
 from dataclasses import dataclass
 
-import betterproto
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
+import betterproto
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
     from steammessages_base import CMsgIPAddress
 
 

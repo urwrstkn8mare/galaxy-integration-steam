@@ -1,8 +1,7 @@
 import re
-from typing import NamedTuple, Optional, List, Dict, Callable, Set, Iterator
+from typing import List, Dict, Callable, Set, Iterator
 
 from re import Match, findall
-from os import linesep
 from pprint import pprint
 #three steps to get this shit: 
 #1: read original proto, get imports.
@@ -62,11 +61,7 @@ def _cleanup_dependencies(file_name: str, convert_to_proto_file_name : Callable[
             import_strings : List[str] = []
 
             forward_references = _retrieve_forward_references(compiled_data)
-            print("all forward references: ") 
-            pprint(forward_references)
             forward_references -= cached_lookup[file_name]
-            print("need to find: ") 
-            pprint(forward_references)
             #loop through all imported classes  
             iterList : Iterator[str] = iter(deps)
             item = next(iterList, None)
@@ -87,23 +82,18 @@ def _cleanup_dependencies(file_name: str, convert_to_proto_file_name : Callable[
                 item = next(iterList, None)
 
             if (len(import_strings) > 0):
-                pprint(import_strings)
-                replace_string = "import betterproto" + linesep + "from typing import TYPE_CHECKING" + linesep + \
-                                 "if TYPE_CHECKING:" + linesep + "    " + (linesep + "    ").join(import_strings)
+                replace_string = "import betterproto" + "\n\n" + "from typing import TYPE_CHECKING" + "\n" + \
+                                 "if TYPE_CHECKING:" + "\n" + "    " + ("\n    ").join(import_strings)
                 #print("Replace String " + replace_string)
                 compiled_data = compiled_data.replace("import betterproto", replace_string)
                 #print(compiled_data)
                 compiled_file.seek(0)
                 compiled_file.write(compiled_data)
-            else:
-                print("not adding any imports")
 
 def cleanup_all_dependencies(all_files: List[str], convert_to_proto_file_name : Callable[[str], str], convert_to_compiled_file_name: Callable[[str], str]):
     cache : Dict[str, List[str]] = {}
     for file in all_files:
         _cleanup_dependencies(file, convert_to_proto_file_name, convert_to_compiled_file_name, cache)
-    #print("cache: ")
-    #pprint(cache)
 
 
 

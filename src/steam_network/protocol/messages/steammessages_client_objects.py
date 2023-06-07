@@ -4,10 +4,10 @@
 from dataclasses import dataclass
 from typing import List
 
-import betterproto
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from enums import ECPUGovernor, EStorageBlockFileSystemType, ESystemAudioPortDirection, EOSBranch, ESDCardFormatStage, EUpdaterType, ESystemAudioChannel, ESystemAudioPortType, ESystemAudioDirection, EGPUPerformanceLevel, EStorageBlockContentType, ESystemFanControlMode, ESplitScalingScaler, EHDRToneMapOperator, EGraphicsPerfOverlayLevel, EBluetoothDeviceType, ESystemServiceState, ESystemDisplayCompatibilityMode, EStorageDriveMediaType, ESplitScalingFilter, EUpdaterState
+import betterproto
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from enums import EUpdaterState, ESystemAudioPortDirection, ESystemAudioChannel, EHDRToneMapOperator, ESDCardFormatStage, ECPUGovernor, EOSBranch, ESystemAudioPortType, EStorageBlockFileSystemType, ESplitScalingScaler, EStorageBlockContentType, ESystemAudioDirection, ESplitScalingFilter, EUpdaterType, EStorageDriveMediaType, ESystemFanControlMode, EGPUPerformanceLevel, EGraphicsPerfOverlayLevel, ESystemServiceState, EBluetoothDeviceType, ESystemDisplayCompatibilityMode
 
 
 class ECloudPendingRemoteOperation(betterproto.Enum):

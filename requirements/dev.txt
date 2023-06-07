@@ -1,13 +1,13 @@
 -r app.txt
 -r install.txt
 
-pip-tools==5.1.2
+pip-tools==6.13 #bump to at least 5.4.0 to ignore certain errors
 
-pytest==5.2.0
-pytest-asyncio==0.10.0
-pytest-mock==1.10.3
-pytest-flakes==4.0.0
+pytest==7.3.1
+pytest-asyncio==0.21.0
+pytest-mock==3.4.0
+pytest-flakes==4.0.5
 pytest-pythonpath==0.7.3
 
 #we need the compile version for protoc so we can make the protobufs. 
-"betterproto[compiler]"==2.0.0b5
+"betterproto[compiler]"==1.2.5

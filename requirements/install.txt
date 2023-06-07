@@ -1,11 +1,11 @@
 #use specific pip version for dependencies to work nicely
-pip==22.0.4
+pip==23.1
 
 #protoc install.
-requests
+requests==2.31.0
 
 #install requirements. 
-invoke==1.7.0
-wheel
+invoke==2.1.2 #bump to at least 1.7 to get rid of some issues.
+wheel==0.40.0
 
 galaxy.plugin.api==0.69

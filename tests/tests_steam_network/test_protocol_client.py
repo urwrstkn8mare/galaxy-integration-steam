@@ -19,7 +19,7 @@ class ProtoResponse(NamedTuple):
 
 
 class AchievementBlock(NamedTuple):
-    """Mocked element of steammessages_clientserver_pb2.Achievement_Blocks"""
+    """Mocked element of steammessages_clientserver.Achievement_Blocks"""
     achievement_id: int
     unlock_time: List[int]
 

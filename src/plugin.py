@@ -245,7 +245,7 @@ class SteamPlugin(Plugin):
 
     @staticmethod
     def _steam_command(command, game_id):
-        if game_id == "499450":
+        if game_id == "499450": #witcher 3 hack?
             game_id = "292030"
         if is_uri_handler_installed("steam"):
             webbrowser.open("steam://{}/{}".format(command, game_id))

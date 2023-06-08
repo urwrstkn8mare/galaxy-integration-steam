@@ -32,16 +32,19 @@ from galaxy.api.types import (
 from backend_interface import BackendInterface
 from http_client import HttpClient
 from persistent_cache_state import PersistentCacheState
-from steam_network.authentication_cache import AuthenticationCache
-from steam_network.friends_cache import FriendsCache
-from steam_network.games_cache import GamesCache
-from steam_network.local_machine_cache import LocalMachineCache
+
+from steam_network.caches.friends_cache import FriendsCache
+from steam_network.caches.games_cache import GamesCache
+from steam_network.caches.local_machine_cache import LocalMachineCache
+from steam_network.caches.stats_cache import StatsCache
+from steam_network.caches.times_cache import TimesCache
+from steam_network.caches.user_info_cache import UserInfoCache
+
+from steam_network.enums import UserActionRequired, AuthCall, DisplayUriHelper, TwoFactorMethod
 from steam_network.presence import presence_from_user_info
 from steam_network.protocol.steam_types import ProtoUserInfo  # TODO accessing inner module
-from steam_network.stats_cache import StatsCache
 from steam_network.steam_http_client import SteamHttpClient
-from steam_network.times_cache import TimesCache
-from steam_network.user_info_cache import UserInfoCache
+from steam_network.authentication_data import AuthenticationData
 from steam_network.websocket_client import WebSocketClient
 from steam_network.websocket_list import WebSocketList
 from steam_network.w3_hack import (
@@ -50,9 +53,8 @@ from steam_network.w3_hack import (
     WITCHER_3_GOTY_TITLE,
     does_witcher_3_dlcs_set_resolve_to_GOTY
 )
-
 from steam_network.utils import next_step_response_simple
-from steam_network.enums import UserActionRequired, AuthCall, DisplayUriHelper, TwoFactorMethod
+
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +85,7 @@ class SteamNetworkBackend(BackendInterface):
         self._persistent_storage_state : PersistentCacheState = persistent_storage_state
 
         self._store_credentials : Callable[[Dict[str, Any]], None] = store_credentials
-        self._authentication_cache : AuthenticationCache = AuthenticationCache()
+        self._authentication_cache : AuthenticationData = AuthenticationData()
         self._user_info_cache : UserInfoCache = UserInfoCache()
 
         self._games_cache : GamesCache = GamesCache()

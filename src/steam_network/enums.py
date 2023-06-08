@@ -9,8 +9,7 @@ import pathlib
 
 import logging
 
-from .protocol.messages.steammessages_auth_pb2 import CAuthentication_AllowedConfirmation, EAuthSessionGuardType 
-from pprint import pformat
+from .protocol.messages.steammessages_auth import CAuthentication_AllowedConfirmation, EAuthSessionGuardType 
 
 from google.protobuf.internal.enum_type_wrapper import EnumTypeWrapper
 

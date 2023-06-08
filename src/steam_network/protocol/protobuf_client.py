@@ -567,6 +567,8 @@ class ProtobufClient:
         header = proto_header.SerializeToString()
 
         body = message.SerializeToString()
+        #Magic string decoded: < = little endian. 2I = 2 x unsigned integer. 
+        #emsg | proto_mash is the first UInt, length of header is the second UInt.
         data = struct.pack("<2I", emsg | self._PROTO_MASK, len(header))
         data = data + header + body
 
@@ -578,11 +580,13 @@ class ProtobufClient:
 
     async def _process_packet(self, packet):
         package_size = len(packet)
+        #packets reserve the first 8 bytes for the Message code (emsg) and 
         logger.debug("Processing packet of %d bytes", package_size)
         if package_size < 8:
             logger.warning("Package too small, ignoring...")
+        #Magic string decoded: Unpack one < = little endian. I = unsigned integer. 
         raw_emsg = struct.unpack("<I", packet[:4])[0]
-        emsg: int = raw_emsg & ~self._PROTO_MASK
+        emsg: int = raw_emsg & ~self._PROTO_MASK 
         if raw_emsg & self._PROTO_MASK != 0:
             header_len = struct.unpack("<I", packet[4:8])[0]
             header = CMsgProtoBufHeader()

@@ -7,8 +7,8 @@ import copy
 import asyncio
 
 from .cache_proto import ProtoCache
-from .protocol.protobuf_client import SteamLicense
-from .w3_hack import WITCHER_3_DLCS_APP_IDS
+from ..protocol.protobuf_client import SteamLicense
+from ..w3_hack import WITCHER_3_DLCS_APP_IDS
 
 
 logger = logging.getLogger(__name__)

@@ -172,7 +172,7 @@ def _pull_protobufs_internal(c, selection: str, silent: bool = False, deleteFile
         response = urlopen(url)
         data = _read_url(response)
 
-        # needed to avoid packages of the form ...steam_auth.steamclient_pb2
+        # needed to avoid packages of the form ...steam_auth.steamclient
         if ".steamclient.proto" in file_name:
             file_name = file_name.replace(".steamclient.proto", ".proto")
         if ".steamclient.proto" in data:

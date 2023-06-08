@@ -1,36 +1,40 @@
 import asyncio
 import logging
 import secrets
+
 from typing import Callable, List, TYPE_CHECKING, Optional, Tuple, Dict
+from asyncio import Future
+
+from rsa import PublicKey
 
 from .steam_public_key import SteamPublicKey
 from .steam_auth_polling_data import SteamPollingData
 
 from .utils import get_os, translate_error
 
-from asyncio import Future
-from .local_machine_cache import LocalMachineCache
+from .caches.local_machine_cache import LocalMachineCache
+from .caches.friends_cache import FriendsCache
+from .caches.games_cache import GamesCache
+from .caches.stats_cache import StatsCache
+from .caches.user_info_cache import UserInfoCache
+from .caches.times_cache import TimesCache
+
+from .authentication_data import AuthenticationData
+
 from .protocol.protobuf_client import ProtobufClient, SteamLicense
 from .protocol.consts import EResult, EFriendRelationship, EPersonaState
-from .friends_cache import FriendsCache
-from .games_cache import GamesCache
-from .stats_cache import StatsCache
-from .user_info_cache import UserInfoCache
-from .times_cache import TimesCache
-from .authentication_cache import AuthenticationCache
 
 from .enums import TwoFactorMethod, UserActionRequired, to_TwoFactorWithMessage, to_EAuthSessionGuardType
 from .utils import get_os, translate_error
 
-from rsa import PublicKey
 
-from .protocol.messages.steammessages_auth_pb2 import (
+from .protocol.messages.steammessages_auth import (
     CAuthentication_BeginAuthSessionViaCredentials_Response,
     CAuthentication_AllowedConfirmation,
     CAuthentication_PollAuthSessionStatus_Response,
 )
 
-from .protocol.messages.steammessages_clientserver_userstats_pb2 import (
+from .protocol.messages.steammessages_clientserver_userstats import (
     CMsgClientGetUserStatsResponse,
 )
 
@@ -47,7 +51,7 @@ class ProtocolClient:
         translations_cache: Dict[int, str],
         stats_cache: StatsCache,
         times_cache: TimesCache,
-        authentication_cache: AuthenticationCache,
+        authentication_cache: AuthenticationData,
         user_info_cache: UserInfoCache,
         local_machine_cache: LocalMachineCache,
         used_server_cell_id : int,
@@ -79,7 +83,7 @@ class ProtocolClient:
         self._games_cache : GamesCache = games_cache
         self._translations_cache : Dict[int, str] = translations_cache
         self._stats_cache : StatsCache = stats_cache
-        self._authentication_cache : AuthenticationCache = authentication_cache
+        self._authentication_cache : AuthenticationData = authentication_cache
         self._user_info_cache : UserInfoCache = user_info_cache
         self._times_cache : TimesCache = times_cache
         self._auth_lost_handler = None

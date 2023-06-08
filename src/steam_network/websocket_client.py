@@ -10,17 +10,17 @@ from galaxy.api.errors import BackendNotAvailable, BackendTimeout, BackendError,
 
 from rsa import PublicKey, encrypt
 
-from .authentication_cache import AuthenticationCache
+from .authentication_data import AuthenticationData
 
 from .websocket_list import WebSocketList
-from .friends_cache import FriendsCache
-from .games_cache import GamesCache
-from .local_machine_cache import LocalMachineCache
-from .protocol_client import ProtocolClient
-from .stats_cache import StatsCache
-from .times_cache import TimesCache
-from .user_info_cache import UserInfoCache
+from .caches.friends_cache import FriendsCache
+from .caches.games_cache import GamesCache
+from .caches.local_machine_cache import LocalMachineCache
+from .caches.stats_cache import StatsCache
+from .caches.times_cache import TimesCache
+from .caches.user_info_cache import UserInfoCache
 
+from .protocol_client import ProtocolClient
 from .enums import AuthCall, TwoFactorMethod, UserActionRequired, to_helpful_string, to_UserAction
 
 from .steam_public_key import SteamPublicKey
@@ -57,7 +57,7 @@ class WebSocketClient:
         translations_cache: Dict[int, str],
         stats_cache: StatsCache,
         times_cache: TimesCache,
-        authentication_cache: AuthenticationCache,
+        authentication_cache: AuthenticationData,
         user_info_cache: UserInfoCache,
         local_machine_cache: LocalMachineCache,
     ):
@@ -70,7 +70,7 @@ class WebSocketClient:
         self._games_cache : GamesCache = games_cache
         self._translations_cache : Dict[int, str] = translations_cache
         self._stats_cache :StatsCache = stats_cache
-        self._authentication_cache : AuthenticationCache = authentication_cache
+        self._authentication_cache : AuthenticationData = authentication_cache
         self._user_info_cache : UserInfoCache = user_info_cache
         self._local_machine_cache : LocalMachineCache = local_machine_cache
         self._times_cache : TimesCache = times_cache

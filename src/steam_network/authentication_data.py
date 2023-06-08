@@ -1,8 +1,8 @@
 from typing import Optional, List, Tuple, Dict
-from .enums import TwoFactorMethod
+from enums import TwoFactorMethod
 
 
-class AuthenticationCache:
+class AuthenticationData:
     """ Cache designed to carry authentication-related information between the websocket and interface code. 
 
     This 'cache' is not designed to persist in any manner. it's simply a data-storage device. 

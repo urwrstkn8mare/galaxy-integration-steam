@@ -367,10 +367,10 @@ class ProtocolClient:
         not_resolved_licenses = []
 
         resolved_packages = self._games_cache.get_resolved_packages()
-        package_ids = set([str(steam_license.license.package_id) for steam_license in steam_licenses])
+        package_ids = set([str(steam_license.license_data.package_id) for steam_license in steam_licenses])
 
         for steam_license in steam_licenses:
-            if str(steam_license.license.package_id) not in resolved_packages:
+            if str(steam_license.license_data.package_id) not in resolved_packages:
                 not_resolved_licenses.append(steam_license)
 
         if len(package_ids) < 12000:
@@ -393,11 +393,11 @@ class ProtocolClient:
         self._games_cache.start_packages_import(not_resolved_licenses)
         await self._protobuf_client.get_packages_info(not_resolved_licenses)
 
-    def _app_info_handler(self, appid, package_id=None, title=None, type=None, parent=None):
+    def _app_info_handler(self, appid : str, package_id : Optional[str] = None, title: Optional[str]=None, type_: Optional[str]=None, parent: Optional[str]=None):
         if package_id:
             self._games_cache.update_license_apps(package_id, appid)
-        if title and type:
-            self._games_cache.update_app_title(appid, title, type, parent)
+        if title and type_:
+            self._games_cache.update_app_title(appid, title, type_, parent)
 
     def _package_info_handler(self):
         self._games_cache.update_packages()

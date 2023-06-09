@@ -5,10 +5,11 @@ from dataclasses import dataclass
 from typing import List
 
 import betterproto
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from steammessages_base import UserContentDescriptorPreferences, EBanContentCheckResult
-    from enums import EProfileCustomizationType, ECommunityItemClass, ENewSteamAnnouncementState
+    from enums import EProfileCustomizationType, ENewSteamAnnouncementState, ECommunityItemClass
 
 
 class EProfileCustomizationStyle(betterproto.Enum):

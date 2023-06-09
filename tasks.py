@@ -38,7 +38,7 @@ if sys.platform == 'win32':
 
     PROTOC_EXE = os.path.join(PROTOC_DIR, "bin", "protoc.exe")
     PROTOC_INCLUDE_DIR = os.path.join(PROTOC_DIR, "include")
-    PROTOC_DOWNLOAD_URL = "https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-win32.zip"
+    PROTOC_DOWNLOAD_URL = "https://github.com/protocolbuffers/protobuf/releases/download/v22.0/protoc-22.0-win32.zip"
 
 elif sys.platform == 'darwin':
     DIST_DIR = os.path.realpath(os.path.expanduser("~/Library/Application Support/GOG.com/Galaxy/plugins/installed"))
@@ -47,7 +47,7 @@ elif sys.platform == 'darwin':
 
     PROTOC_EXE = os.path.join(PROTOC_DIR, "bin", "protoc")
     PROTOC_INCLUDE_DIR = os.path.join(PROTOC_DIR, "include")
-    PROTOC_DOWNLOAD_URL = "https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-osx-x86_64.zip"
+    PROTOC_DOWNLOAD_URL = "https://github.com/protocolbuffers/protobuf/releases/download/v22.0/protoc-22.0-osx-x86_64.zip"
 
 
 @task

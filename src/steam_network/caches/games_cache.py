@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
-from typing import List, Dict, Optional, Set, AsyncGenerator
+from typing import Generator, Iterator, List, Dict, Optional, Set, AsyncGenerator
 import logging
 import json
 import copy
@@ -19,22 +19,21 @@ logger = logging.getLogger(__name__)
 class App:
     appid: str
     title: str
-    type: str
+    type_: str
     parent: Optional[str]
 
 
 @dataclass_json
 @dataclass
-class License:
+class GameLicense:
     package_id: str
     shared: bool
     app_ids: Set[str] = field(default_factory=set)
 
-
 @dataclass_json
 @dataclass
 class LicensesCache:
-    licenses: List[License] = field(default_factory=list)
+    licenses: List[GameLicense] = field(default_factory=list)
     apps: Dict[str, App] = field(default_factory=dict)
 
 
@@ -71,64 +70,65 @@ class GamesCache(ProtoCache):
         self._parsing_status.packages_to_parse = 0
         logger.debug('Licenses to parse: %d, cached package_ids: %d', len(steam_licenses), package_ids)
         for steam_license in steam_licenses:
-            if steam_license.license.package_id in package_ids:
+            if steam_license.license_data.package_id in package_ids:
                 continue
-            self._storing_map.licenses.append(License(package_id=str(steam_license.license.package_id),
+            self._storing_map.licenses.append(GameLicense(package_id=str(steam_license.license_data.package_id),
                                              shared=steam_license.shared))
             self._parsing_status.packages_to_parse += 1
         self._parsing_status.apps_to_parse = 0
         self._update_ready_state()
 
-    def consume_added_games(self):
+    def consume_added_games(self) -> List[App]:
         apps = self._apps_added
         self._apps_added = []
         games = []
         for app in apps:
             self._sent_apps.append(app)
-            if app.type == "game":
+            if app.type_ == "game":
                 games.append(app)
         return games
 
     def get_package_ids(self) -> Set[str]:
         if not self._storing_map:
             return set()
-        return set([license.package_id for license in copy.copy(self._storing_map).licenses])
+        game_licenses : List[GameLicense] = self._storing_map.licenses.copy() #copy in case it's updated or something, idk. 
+        return set([game_license.package_id for game_license in game_licenses])
 
     def get_resolved_packages(self) -> Set[str]:
         if not self._storing_map:
             return set()
         packages = set()
         storing_map = copy.copy(self._storing_map)
-        for license in storing_map.licenses:
-            if license.app_ids:
+        for game_license in storing_map.licenses:
+            if game_license.app_ids:
                 resolved = True
-                for app in license.app_ids:
+                for app in game_license.app_ids:
                     if app not in storing_map.apps:
                         resolved = False
                 if resolved:
-                    packages.add(license.package_id)
+                    packages.add(game_license.package_id)
         return packages
 
     def update_packages(self):
         self._parsing_status.packages_to_parse -= 1
         self._update_ready_state()
 
-    async def __consume_resolved_apps(self, shared_licenses: bool, apptype: str):
+    async def __consume_resolved_apps(self, shared_licenses: bool, apptype: str) -> AsyncGenerator[App, None]:
         storing_map = copy.copy(self._storing_map)
-        for license in storing_map.licenses:
+        for game_license in storing_map.licenses:
             await asyncio.sleep(0.0001)  # do not block event loop; waiting one frame (0) was not enough 78#issuecomment-687140437
-            if license.shared != shared_licenses:
+            if game_license.shared != shared_licenses:
                 continue
-            for appid in license.app_ids:
+            for appid in game_license.app_ids:
                 if appid not in self._storing_map.apps:
-                    logger.warning("Tried to retrieve unresolved app: %s for license: %s!", appid, license.package_id)
+                    logger.warning("Tried to retrieve unresolved app: %s for license: %s!", appid, game_license.package_id)
                     continue
                 app = self._storing_map.apps[appid]
-                if app.type == apptype:
+                if app.type_ == apptype:
                     self._sent_apps.append(app)
                     yield app
                 # Necessary for the Witcher 3 => Witcher 3 GOTY import hack
-                elif apptype == 'game' and app.type == 'dlc' and appid in WITCHER_3_DLCS_APP_IDS:
+                elif apptype == 'game' and app.type_ == 'dlc' and appid in WITCHER_3_DLCS_APP_IDS:
                     yield app
 
     async def get_owned_games(self) -> AsyncGenerator[App, None]:
@@ -143,17 +143,17 @@ class GamesCache(ProtoCache):
         async for app in self.__consume_resolved_apps(True, 'game'):
             yield app
 
-    def update_license_apps(self, package_id, appid):
+    def update_license_apps(self, package_id : str, appid: str):
         self._parsing_status.apps_to_parse += 1
-        for license in self._storing_map.licenses:
-            if license.package_id == package_id:
-                license.app_ids.add(appid)
+        for game_license in self._storing_map.licenses:
+            if game_license.package_id == package_id:
+                game_license.app_ids.add(appid)
 
-    def update_app_title(self, appid, title, type, parent):
-        for license in self._storing_map.licenses:
-            if appid in license.app_ids:
+    def update_app_title(self, appid : str, title : str, type_ : str, parent : str):
+        for game_license in self._storing_map.licenses:
+            if appid in game_license.app_ids:
                 self._parsing_status.apps_to_parse -= 1
-        new_app = App(appid=appid, title=title, type=type, parent=parent)
+        new_app = App(appid=appid, title=title, type_= type_, parent=parent)
         self._storing_map.apps[appid] = new_app
         if self.add_game_lever and new_app not in self._sent_apps:
             self._apps_added.append(new_app)

@@ -1,5 +1,5 @@
 from typing import Optional, List, Tuple, Dict
-from enums import TwoFactorMethod
+from .enums import TwoFactorMethod
 
 
 class AuthenticationData:

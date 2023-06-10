@@ -1,3 +1,6 @@
+wheel==0.40.0
+invoke==2.1.2 #bump to at least 1.7 to get rid of some issues.
+
 #use specific pip version for dependencies to work nicely
 pip==23.1
 
@@ -5,7 +8,5 @@ pip==23.1
 requests==2.31.0
 
 #install requirements. 
-invoke==2.1.2 #bump to at least 1.7 to get rid of some issues.
-wheel==0.40.0
 
 galaxy.plugin.api==0.69

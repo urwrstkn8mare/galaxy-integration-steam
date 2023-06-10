@@ -98,8 +98,6 @@ LOGIN_CREDENTIALS = "Authentication.BeginAuthSessionViaCredentials#1"
 UPDATE_TWO_FACTOR = "Authentication.UpdateAuthSessionWithSteamGuardCode#1"
 CHECK_AUTHENTICATION_STATUS = "Authentication.PollAuthSessionStatus#1"
 
-from betterproto import Message
-
 
 class SteamLicense(NamedTuple):
     license_data: CMsgClientLicenseListLicense  # type: ignore[name-defined]

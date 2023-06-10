@@ -195,6 +195,8 @@ class GamesCache(ProtoCache):
             logging.error("New plugin version, refreshing cache")
             return
 
+        #assume this will work, then fallback to the migration code if it doesn't. (aka optimistic checking)
+        #we do it this way because migration only occurs once, so there's no point doing the more costly migration unless necessary.
         try:
             self._storing_map = LicensesCache.from_json(cache['licenses'])
         except KeyError:

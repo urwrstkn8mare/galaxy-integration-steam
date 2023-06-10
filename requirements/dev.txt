@@ -9,5 +9,5 @@ pytest-mock==3.4.0
 pytest-flakes==4.0.5
 pytest-pythonpath==0.7.3
 
-#we need the compile version for protoc so we can make the protobufs. 
-"betterproto[compiler]"==1.2.5
+#we need the compile version for protoc so we can make the protobufs.
+betterproto[compiler]==1.2.5

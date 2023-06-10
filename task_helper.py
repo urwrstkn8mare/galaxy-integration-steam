@@ -78,15 +78,16 @@ def _cleanup_dependencies(file_name: str, convert_to_proto_file_name : Callable[
                             cached_lookup[item] = _retrieve_classes(item_data)
 
                     item_classes = cached_lookup[item]
-                    found_references = forward_references.intersection(item_classes)
+                    found_references = list(forward_references.intersection(item_classes))
+                    found_references.sort()
                     forward_references -= item_classes
                     if (len(found_references) > 0):
                         import_strings.append("from " + item + " import " + ", ".join(found_references))
 
                     item = next(iterList, None)
 
-                if (len(import_strings) > 0):
-                    replace_string = "import betterproto" + "\n".join(import_strings)
+                if len(import_strings) > 0:
+                    replace_string = "import betterproto\n\n" + "\n".join(import_strings)
                     #print("Replace String " + replace_string)
                     compiled_data = compiled_data.replace("import betterproto", replace_string)
 

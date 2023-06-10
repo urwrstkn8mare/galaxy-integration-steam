@@ -6,8 +6,8 @@ from typing import List
 
 import betterproto
 
-from steammessages_base import UserContentDescriptorPreferences, EBanContentCheckResult
-from enums import EProfileCustomizationType, ENewSteamAnnouncementState, ECommunityItemClass
+from steammessages_base import EBanContentCheckResult, UserContentDescriptorPreferences
+from enums import ECommunityItemClass, ENewSteamAnnouncementState, EProfileCustomizationType
 
 
 class EProfileCustomizationStyle(betterproto.Enum):

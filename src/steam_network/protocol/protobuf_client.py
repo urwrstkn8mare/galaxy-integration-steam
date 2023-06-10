@@ -13,6 +13,7 @@ import base64
 import vdf
 
 from websockets.client import WebSocketClientProtocol
+from betterproto import Message
 
 from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
 from .messages.steammessages_base import (
@@ -39,6 +40,7 @@ from .messages.steammessages_auth import (
     CAuthentication_UpdateAuthSessionWithSteamGuardCode_Response,
     EAuthSessionGuardType,
     EAuthTokenPlatformType,
+    ESessionPersistence,
 )
 from .messages.steammessages_player import (
     CPlayer_GetLastPlayedTimes_Request,
@@ -97,7 +99,6 @@ GET_RSA_KEY = "Authentication.GetPasswordRSAPublicKey#1"
 LOGIN_CREDENTIALS = "Authentication.BeginAuthSessionViaCredentials#1"
 UPDATE_TWO_FACTOR = "Authentication.UpdateAuthSessionWithSteamGuardCode#1"
 CHECK_AUTHENTICATION_STATUS = "Authentication.PollAuthSessionStatus#1"
-
 
 class SteamLicense(NamedTuple):
     license_data: CMsgClientLicenseListLicense  # type: ignore[name-defined]
@@ -232,14 +233,16 @@ class ProtobufClient:
         message = CAuthentication_BeginAuthSessionViaCredentials_Request()
 
         message.account_name = account_name
-        #i think it needs to be in this format, but idk. This encoding makes it bytes,
-        #but i believe when it's written to our packet it's made a string anway. MyPy probably won't like that though
-        message.encrypted_password = base64.b64encode(enciphered_password).decode("utf-8") #type: ignore
+        #protobuf definition uses string, so we need this to be a string. but we can't parse the regular text as 
+        #a string because it's enciphered and contains illegal characters. b64 fixes this. 
+        #Then we make it a utf-8 string, and better proto then makes it bytes again when it's packed alongside all other message fields and sent along the websocket. 
+        #inelegant but the price you pay for proper type checking. 
+        message.encrypted_password = str(base64.b64encode(enciphered_password), "utf-8")
         message.website_id = "Client"
         message.device_friendly_name = friendly_name
         message.encryption_timestamp = timestamp
         message.platform_type = EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient #no idea if this line will work.
-        #message.persistence = ESessionPersistence.k_ESessionPersistence_Persistent # this is the default value and i have no idea how reflected enums work in python.
+        message.persistence = ESessionPersistence.k_ESessionPersistence_Persistent
 
         #message.device_details = device_details
         #so let's do it the hard way.
@@ -311,7 +314,7 @@ class ProtobufClient:
         else:
             logger.warning("NO POLL STATUS HANDLER SET!")
 
-    #old auth flow. Still necessary for remaining logged in and confirming after doing the new auth flow.
+    #old auth flow. Still necessary for remaining logged in and confirming after doing the new auth flow. 
     async def _get_obfuscated_private_ip(self) -> int:
         logger.info('Websocket state is: %s' % self._socket.state.name)
         await self._socket.ensure_open()
@@ -329,7 +332,7 @@ class ProtobufClient:
         #ClientLanguage = "english";
         #Username = pollResponse.AccountName,
         #AccessToken = pollResponse.RefreshToken,
-        #ShouldSavePassword = True #err on side of caution in case this not being set causes them to ignore access token. then try false.
+        #ShouldSavePassword = True #err on side of caution in case this not being set causes them to ignore access token. then try false. 
         resetSteamIDAfterThisCall : bool = False
         if (self.confirmed_steam_id is None):
             resetSteamIDAfterThisCall = True
@@ -460,7 +463,7 @@ class ProtobufClient:
 
         job_id = next(self._job_id_iterator)
         await self._send(EMsg.ServiceMethodCallFromClient, message, job_id, None,
-                         target_job_name=GET_APP_RICH_PRESENCE)
+                         target_job_name= GET_APP_RICH_PRESENCE)
 
     async def _send(self, emsg : EMsg, message: Message, source_job_id: Optional[int] = None,
                     target_job_id: Optional[int] = None, target_job_name: Optional[str] = None):
@@ -482,7 +485,7 @@ class ProtobufClient:
         header = bytes(proto_header)
         body = bytes(message)
 
-        #Magic string decoded: < = little endian. 2I = 2 x unsigned integer.
+        #Magic string decoded: < = little endian. 2I = 2 x unsigned integer. 
         #emsg | proto_mash is the first UInt, length of header is the second UInt.
         data = struct.pack("<2I", emsg | self._PROTO_MASK, len(header))
         data = data + header + body
@@ -495,7 +498,7 @@ class ProtobufClient:
 
     async def _process_packet(self, packet: bytes):
         package_size = len(packet)
-        #packets reserve the first 8 bytes for the Message code (emsg) and
+        #packets reserve the first 8 bytes for the Message code (emsg) and 
         logger.debug("Processing packet of %d bytes", package_size)
 
         if package_size < 8:
@@ -503,7 +506,7 @@ class ProtobufClient:
             return
 
         raw_emsg = int.from_bytes(packet[:4], "little")
-        emsg: int = raw_emsg & ~self._PROTO_MASK
+        emsg: int = raw_emsg & ~self._PROTO_MASK 
 
         if raw_emsg & self._PROTO_MASK != 0:
             header_len = int.from_bytes(packet[4:8], "little")

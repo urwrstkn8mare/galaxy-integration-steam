@@ -67,6 +67,7 @@ from .messages.steammessages_clientserver_userstats import (
 )
 from .messages.steammessages_clientserver_appinfo import (
     CMsgClientPICSProductInfoRequest,
+    CMsgClientPICSProductInfoRequestPackageInfo,
     CMsgClientPICSProductInfoResponse,
     CMsgClientPICSProductInfoResponsePackageInfo,
     CMsgClientPICSProductInfoResponseAppInfo,
@@ -443,13 +444,12 @@ class ProtobufClient:
     async def get_packages_info(self, steam_licenses: List[SteamLicense]):
         logger.info("Sending call %s with %d package_ids", repr(EMsg.ClientPICSProductInfoRequest), len(steam_licenses))
         message = CMsgClientPICSProductInfoRequest()
+        message.packages = list()
 
         for steam_license in steam_licenses:
-            info = CMsgClientPICSProductInfoResponsePackageInfo()
+            info = CMsgClientPICSProductInfoRequestPackageInfo()
             info.packageid = steam_license.license_data.package_id
             info.access_token = steam_license.license_data.access_token
-            if message.packages is None:
-                message.packages = []
             message.packages.append(info)
 
         await self._send(EMsg.ClientPICSProductInfoRequest, message)

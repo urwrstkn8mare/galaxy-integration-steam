@@ -6,10 +6,8 @@ from typing import List
 
 import betterproto
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from steammessages_base import CCDDBAppDetailCommon, CMsgIPAddress, CClanMatchEventByRange
-    from steammessages_clientserver_friends import CMsgClientFriendsList
+from steammessages_base import CCDDBAppDetailCommon, CClanMatchEventByRange, CMsgIPAddress
+from steammessages_clientserver_friends import CMsgClientFriendsList
 
 
 @dataclass

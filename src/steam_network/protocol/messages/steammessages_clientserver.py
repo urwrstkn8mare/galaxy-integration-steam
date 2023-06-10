@@ -6,10 +6,8 @@ from typing import List
 
 import betterproto
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from steammessages_base import CMsgAuthTicket, CMsgIPAddress
-    from encrypted_app_ticket import EncryptedAppTicket
+from steammessages_base import CMsgAuthTicket, CMsgIPAddress
+from encrypted_app_ticket import EncryptedAppTicket
 
 
 @dataclass

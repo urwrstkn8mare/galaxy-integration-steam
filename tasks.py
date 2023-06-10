@@ -189,8 +189,8 @@ def _pull_protobufs_internal(c, selection: str, silent: bool = False, deleteFile
         data = _remove_service_calls(data)
 
         # force proto2 syntax if not yet enforced
-        #if "proto2" not in data:
-        #    data = f'syntax = "proto2";\n' + data
+        if "proto2" not in data:
+           data = f'syntax = "proto2";\n' + data
 
         with open(os.path.join(target_dir, file_name), "w") as dest:
             dest.write(data)

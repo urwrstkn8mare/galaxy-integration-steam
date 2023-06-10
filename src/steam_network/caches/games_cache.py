@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
-from typing import Generator, Iterator, List, Dict, Optional, Set, AsyncGenerator
+from typing import Any, List, Dict, Optional, Set, AsyncGenerator
 import logging
 import json
 import copy
@@ -35,6 +35,19 @@ class GameLicense:
 class LicensesCache:
     licenses: List[GameLicense] = field(default_factory=list)
     apps: Dict[str, App] = field(default_factory=dict)
+
+    @classmethod
+    def migrateV1(cls, data: str) -> "LicensesCache":
+        obj = json.loads(data)
+
+        for appid in obj.get("apps", {}):
+            app = obj["apps"][appid]
+
+            if "type" in app:
+                app["type_"] = app["type"]
+                del app["type"]
+
+        return LicensesCache.from_dict(obj)
 
 
 @dataclass
@@ -182,5 +195,11 @@ class GamesCache(ProtoCache):
             logging.error("New plugin version, refreshing cache")
             return
 
-        self._storing_map = LicensesCache.from_json(cache['licenses'])
+        #assume this will work, then fallback to the migration code if it doesn't. (aka optimistic checking)
+        #we do it this way because migration only occurs once, so there's no point doing the more costly migration unless necessary.
+        try:
+            self._storing_map = LicensesCache.from_json(cache['licenses'])
+        except KeyError:
+            self._storing_map = LicensesCache.migrateV1(cache['licenses'])
+
         logging.info(f"Loaded games from cache {self._storing_map}")

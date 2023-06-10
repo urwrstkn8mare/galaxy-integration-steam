@@ -108,8 +108,7 @@ class TwoFactorMethod(enum.IntEnum):
     EmailCode = 2
     PhoneConfirm = 3
     Unknown = 4 
-    #EmailConfirm = 5 #Does not exist? Likely something Steam thought about implementing and decided not to. if that changes, we can support it. 
-    
+    #EmailConfirm = 5 #Does not exist? Likely something Steam thought about implementing and decided not to. if that changes, we can support it.
 
 def to_TwoFactorMethod(auth_enum : Union[CAuthentication_AllowedConfirmation, EAuthSessionGuardType]) -> TwoFactorMethod:
     if (isinstance(auth_enum, CAuthentication_AllowedConfirmation)):
@@ -129,7 +128,7 @@ def _to_TwoFactorMethod(auth_enum : EAuthSessionGuardType, msg: Optional[str]) -
     else: #if (k_EAuthSessionGuardType_Unknown, k_EAuthSessionGuardType_LegacyMachineAuth, k_EAuthSessionGuardType_MachineToken, k_EAuthSessionGuardType_EmailConfirmation, or an invalid number
         return (TwoFactorMethod.Unknown, msg)
 
-def to_TwoFactorWithMessage(allowed_confirmation : CAuthentication_AllowedConfirmation) -> Tuple[TwoFactorMethod, str]:
+def to_TwoFactorWithMessage(allowed_confirmation: CAuthentication_AllowedConfirmation) -> Tuple[TwoFactorMethod, str]:
     return _to_TwoFactorMethod(allowed_confirmation.confirmation_type, allowed_confirmation.associated_message)
 
 def to_EAuthSessionGuardType(actionRequired : TwoFactorMethod) -> EAuthSessionGuardType:
@@ -144,7 +143,7 @@ def to_EAuthSessionGuardType(actionRequired : TwoFactorMethod) -> EAuthSessionGu
     else: #if TwoFactorMethod.InvalidAuthData or an invalid number
         return EAuthSessionGuardType.k_EAuthSessionGuardType_Unknown
 
-def to_helpful_string(method:TwoFactorMethod) -> str:
+def to_helpful_string(method: TwoFactorMethod) -> str:
     if (method == TwoFactorMethod.Nothing):
         return "<no two factor method>"
     elif (method == TwoFactorMethod.EmailCode):

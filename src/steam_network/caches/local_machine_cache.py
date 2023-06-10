@@ -21,5 +21,4 @@ class LocalMachineCache:
     def machine_id(self, machine_id: bytes):
         self._persistent_cache['machine_id'] = base64.b64encode(machine_id).decode('utf-8')
         self._cache_state.modified = True
-        logger.info("Set new machine ID: %s" % machine_id)
-
+        logger.info("Set new machine ID: %s" % machine_id.hex())

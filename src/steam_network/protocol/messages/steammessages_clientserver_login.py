@@ -5,9 +5,7 @@ from dataclasses import dataclass
 
 import betterproto
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from steammessages_base import CMsgIPAddress
+from steammessages_base import CMsgIPAddress
 
 
 @dataclass
@@ -118,6 +116,7 @@ class CMsgClientLogonResponse(betterproto.Message):
     deprecated_use_pics: bool = betterproto.bool_field(13)
     vanity_url: str = betterproto.string_field(14)
     public_ip: "CMsgIPAddress" = betterproto.message_field(15)
+    user_country: str = betterproto.string_field(16)
     client_supplied_steamid: float = betterproto.fixed64_field(20)
     ip_country_code: str = betterproto.string_field(21)
     parental_settings: bytes = betterproto.bytes_field(22)

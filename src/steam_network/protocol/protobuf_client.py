@@ -99,11 +99,11 @@ CHECK_AUTHENTICATION_STATUS = "Authentication.PollAuthSessionStatus#1"
 
 from betterproto import Message
 
-def _parse_from_string(self: Message, data: bytes) -> Message:
-    self.clear()
+def _monkey_parse_from_string(self: Message, data: bytes) -> Message:
+    #self.clear()
     return self.parse(data)
 
-Message.ParseFromString = _parse_from_string
+Message.ParseFromString = _monkey_parse_from_string
 
 class SteamLicense(NamedTuple):
     license_data: CMsgClientLicenseListLicense  # type: ignore[name-defined]

@@ -257,7 +257,7 @@ def GenerateProtobufMessages(c):
 
     all_file_names = os.listdir(proto_files_dir)
     all_files = " ".join(map(to_quoted_proto_file, all_file_names))
-    ##print(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_betterproto_out="{out_dir}" {all_files}')
+    #print(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_betterproto_out="{out_dir}" {all_files}')
     c.run(f'{PROTOC_EXE} -I "{proto_files_dir}" --python_betterproto_out="{out_dir}" {all_files}')
 
     all_file_names = list(map(lambda x : os.path.splitext(x)[0], all_file_names))

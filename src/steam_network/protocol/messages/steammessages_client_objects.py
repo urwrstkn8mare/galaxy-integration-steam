@@ -8,7 +8,7 @@ import betterproto
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from enums import EUpdaterState, ESystemAudioChannel, ESplitScalingScaler, ESplitScalingFilter, ESDCardFormatStage, ESystemDisplayCompatibilityMode, EGPUPerformanceLevel, ECPUGovernor, ESystemAudioPortDirection, ESystemAudioPortType, EOSBranch, EStorageBlockContentType, EUpdaterType, ESystemFanControlMode, EStorageBlockFileSystemType, ESystemServiceState, EGraphicsPerfOverlayLevel, EStorageDriveMediaType, ESystemAudioDirection, EBluetoothDeviceType, EHDRToneMapOperator
+    from enums import EOSBranch, EStorageBlockContentType, ESystemAudioPortDirection, EStorageDriveMediaType, EGPUPerformanceLevel, EUpdaterType, ESystemDisplayCompatibilityMode, ESplitScalingFilter, ECPUGovernor, EHDRToneMapOperator, EUpdaterState, ESystemAudioDirection, ESystemAudioPortType, ESDCardFormatStage, EStorageBlockFileSystemType, EGraphicsPerfOverlayLevel, ESystemAudioChannel, ESystemServiceState, ESystemFanControlMode, EBluetoothDeviceType, ESplitScalingScaler
 
 
 class ECloudPendingRemoteOperation(betterproto.Enum):

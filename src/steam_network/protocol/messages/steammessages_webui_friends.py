@@ -8,7 +8,7 @@ import betterproto
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from steammessages_base import CClanMatchEventByRange, CCDDBAppDetailCommon, CMsgIPAddress
+    from steammessages_base import CCDDBAppDetailCommon, CMsgIPAddress, CClanMatchEventByRange
     from steammessages_clientserver_friends import CMsgClientFriendsList
 
 

@@ -1,5 +1,10 @@
--r app.txt
 -r install.txt
+
+#app only requires betterproto. if we install this after app, it will not install because pip thinks it's a duplicate.
+typed_ast==1.4.2 #1.5.4 adds a random error. betterproto formats using black, which in turn uses this. so this is a hack to make that not happen.
+betterproto[compiler]==1.2.5
+
+-r app.txt
 
 pip-tools==6.13 #bump to at least 5.4.0 to ignore certain errors
 
@@ -8,6 +13,3 @@ pytest-asyncio==0.21.0
 pytest-mock==3.4.0
 pytest-flakes==4.0.5
 pytest-pythonpath==0.7.3
-
-#we need the compile version for protoc so we can make the protobufs. 
-"betterproto[compiler]"==1.2.5

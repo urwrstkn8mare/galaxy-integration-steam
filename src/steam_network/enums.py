@@ -11,8 +11,6 @@ import logging
 
 from .protocol.messages.steammessages_auth import CAuthentication_AllowedConfirmation, EAuthSessionGuardType 
 
-from google.protobuf.internal.enum_type_wrapper import EnumTypeWrapper
-
 #a constant. this is the path to the current directory, as a uri. this typically means adding file:/// to the beginning
 DIRNAME = yarl.URL(pathlib.Path(os.path.dirname(os.path.realpath(__file__))).as_uri())
 #another constant. the path to "index.html" relative to the current directory.
@@ -113,13 +111,13 @@ class TwoFactorMethod(enum.IntEnum):
     #EmailConfirm = 5 #Does not exist? Likely something Steam thought about implementing and decided not to. if that changes, we can support it. 
     
 
-def to_TwoFactorMethod(auth_enum : EnumTypeWrapper) -> TwoFactorMethod:
+def to_TwoFactorMethod(auth_enum : Union[CAuthentication_AllowedConfirmation, EAuthSessionGuardType]) -> TwoFactorMethod:
     if (isinstance(auth_enum, CAuthentication_AllowedConfirmation)):
         auth_enum = auth_enum.confirmation_type
     ret_val, _ = _to_TwoFactorMethod(auth_enum, None)
     return ret_val
     
-def _to_TwoFactorMethod(auth_enum : EnumTypeWrapper, msg: Optional[str]) -> Tuple[TwoFactorMethod, str]:
+def _to_TwoFactorMethod(auth_enum : EAuthSessionGuardType, msg: Optional[str]) -> Tuple[TwoFactorMethod, str]:
     if (auth_enum == EAuthSessionGuardType.k_EAuthSessionGuardType_None):
         return (TwoFactorMethod.Nothing, msg)
     elif (auth_enum == EAuthSessionGuardType.k_EAuthSessionGuardType_EmailCode):

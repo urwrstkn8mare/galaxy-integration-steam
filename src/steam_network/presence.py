@@ -68,7 +68,8 @@ async def presence_from_user_info(user_info: ProtoUserInfo, translations_cache: 
     game_title = user_info.game_name if user_info.game_name is not None and user_info.game_name else None
 
     status = None
-    if user_info.rich_presence is not None:
+    #with betterproto this should never be null now, but it may be empty. this check now handles that as well. 
+    if user_info.rich_presence is not None and user_info.rich_presence:
         logger.info(f"Attempting to resolve rich presence from {user_info}")
         check_for_params = r"%.*%"
         status = user_info.rich_presence.get("steam_display")

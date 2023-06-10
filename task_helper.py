@@ -86,8 +86,7 @@ def _cleanup_dependencies(file_name: str, convert_to_proto_file_name : Callable[
                     item = next(iterList, None)
 
                 if (len(import_strings) > 0):
-                    replace_string = "import betterproto" + "\n\n" + "from typing import TYPE_CHECKING" + "\n" + \
-                                     "if TYPE_CHECKING:" + "\n" + "    " + ("\n    ").join(import_strings)
+                    replace_string = "import betterproto" + "\n".join(import_strings)
                     #print("Replace String " + replace_string)
                     compiled_data = compiled_data.replace("import betterproto", replace_string)
 
@@ -98,6 +97,7 @@ def _cleanup_dependencies(file_name: str, convert_to_proto_file_name : Callable[
             #print(compiled_data)
             compiled_file.seek(0)
             compiled_file.write(compiled_data)
+            compiled_file.truncate()  # cut off the rest of the content to protect from weird errors when the new content is shorter than the old content
 
 def cleanup_all_dependencies(all_files: List[str], convert_to_proto_file_name : Callable[[str], str], convert_to_compiled_file_name: Callable[[str], str]):
     cache : Dict[str, List[str]] = {}

@@ -222,7 +222,7 @@ class ProtobufClient:
         else:
             logger.warning("NO RSA HANDLER SET!")
 
-    async def log_on_password(self, account_name:str, enciphered_password: str, timestamp: int, os_value: int):
+    async def log_on_password(self, account_name:str, enciphered_password: bytes, timestamp: int, os_value: int):
         friendly_name: str = sock.gethostname() + " (GOG Galaxy)"
 
         #device details is readonly. So we can't do this the easy way.
@@ -236,7 +236,7 @@ class ProtobufClient:
         message.account_name = account_name
         #i think it needs to be in this format, but idk. This encoding makes it bytes,
         #but i believe when it's written to our packet it's made a string anway. MyPy probably won't like that though
-        message.encrypted_password = base64.b64encode(enciphered_password) #type: ignore
+        message.encrypted_password = base64.b64encode(enciphered_password).decode("utf-8") #type: ignore
         message.website_id = "Client"
         message.device_friendly_name = friendly_name
         message.encryption_timestamp = timestamp

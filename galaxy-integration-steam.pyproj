@@ -24,6 +24,7 @@
     <Content Include=".gitignore" />
     <Content Include="current_version.json" />
     <Content Include="galaxy-integration-steam.pyproj" />
+    <Content Include="Install Certificates.command" />
     <Content Include="LICENSE" />
     <Content Include="protobuf_files\protobuf_steammessages.txt" />
     <Content Include="protobuf_files\protobuf_webui.txt" />

@@ -734,13 +734,27 @@ class ProtobufClient:
 
         loop = asyncio.get_running_loop()
 
-        for batch in batched(message.packages, 50):
-            await loop.run_in_executor(None, packages_handler, batch)
+        if True: # toggle this between True and False to switch variants
+            # variant A
+            await loop.run_in_executor(None, packages_handler, message.packages)
             await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
+            await loop.run_in_executor(None, apps_handler, message.apps)
+            await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
+        else:
+            # variant B
+            ctr = 1
+            for batch in batched(message.packages, 25):
+                logger.debug(f"importing batch {ctr} of packages")
+                ctr += 1
+                await loop.run_in_executor(None, packages_handler, batch)
+                await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
 
-        for batch in batched(message.apps, 50):
-            await loop.run_in_executor(None, apps_handler, batch)
-            await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
+            ctr = 1
+            for batch in batched(message.apps, 25):
+                logger.debug(f"importing batch {ctr} of apps")
+                ctr += 1
+                await loop.run_in_executor(None, apps_handler, batch)
+                await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
 
         if len(apps_to_parse) > 0:
             logger.debug("Apps to parse: %s", str(apps_to_parse))

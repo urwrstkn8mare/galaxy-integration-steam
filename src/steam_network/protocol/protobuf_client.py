@@ -70,6 +70,7 @@ from .messages.steammessages_clientserver_userstats import (
 from .messages.steammessages_clientserver_appinfo import (
     CMsgClientPICSProductInfoRequest,
     CMsgClientPICSProductInfoRequestPackageInfo,
+    CMsgClientPICSProductInfoRequestAppInfo,
     CMsgClientPICSProductInfoResponse,
     CMsgClientPICSProductInfoResponsePackageInfo,
     CMsgClientPICSProductInfoResponseAppInfo,
@@ -88,7 +89,7 @@ from .steam_types import SteamId, ProtoUserInfo
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+
 LOG_SENSITIVE_DATA = False
 
 GET_APP_RICH_PRESENCE = "Community.GetAppRichPresenceLocalization#1"
@@ -450,7 +451,9 @@ class ProtobufClient:
         message = CMsgClientPICSProductInfoRequest()
 
         for app_id in app_ids:
-            message.apps.append(app_id)
+            appinfo = CMsgClientPICSProductInfoRequestAppInfo()
+            appinfo.appid = app_id
+            message.apps.append(appinfo)
 
         await self._send(EMsg.ClientPICSProductInfoRequest, message)
 
@@ -701,14 +704,14 @@ class ProtobufClient:
                     type_ : str = app_content['appinfo']['common']['type'].lower()
                     title : str = app_content['appinfo']['common']['name']
                     parent : Optional[str] = None
-                    if 'extended' in app_content['appinfo'] and type_ == 'dlc':
-                        parent = app_content['appinfo']['extended']['dlcforappid']
+                    if type_ == 'dlc' and 'parent' in app_content['appinfo']['common']:
+                        parent = app_content['appinfo']['common']['parent']
                         logger.debug(f"Retrieved dlc {title} for {parent}")
                     if type_ == 'game':
                         logger.debug(f"Retrieved game {title}")
                     self.app_info_handler(appid=appid, title=title, type_=type_, parent=parent)
-                except KeyError:
-                    logger.warning(f"Unrecognized app structure {app_content}")
+                except KeyError as ex:
+                    logger.warning(f"Unrecognized app structure ({str(ex)}) {app_content}")
                     self.app_info_handler(appid=appid, title='unknown', type_='unknown', parent=None)
 
         loop = asyncio.get_running_loop()

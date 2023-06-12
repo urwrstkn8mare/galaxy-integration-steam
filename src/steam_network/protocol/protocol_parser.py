@@ -1,5 +1,5 @@
 from asyncio import Future
-from typing import Dict, NamedTuple, Tuple, Optional, List, Iterator, Callable, TypeVar, Generic
+from typing import Dict, NamedTuple, Tuple, Optional, List, Iterator, Callable, TypeVar, Generic, Union
 from betterproto import Message
 from itertools import count
 import logging
@@ -136,14 +136,17 @@ class FutureInfo(NamedTuple):
 
 T = TypeVar("T", bound = Message)
 class ProtoResult(Generic[T]):
-    def __init__(self, emsg: EMsg, error_message: str, body: Optional[T]) -> None:
-        self._emsg : EMsg = emsg
+    #eresult is almost always an int because it's that way in the protobuf file, but it should be an enum. so expect it to be an int (and be pleasantly surprised when it isn't), but accept both.
+    def __init__(self, eresult: Union[EResult, int], error_message: str, body: Optional[T]) -> None:
+        if (isinstance(eresult, int)):
+            eresult = EResult(int)
+        self._eresult : EResult = eresult
         self._error_message = error_message
         self._body: Optional[T] = body
     
     @property
-    def emsg(self):
-        return self._emsg
+    def eresult(self):
+        return self._eresult
 
     @property
     def error_message(self):
@@ -170,10 +173,7 @@ class ProtocolParser:
         msg = CAuthentication_GetPasswordRSAPublicKey_Request(username)
         header, resp_bytes = await self._send_recv_service_message(socket, msg, GET_RSA_KEY, next(self._job_id_iterator))
 
-        if (header.eresult != EResult.OK):
-            return None
-        else:
-            return CAuthentication_GetPasswordRSAPublicKey_Response().parse(resp_bytes)
+        return ProtoResult(header.eresult, header.error_message, CAuthentication_GetPasswordRSAPublicKey_Response().parse(resp_bytes))
     
     #start the login process with credentials
     async def BeginAuthSessionViaCredentials(self, socket: WebSocketClient, account_name:str, enciphered_password: bytes, timestamp: int, os_value: int, language: Optional[str] = None) -> ProtoResult[CAuthentication_BeginAuthSessionViaCredentials_Response]:
@@ -201,10 +201,8 @@ class ProtocolParser:
         
         logger.info("Sending log on message using credentials in new authorization workflow")
         header, resp_bytes = await self._send_recv_service_message(socket, message, LOGIN_CREDENTIALS, next(self._job_id_iterator))
-        if (header.eresult != EResult.OK):
-            return None
-        else:
-            return CAuthentication_BeginAuthSessionViaCredentials_Response().parse(resp_bytes)
+        
+        return ProtoResult(header.eresult, header.error_message, CAuthentication_BeginAuthSessionViaCredentials_Response().parse(resp_bytes))
 
 	#update login with steam guard code
     async def UpdateAuthSessionWithSteamGuardCode(self, socket) -> ProtoResult[CAuthentication_UpdateAuthSessionWithSteamGuardCode_Response]:

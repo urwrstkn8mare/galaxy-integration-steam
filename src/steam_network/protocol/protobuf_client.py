@@ -123,7 +123,7 @@ class ProtobufClient:
         self.log_on_token_handler:          Optional[Callable[[EResult, Optional[int], Optional[int]], Awaitable[None]]] = None
         self._heartbeat_task:               Optional[asyncio.Task] = None #keeps our connection alive, essentially, by pinging the steam server.
         self.log_off_handler:               Optional[Callable[[EResult], Awaitable[None]]] = None
-        #retrive information
+        #retrieve information
         self.relationship_handler:          Optional[Callable[[bool, Dict[int, EFriendRelationship]], Awaitable[None]]] = None
         self.user_info_handler:             Optional[Callable[[int, ProtoUserInfo], Awaitable[None]]] = None
         self.user_nicknames_handler:        Optional[Callable[[dict], Awaitable[None]]] = None
@@ -257,20 +257,7 @@ class ProtobufClient:
     async def _process_login(self, result, body):
         message = CAuthentication_BeginAuthSessionViaCredentials_Response().parse(body)
         logger.info("Processing Login Response!")
-        """
-        client_id : int #the id assigned to us.
-        steamid : int #the id of the user that signed in
-        request_id : bytes #unique request id. needed for the polling function.
-        interval : float #interval to poll on.
-        allowed_confirmations : List[CAuthentication_AllowedConfirmation] #possible ways to authenticate for 2FA if needed.
-        #    Note: Possible values:
-        #       k_EAuthSessionGuardType_Unknown, k_EAuthSessionGuardType_None, k_EAuthSessionGuardType_EmailCode = 2, k_EAuthSessionGuardType_DeviceCode = 3,
-        #       k_EAuthSessionGuardType_DeviceConfirmation = 4, k_EAuthSessionGuardType_EmailConfirmation = 5, k_EAuthSessionGuardType_MachineToken = 6,
-        #   For the sake of copypasta, we're only supporting EmailCode, DeviceCode, and None. Unknown is expected, somewhat, but it's an error.
-        weak_token : string #ignored
-        agreement_session_url: string #ignored?
-        extended_error_message : string #used for errors.
-        """
+        
         ##TODO: IF WE GET ERRORS UNSET THIS.
         #if (self.steam_id is None and message.steamid is not None):
         #    self.steam_id = message.steamidd
@@ -650,9 +637,9 @@ class ProtobufClient:
         if self.license_import_handler is None:
             return
 
-        message = CMsgClientLicenseList().parse(body)
+        message : CMsgClientLicenseList = CMsgClientLicenseList().parse(body)
 
-        licenses_to_check = []
+        licenses_to_check : List[SteamLicense] = []
 
         for license_ in message.licenses:
             # license_.type 1024 = free games
@@ -727,7 +714,7 @@ class ProtobufClient:
 
     async def _process_user_stats_response(self, body: bytes):
         logger.debug("Processing message ClientGetUserStatsResponse")
-        message = CMsgClientGetUserStatsResponse().parse(body)
+        message : CMsgClientGetUserStatsResponse = CMsgClientGetUserStatsResponse().parse(body)
 
         game_id = str(message.game_id)
         stats = message.stats

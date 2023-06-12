@@ -9,10 +9,13 @@ from gzip import decompress
 import struct
 from base64 import b64encode
 import socket as sock
+import ipaddress
 
 from steam_network.protocol.messages.steammessages_clientserver_userstats import CMsgClientGetUserStatsResponse
 
-from steam_network.websocket_client import WebSocketClient
+from websockets.client import WebSocketClientProtocol
+from websockets.exceptions import ConnectionClosed, ConnectionClosedError
+from websockets.typing import Data
 
 from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
 
@@ -42,8 +45,6 @@ from .messages.steammessages_auth import (
     CAuthentication_RefreshToken_Revoke_Request,
     CAuthentication_RefreshToken_Revoke_Response,
 )
-
-
 
 from .messages.steammessages_clientserver_login import (
     CMsgClientAccountInfo,
@@ -105,6 +106,7 @@ GET_APP_RICH_PRESENCE = "Community.GetAppRichPresenceLocalization#1"
 GET_LAST_PLAYED_TIMES = 'Player.ClientGetLastPlayedTimes#1'
 CLOUD_CONFIG_DOWNLOAD = 'CloudConfigStore.Download#1'
 REQUEST_FRIEND_PERSONA_STATES = "Chat.RequestFriendPersonaStates#1"
+
 GET_RSA_KEY = "Authentication.GetPasswordRSAPublicKey#1"
 LOGIN_CREDENTIALS = "Authentication.BeginAuthSessionViaCredentials#1"
 UPDATE_TWO_FACTOR = "Authentication.UpdateAuthSessionWithSteamGuardCode#1"
@@ -158,25 +160,44 @@ class ProtoResult(Generic[T]):
 
 class ProtocolParser:
     _PROTO_MASK = 0x80000000
+    _ACCOUNT_ID_MASK = 0x0110000100000000
+    _IP_OBFUSCATION_MASK = 0x606573A4
+    _MSG_PROTOCOL_VERSION = 65580
+    _MSG_CLIENT_PACKAGE_VERSION = 1561159470
 
-
-    def __init__(self):
+    def __init__(self, socket: WebSocketClientProtocol):
         self._future_lookup: Dict[int, FutureInfo] = {}
         self._job_id_iterator: Iterator[int] = count(1) #this is actually clever. A lazy iterator that increments every time you call next.
         self.confirmed_steam_id : Optional[int] = None
+        self._socket : WebSocketClientProtocol = socket
+        self._session_id : Optional[int] = None
         pass
+
+    async def run(self):
+        try:
+            async for message in self._socket:
+                await self._process_packet(message)
+        except (ConnectionClosed, ConnectionClosedError) as e:
+            pass
+
+    
+
+
+    async def SendHello(self):
+        message = CMsgClientHello(self._MSG_PROTOCOL_VERSION)
+        await self._send_no_wait(message, EMsg.ClientHello)
 
     #Standard Request/Response style messages. They aren't synchronous by nature of websocket communication, but we can write our code to closely mimic that behavior.
 
     #get the rsa public key for the provided user
-    async def GetPasswordRSAPublicKey(self, socket: WebSocketClient, username: str) -> ProtoResult[CAuthentication_GetPasswordRSAPublicKey_Response]:
+    async def GetPasswordRSAPublicKey(self, username: str) -> ProtoResult[CAuthentication_GetPasswordRSAPublicKey_Response]:
         msg = CAuthentication_GetPasswordRSAPublicKey_Request(username)
-        header, resp_bytes = await self._send_recv_service_message(socket, msg, GET_RSA_KEY, next(self._job_id_iterator))
+        header, resp_bytes = await self._send_recv_service_message(msg, GET_RSA_KEY, next(self._job_id_iterator))
 
         return ProtoResult(header.eresult, header.error_message, CAuthentication_GetPasswordRSAPublicKey_Response().parse(resp_bytes))
     
     #start the login process with credentials
-    async def BeginAuthSessionViaCredentials(self, socket: WebSocketClient, account_name:str, enciphered_password: bytes, timestamp: int, os_value: int, language: Optional[str] = None) -> ProtoResult[CAuthentication_BeginAuthSessionViaCredentials_Response]:
+    async def BeginAuthSessionViaCredentials(self, account_name:str, enciphered_password: bytes, timestamp: int, os_value: int, language: Optional[str] = None) -> ProtoResult[CAuthentication_BeginAuthSessionViaCredentials_Response]:
         friendly_name: str = sock.gethostname() + " (GOG Galaxy)"
 
         message = CAuthentication_BeginAuthSessionViaCredentials_Request()
@@ -200,97 +221,124 @@ class ProtocolParser:
         message.device_details.platform_type= EAuthTokenPlatformType.k_EAuthTokenPlatformType_SteamClient
         
         logger.info("Sending log on message using credentials in new authorization workflow")
-        header, resp_bytes = await self._send_recv_service_message(socket, message, LOGIN_CREDENTIALS, next(self._job_id_iterator))
-        
+        header, resp_bytes = await self._send_recv_service_message(message, LOGIN_CREDENTIALS, next(self._job_id_iterator))
+        logger.info("Received log on credentials response")
         return ProtoResult(header.eresult, header.error_message, CAuthentication_BeginAuthSessionViaCredentials_Response().parse(resp_bytes))
 
-	#update login with steam guard code
-    async def UpdateAuthSessionWithSteamGuardCode(self, socket) -> ProtoResult[CAuthentication_UpdateAuthSessionWithSteamGuardCode_Response]:
-        pass
+    #update login with steam guard code
+    async def UpdateAuthSessionWithSteamGuardCode(self, client_id: int, steam_id: int, code: str, code_type: EAuthSessionGuardType) -> ProtoResult[CAuthentication_UpdateAuthSessionWithSteamGuardCode_Response]:
+        msg = CAuthentication_UpdateAuthSessionWithSteamGuardCode_Request(client_id, steam_id, code, code_type)
+        header, resp_bytes = await self._send_recv_service_message(msg, UPDATE_TWO_FACTOR, next(self._job_id_iterator))
+
+        return ProtoResult(header.eresult, header.error_message, CAuthentication_UpdateAuthSessionWithSteamGuardCode_Response().parse(resp_bytes))
     
     #determine if we are logged on
-    async def PollAuthSessionStatus(self, socket) -> ProtoResult[CAuthentication_PollAuthSessionStatus_Response]:
-        pass
+    async def PollAuthSessionStatus(self, client_id: int, request_id: bytes) -> ProtoResult[CAuthentication_PollAuthSessionStatus_Response]:
+        message = CAuthentication_PollAuthSessionStatus_Request()
+        message.client_id = client_id
+        message.request_id = request_id
+        #we leave the token revoke unset, i'm not sure how the ctor works here so i'm just doing it this way.
+        header, resp_bytes = await self._send_recv_service_message(message, CHECK_AUTHENTICATION_STATUS, next(self._job_id_iterator))
+
+        return ProtoResult(header.eresult, header.error_message, CAuthentication_PollAuthSessionStatus_Response().parse(resp_bytes))
 
     #log on with token
-    async def TokenLogOn(self, socket) -> ProtoResult[CMsgClientLogonResponse]:
-        pass
+    async def TokenLogOn(self, account_name: str, steam_id: int, access_token: str, cell_id: int, machine_id: bytes, os_value: int, language : Optional[str] = None) -> ProtoResult[CMsgClientLogonResponse]:
 
-    #log off
-    async def LogOff(self, socket) -> ProtoResult[CMsgClientLoggedOff]:
-        pass
+        override_steam_id = steam_id if self.confirmed_steam_id is None else None
 
-    #log off and forget
-    async def RevokeRefreshToken(self, socket) -> ProtoResult[CAuthentication_RefreshToken_Revoke_Response]:
+        message = CMsgClientLogon()
+        message.client_supplied_steam_id = float(steam_id)
+        message.protocol_version = self._MSG_PROTOCOL_VERSION
+        message.client_package_version = self._MSG_CLIENT_PACKAGE_VERSION
+        message.cell_id = cell_id
+        message.client_language = "english" if language is None or not language else language
+        message.client_os_type = os_value if os_value >= 0 else 0
+        message.obfuscated_private_ip.v4 = await self._get_obfuscated_private_ip()
+        message.qos_level = 3
+        message.machine_id = machine_id
+        message.account_name = account_name
+        #message.password = ""
+        message.should_remember_password = True
+        message.eresult_sentryfile = EResult.FileNotFound
+        message.machine_name = sock.gethostname()
+        message.access_token = access_token
+        logger.info("Sending log on message using access token")
+        
+        header, resp_bytes = await self._send_recv(message, EMsg.ClientLogin, EMsg.ClientLogOnResponse, next(self._job_id_iterator), override_steam_id=override_steam_id)
+
+        return ProtoResult(header.eresult, header.error_message, CMsgClientLogonResponse().parse(resp_bytes))
+
+    #log off and read the response. We don't actually care about the response so this is not used atm.
+    async def LogOff(self) -> ProtoResult[CMsgClientLoggedOff]:
+        message = CMsgClientLogOff()
+        logger.info("Sending log off message")
+        try:
+            header, resp_bytes = await self._send_recv(message, EMsg.ClientLogOff, EMsg.ClientLoggedOff, next(self._job_id_iterator))
+            return ProtoResult(header.eresult, header.error_message, CMsgClientLoggedOff().parse(resp_bytes))
+        except Exception as e:
+            logger.error(f"Unable to send logoff message {repr(e)}")
+            raise
+
+    #log off, but don't wait for a response. Because we shut down the socket immediately after the log off, this is what we use.
+    async def LogOff_no_wait(self):
+        message = CMsgClientLogOff()
+        logger.info("Sending log off message")
+        try:
+            await self._send_no_wait(message, EMsg.ClientLogOff, next(self._job_id_iterator))
+        except Exception as e:
+            logger.error(f"Unable to send logoff message {repr(e)}")
+
+    #steam gives us a log off message that we didn't expect. This normally happens if we idle too long without sending them anything. 
+    async def _handle_unsolicited_LogOff(self):
+        pass
+    #TODO: IMPLEMENT ME!
+
+    #forget this authorization. Used when the user hits "disconnect" All calls after this will fail. Should be called immediately before LogOff.
+    async def RevokeRefreshToken(self) -> ProtoResult[CAuthentication_RefreshToken_Revoke_Response]:
         pass
 
     #get user stats
-    async def GetUserStats(self, socket) -> ProtoResult[CMsgClientGetUserStatsResponse]:
+    async def GetUserStats(self) -> ProtoResult[CMsgClientGetUserStatsResponse]:
         pass
 
     #get user license information
-    async def PICSProductInfo(self, socket) -> ProtoResult[CMsgClientPICSProductInfoResponse]:
+    async def PICSProductInfo(self) -> ProtoResult[CMsgClientPICSProductInfoResponse]:
         pass
 
     #forgot
-    async def GetAppRichPresenceLocalization(self, socket) -> ProtoResult[CCommunity_GetAppRichPresenceLocalization_Response]:
+    async def GetAppRichPresenceLocalization(self) -> ProtoResult[CCommunity_GetAppRichPresenceLocalization_Response]:
         pass
 
     #mystery
-    async def Store_Download(self, socket) -> ProtoResult[CCloudConfigStore_Download_Response]:
+    async def Store_Download(self) -> ProtoResult[CCloudConfigStore_Download_Response]:
         pass
 
     #danger
-    async def GetLastPlayedTimes(self, socket) -> ProtoResult[CPlayer_GetLastPlayedTimes_Response]:
+    async def GetLastPlayedTimes(self) -> ProtoResult[CPlayer_GetLastPlayedTimes_Response]:
         pass
 
     #legally cannot say
-
-    async def _send_async(self, socket: WebSocketClient, msg: Message):
-        pass
+    async def close(self, send_log_off):
+        if send_log_off:
+            await self.send_log_off_message()
+        if self._heartbeat_task is not None:
+            self._heartbeat_task.cancel()
+        for fi in self._future_lookup.values():
+            fi.future.cancel()
     
-    async def _send_recv_common(self, socket: WebSocketClient, msg: Message, job_id: int, callback : Callable[[Future], FutureInfo], 
-                                target_job_id: Optional[int], job_name: Optional[str])-> Tuple[CMsgProtoBufHeader, bytes]:
-        loop = asyncio.get_running_loop()
-        future = loop.create_future()
-        info : FutureInfo = callback(future)
-        self._future_lookup[job_id] = info
-        header = self._generate_header(job_id, target_job_id, job_name)
-        body = bytes(msg)
-        emsg = info.sent_type
-        #provide the information about the message being sent before the header and body.
-        #Magic string decoded: < = little endian. 2I = 2 x unsigned integer. 
-        #emsg | proto_mask is the first UInt (describes what we are sending), length of header is the second UInt.
-        msg_info = struct.pack("<2I", emsg | self._PROTO_MASK, len(header))
-        data = msg_info + header + body
 
-        if LOG_SENSITIVE_DATA:
-            logger.info("[Out] %s (%dB), params:\n", repr(emsg), len(data), repr(msg))
-        else:
-            logger.info("[Out] %s (%dB)", repr(emsg), len(data))
-        await socket.send(data)
+    async def _generate_header(self, job_id: int, target_job_id : Optional[int] = None, job_name: Optional[str] = None, override_steam_id : Optional[int] = None) -> CMsgProtoBufHeader:
+        """Generate the protobuf header that the send functions require.
 
-
-        header : CMsgProtoBufHeader
-        data: bytes
-        header, data = await self._future_lookup[job_id].future
-        del self._future_lookup[job_id]
-        return (header, data)
-
-    async def _send_recv_service_message(self, socket: WebSocketClient, msg: Message, send_recv_name: str, job_id: int, target_job_id: Optional[int] = None) -> Tuple[CMsgProtoBufHeader, bytes]:
-        emsg = EMsg.ServiceMethodCallFromClientNonAuthed if self.confirmed_steam_id is None else EMsg.ServiceMethodCallFromClient
-
-        def um_generate_future(future: Future):
-            return FutureInfo(future, emsg, EMsg.ServiceMethodResponse, send_recv_name)
-
-        return await self._send_recv_common(socket, msg, job_id, um_generate_future, target_job_id, send_recv_name)
-
-    async def _generate_header(self, job_id: int, target_job_id : Optional[int] = None, job_name: Optional[str] = None) -> CMsgProtoBufHeader:
+        """
         proto_header = CMsgProtoBufHeader()
         
         proto_header.jobid_source = job_id
 
-        if self.confirmed_steam_id is not None:
+        if override_steam_id is not None:
+            proto_header.steamid = override_steam_id
+        elif self.confirmed_steam_id is not None:
             proto_header.steamid = self.confirmed_steam_id
         else:
             proto_header.steamid = 0 + self._ACCOUNT_ID_MASK
@@ -303,13 +351,91 @@ class ProtocolParser:
 
         return proto_header
 
-    async def _send_recv(self, socket: WebSocketClient, msg: Message, send_type: EMsg, expected_return_type: EMsg, job_id: int, target_job_id : Optional[int] = None, job_name: Optional[str] = None) -> Tuple[CMsgProtoBufHeader, bytes]:
+    async def _send_no_wait(self, msg: Message, emsg: EMsg, job_id: int, target_job_id: Optional[int] = None, job_name: Optional[str] = None):
+        """Send a message along the websocket. Do not expect a response. 
+        
+        If a response does occur, treat it as unsolicited. Immediately finish the call after sending.
+        """
+        header = self._generate_header(job_id, target_job_id, job_name)
+        body = bytes(msg)
+        #provide the information about the message being sent before the header and body.
+        #Magic string decoded: < = little endian. 2I = 2 x unsigned integer. 
+        #emsg | proto_mask is the first UInt (describes what we are sending), length of header is the second UInt.
+        msg_info = struct.pack("<2I", emsg | self._PROTO_MASK, len(header))
+        data = msg_info + header + body
+        
+        if LOG_SENSITIVE_DATA:
+            logger.info("[Out] %s (%dB), params:\n", repr(emsg), len(data), repr(msg))
+        else:
+            logger.info("[Out] %s (%dB)", repr(emsg), len(data))
+        await self._socket.send(data)
+
+    async def _send_recv_common(self, msg: Message, job_id: int, callback : Callable[[Future], FutureInfo], 
+                                target_job_id: Optional[int], job_name: Optional[str], override_steam_id:Optional[int] = None)-> Tuple[CMsgProtoBufHeader, bytes]:
+        """Perform the common send and receive logic. 
+        """
+        future: Future = None
+        info: FutureInfo = None
+        try:
+            loop = asyncio.get_running_loop()
+            future = loop.create_future()
+            info : FutureInfo = callback(future)
+            self._future_lookup[job_id] = info
+            header = self._generate_header(job_id, target_job_id, job_name, override_steam_id)
+            body = bytes(msg)
+            emsg = info.sent_type
+            #provide the information about the message being sent before the header and body.
+            #Magic string decoded: < = little endian. 2I = 2 x unsigned integer. 
+            #emsg | proto_mask is the first UInt (describes what we are sending), length of header is the second UInt.
+            msg_info = struct.pack("<2I", emsg | self._PROTO_MASK, len(header))
+            data = msg_info + header + body
+
+            if LOG_SENSITIVE_DATA:
+                logger.info("[Out] %s (%dB), params:\n", repr(emsg), len(data), repr(msg))
+            else:
+                logger.info("[Out] %s (%dB)", repr(emsg), len(data))
+            await self._socket.send(data)
+        except Exception as e:
+            logger.error("Unexpected error sending the data.")
+            if (info is not None):
+                future.cancel()
+                self._future_lookup.pop(job_id)
+            raise
+
+        try:
+            header : CMsgProtoBufHeader
+            data: bytes
+            header, data = await self._future_lookup[job_id].future
+            self._future_lookup.pop(job_id)
+            return (header, data)
+        except Exception as e:
+            logger.error("Unexpected error receiving the data.")
+            if (info is not None):
+                future.cancel()
+                self._future_lookup.pop(job_id)
+            raise
+
+    async def _send_recv_service_message(self, msg: Message, send_recv_name: str, job_id: int, target_job_id: Optional[int] = None) -> Tuple[CMsgProtoBufHeader, bytes]:
+        emsg = EMsg.ServiceMethodCallFromClientNonAuthed if self.confirmed_steam_id is None else EMsg.ServiceMethodCallFromClient
+
+        def um_generate_future(future: Future):
+            return FutureInfo(future, emsg, EMsg.ServiceMethodResponse, send_recv_name)
+
+        return await self._send_recv_common(msg, job_id, um_generate_future, target_job_id, send_recv_name)
+
+
+    async def _send_recv(self, msg: Message, send_type: EMsg, expected_return_type: EMsg, job_id: int, target_job_id : Optional[int] = None, 
+                         job_name: Optional[str] = None, override_steam_id:Optional[int] = None) -> Tuple[CMsgProtoBufHeader, bytes]:
         def normal_generate_future(future: Future) -> FutureInfo:
             return FutureInfo(future, send_type, expected_return_type)
 
-        return await self._send_recv_common(socket, msg, job_id, normal_generate_future, target_job_id, job_name)
+        return await self._send_recv_common(msg, job_id, normal_generate_future, target_job_id, job_name, override_steam_id)
 
-    async def process_packet(self, packet: bytes):
+    async def _process_packet(self, packet: Data):
+        if (isinstance(packet, str)):
+            logger.warning("Packet returned a Text Frame string. This is unexpected and will likely break everything. Converting to bytes anyway.")
+            packet = bytes(packet, "utf-8")
+
         package_size = len(packet)
         #packets reserve the first 8 bytes for the Message code (emsg) and 
         logger.debug("Processing packet of %d bytes", package_size)
@@ -380,3 +506,13 @@ class ProtocolParser:
 
     async def _handle_unsolicited_message(emsg: EMsg, header: CMsgProtoBufHeader, body: bytes):
         pass
+
+    #old auth flow. Still necessary for remaining logged in and confirming after doing the new auth flow. 
+    async def _get_obfuscated_private_ip(self) -> int:
+        logger.info('Websocket state is: %s' % self._socket.state.name)
+        await self._socket.ensure_open()
+        host, port = self._socket.local_address
+        ip = int(ipaddress.IPv4Address(host))
+        obfuscated_ip = ip ^ self._IP_OBFUSCATION_MASK
+        logger.debug(f"Local obfuscated IP: {obfuscated_ip}")
+        return obfuscated_ip

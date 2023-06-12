@@ -10,10 +10,9 @@ from galaxy.api.errors import BackendNotAvailable, BackendTimeout, BackendError,
 import logging
 from traceback import format_exc
 from websockets.client import WebSocketClientProtocol
-from websockets.exceptions import ConnectionClosed, ConnectionClosedError
-from websockets.typing import Data
 
-from .protocol.protocol_parser import ProtocolParser, FutureInfo
+
+from .protocol.protobuf_socket_handler import ProtocolParser, FutureInfo, ProtoResult
 
 logger = logging.getLogger(__name__)
 
@@ -103,14 +102,3 @@ class SteamNetworkModel:
 
             await self._close_socket()
             await self._close_protocol_client()
-
-    async def _receive_loop(self):
-        try:
-            async for message in self._websocket:
-                await self._process_packet(message)
-        except (ConnectionClosed, ConnectionClosedError) as e:
-            pass
-
-
-    async def _process_packet(self, message: Data):
-        await self._parser.process_packet(message)

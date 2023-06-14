@@ -10,8 +10,6 @@ from rsa import PublicKey
 from .steam_public_key import SteamPublicKey
 from .steam_auth_polling_data import SteamPollingData
 
-from .utils import get_os, translate_error
-
 from .caches.local_machine_cache import LocalMachineCache
 from .caches.friends_cache import FriendsCache
 from .caches.games_cache import GamesCache

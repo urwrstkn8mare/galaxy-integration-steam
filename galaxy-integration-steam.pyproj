@@ -80,6 +80,7 @@
     <Compile Include="src\steam_network\authentication_data.py" />
     <Compile Include="src\steam_network\caches\cache_proto.py" />
     <Compile Include="src\steam_network\caches\__init__.py" />
+    <Compile Include="src\steam_network\display_page.py" />
     <Compile Include="src\steam_network\enums.py" />
     <Compile Include="src\steam_network\caches\friends_cache.py" />
     <Compile Include="src\steam_network\caches\games_cache.py" />

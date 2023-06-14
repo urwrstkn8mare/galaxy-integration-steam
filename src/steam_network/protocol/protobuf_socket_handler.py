@@ -1,21 +1,21 @@
+import asyncio
 from asyncio import Future
+
 from typing import Dict, NamedTuple, Tuple, Optional, List, Iterator, Callable, TypeVar, Generic, Union
 from betterproto import Message
 from itertools import count
 import logging
-import asyncio
-from asyncio import Future
 from gzip import decompress
 import struct
 from base64 import b64encode
 import socket as sock
 import ipaddress
 
-from steam_network.protocol.messages.steammessages_clientserver_userstats import CMsgClientGetUserStatsResponse
-
 from websockets.client import WebSocketClientProtocol
 from websockets.exceptions import ConnectionClosed, ConnectionClosedError
 from websockets.typing import Data
+
+ 
 
 from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
 
@@ -165,20 +165,26 @@ class ProtocolParser:
     _MSG_PROTOCOL_VERSION = 65580
     _MSG_CLIENT_PACKAGE_VERSION = 1561159470
 
-    def __init__(self, socket: WebSocketClientProtocol):
+    def __init__(self, socket: WebSocketClientProtocol, queue : asyncio.Queue):
         self._future_lookup: Dict[int, FutureInfo] = {}
         self._job_id_iterator: Iterator[int] = count(1) #this is actually clever. A lazy iterator that increments every time you call next.
         self.confirmed_steam_id : Optional[int] = None
         self._socket : WebSocketClientProtocol = socket
         self._session_id : Optional[int] = None
+        self._queue: asyncio.Queue = queue
         pass
 
     async def run(self):
-        try:
-            async for message in self._socket:
-                await self._process_packet(message)
-        except (ConnectionClosed, ConnectionClosedError) as e:
-            pass
+        """Run the websocket receive loop asynchronously. 
+
+        This is only responsible for receiving a packet and extracting the message from it. 
+        it then hands off that package to another task (either the caller or the cache, depending on who initiated it)
+        This should never error, except when the socket shuts down or is explicitely cancelled. 
+        """
+        #this will error out with connection closed, either connection closed OK or connection closed error. 
+        #it should never throw otherwise and will loop until the plugin closes (which will cause a task cancelled exception, but that's ok).
+        async for message in self._socket:
+            await self._process_packet(message)
 
     
 
@@ -504,8 +510,10 @@ class ProtocolParser:
             offset += size_bytes + size
         logger.debug("Finished processing message Multi")
 
-    async def _handle_unsolicited_message(emsg: EMsg, header: CMsgProtoBufHeader, body: bytes):
-        pass
+    async def _handle_unsolicited_message(self, emsg: EMsg, header: CMsgProtoBufHeader, body: bytes):
+        await self._queue.put((emsg, header, body)) #send it to the queue so the task cache can handle it. 
+        await asyncio.sleep(0.01)
+
 
     #old auth flow. Still necessary for remaining logged in and confirming after doing the new auth flow. 
     async def _get_obfuscated_private_ip(self) -> int:

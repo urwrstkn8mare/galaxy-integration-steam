@@ -2,7 +2,7 @@ import asyncio
 from asyncio.futures import Future
 import ssl
 from contextlib import suppress
-from typing import Callable, Optional, Any, Dict
+from typing import Callable, Optional, Any, Dict, cast
 
 import websockets
 from galaxy.api.errors import BackendNotAvailable, BackendTimeout, BackendError, InvalidCredentials, NetworkError, AccessDenied, AuthenticationRequired
@@ -10,7 +10,8 @@ from galaxy.api.errors import BackendNotAvailable, BackendTimeout, BackendError,
 import logging
 from traceback import format_exc
 from websockets.client import WebSocketClientProtocol
-
+from websockets.exceptions import ConnectionClosed, ConnectionClosedError, ConnectionClosedOK
+from galaxy.api.errors import UnknownBackendResponse
 
 from .protocol.protobuf_socket_handler import ProtocolParser, FutureInfo, ProtoResult
 
@@ -25,80 +26,60 @@ def asyncio_future() -> Future:
     return loop.create_future()
 
 class SteamNetworkModel:
-    def __init__(self):
-        self._websocket : WebSocketClientProtocol = None
-        self._parser : ProtocolParser = None
     """ Class that deals with the "model" aspect of our integration with Steam Network. 
 
     Since our "model" is external, the majority of this class is sending and receiving messages along a websocket. The exact calls sent to and received from steam are handled by a helper. This class simply calls the helper's various functions and parses the results. These results are then returned to the Controller 
 
     This replaces WebsocketClient and ProtocolClient in the old code
     """
+
+    def __init__(self):
+        self._queue : asyncio.Queue = asyncio.Queue()
+        self._websocket : WebSocketClientProtocol = None
+        self._parser : ProtocolParser = None
+
     async def run(self):
+        #ideally, this function should never loop. During normal execution, the loop never occurs - we run it once, and this task is cancelled when the plugin closes. 
+        #however, there are some errors that can occur that we expect to arise in certain situations. These errors will be explained where they are handled.
+        #For errors we expect, we can recover, but we need to cancel and restart the cache and receive tasks, as they are in an invalid state. Hence the loop.
+        #for errors that we don't expect and can't recover from, we log and re-raise the issue, so the loop is irrelevant. 
+        #Unfortunately, this task is never awaited so this just silently dies, and there's nothing we can do (we'd need the gog client to wait for it). 
         while True:
-            try:
-                await self._ensure_connected()
+            #in order to keep our receive task as pure as possible, it will always hand off the job of parsing the messages to another task. 
+            #For any solicited message, we can just pass it to the caller. For an unsolicited message, we send them off to the "cache" task.
+            #to facilitate this handoff, we use the queue object defined here. 
+            cache_task = asyncio.create_task(self.cache_task_loop())
+            receive_task = asyncio.create_task(self._parser.run())
 
-                run_task = asyncio.create_task(self._receive_loop())
-                auth_lost = create_future_factory()
-                auth_task = asyncio.create_task(self._all_auth_calls(auth_lost))
-                pending = None
-                try:
-                    done, pending = await asyncio.wait({run_task, auth_task}, return_when=asyncio.FIRST_COMPLETED)
-                    if auth_task in done:
-                        await auth_task
-
-                    done, pending = await asyncio.wait({run_task, auth_lost}, return_when=asyncio.FIRST_COMPLETED)
-                    if auth_lost in done:
-                        try:
-                            await auth_lost
-                        except (InvalidCredentials, AccessDenied) as e:
-                            logger.warning(f"Auth lost by a reason: {repr(e)}")
-                            await self._close_socket()
-                            await self._close_protocol_client()
-                            run_task.cancel()
-                            run_task = None
-                            break
-
-                    assert run_task in done
-                    await run_task
+            done, _ = await asyncio.wait({receive_task, cache_task}, return_when=asyncio.FIRST_COMPLETED)
+            #if run task is done, it means we have a connection closed. that's the only reason it finishes. 
+            if (receive_task in done):
+                exception = receive_task.exception()
+                if isinstance(exception, ConnectionClosed):
+                    if (isinstance(exception, ConnectionClosedOK)):
+                        logger.debug("Expected WebSocket disconnection. Restarting if required.")
+                    else:
+                        logger.warning("WebSocket disconnected (%d: %s), reconnecting...", exception.code, exception.reason)
+                elif (exception is None):
+                    logger.exception("Code exited infinite receive loop but did not error. this should be impossible")
+                    raise UnknownBackendResponse
+                elif not isinstance(exception, asyncio.CancelledError):
+                    logger.exception("Code exited infinite receive loop with an unexpected error. This should not be possible")
+                    raise UnknownBackendResponse
+                else:
+                    logger.info("run task was cancelled. shutting down")
+                    cache_task.cancel()
+                    await cache_task
                     break
-                except Exception:
-                    with suppress(asyncio.CancelledError):
-                        if pending is not None:
-                            for task in pending:
-                                task.cancel()
-                                await task
-                    raise
-            except asyncio.CancelledError as e:
-                logger.warning(f"Websocket task cancelled {repr(e)}")
-                raise
-            except websockets.exceptions.ConnectionClosedOK as e:
-                logger.debug(format_exc())
-                logger.debug("Expected WebSocket disconnection")
-            except websockets.exceptions.ConnectionClosedError as error:
-                logger.warning("WebSocket disconnected (%d: %s), reconnecting...", error.code, error.reason)
-            except websockets.exceptions.InvalidState as error:
-                logger.warning(f"WebSocket is trying to connect... {repr(error)}")
-            except (BackendNotAvailable, BackendTimeout, BackendError) as error:
-                logger.warning(f"{repr(error)}. Trying with different CM...")
-                self._websocket_list.add_server_to_ignored(self._current_ws_address, timeout_sec=BLACKLISTED_CM_EXPIRATION_SEC)
-            except NetworkError as error:
-                logger.error(
-                    f"Failed to establish authenticated WebSocket connection: {repr(error)}, retrying after %d seconds",
-                    RECONNECT_INTERVAL_SECONDS
-                )
-                await sleep(RECONNECT_INTERVAL_SECONDS)
-                continue
-            except AuthenticationRequired:
-                logger.error("Authentication lost mid use. Restarting the socket, auth, and run loops")
-                #Interface checks if user name is info cache and raises an authentication required if it's note there. 
-                #Clearing the cache here will result in that error being raised, which lets gog know to redo auth.
-                self._user_info_cache.Clear() 
-            except Exception as e:
-                logger.error(f"Failed to establish authenticated WebSocket connection {repr(e)}")
-                logger.error(format_exc())
-                raise
+            elif (cache_task in done):
+                #this should also never close unless it 
 
-            await self._close_socket()
-            await self._close_protocol_client()
+
+    async def cache_task_loop(self):
+        """
+        A task that handles any unsolicited messages steam sends us that we can cache for GOG to use later. 
+        
+        this is typically things like friend status, but may be other things. We also handle an unsolicited log off call. 
+        """
+
+        pass

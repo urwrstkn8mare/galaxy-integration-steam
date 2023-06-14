@@ -132,7 +132,7 @@ class SteamNetworkBackend(BackendInterface):
         await self._websocket_client.wait_closed()
 
         await self._cancel_task(self._update_owned_games_task)
-        await self._cancel_task(self._steam_run_task)
+        await self._cancel_task(self.steam_run_task)
 
     async def _cancel_task(self, task):
         with suppress(asyncio.CancelledError):
@@ -315,7 +315,7 @@ class SteamNetworkBackend(BackendInterface):
             raise UnknownBackendResponse()
 
     async def authenticate(self, stored_credentials=None):
-        self._steam_run_task = asyncio.create_task(self._websocket_client.run())
+        self.steam_run_task = asyncio.create_task(self._websocket_client.run())
         if stored_credentials is None:
             return next_step_response_simple(DisplayUriHelper.LOGIN)
         else:

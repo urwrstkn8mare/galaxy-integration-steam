@@ -12,6 +12,8 @@ from typing import List, Optional, NewType, Dict, AsyncGenerator, Any, Callable,
 
 import traceback
 
+from asyncio import Task
+
 import certifi
 from galaxy.api.plugin import Plugin, create_and_run_plugin
 from galaxy.api.types import (
@@ -87,6 +89,8 @@ class SteamPlugin(Plugin):
         # backend client
         self.__backend: Optional[BackendInterface] = None
         self.__backend_mode : Type[BackendInterface] = SteamNetworkBackend
+
+        self._run_task : Optional[Task] = None
 
     @property
     def features(self):

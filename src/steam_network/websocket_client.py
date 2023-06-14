@@ -266,22 +266,18 @@ class WebSocketClient:
                         enciphered = encrypt(password.encode('utf-8',errors="ignore"), key.rsa_public_key)
                         logger.info(f'Authenticating with user credentials (user password is encrpyted)')
                         self._steam_polling_data = await self._protocol_client.authenticate_password(username, enciphered, key.timestamp, auth_lost_handler)
-                        if (self._steam_polling_data and self._steam_polling_data.has_valid_confirmation_method()):
+                        if (self._steam_polling_data is not None and self._steam_polling_data.has_valid_confirmation_method()):
                             
                             self._user_info_cache.account_username = username
                             self._authentication_cache.update_authentication_cache(self._steam_polling_data.allowed_confirmations, self._steam_polling_data.extended_error_message)
 
                             ret_code = to_UserAction(self._authentication_cache.two_factor_allowed_methods[0])
-                        else:
-                            ret_code = UserActionRequired.InvalidAuthData
 
                         if (ret_code != UserActionRequired.InvalidAuthData):
                             logger.info("GOT THE LOGIN DONE! ON TO 2FA")
                         else:
                             logger.info("LOGIN FAILED :( But hey, at least you're here!")
-                        ret_code = UserActionRequired.InvalidAuthData
-                else:
-                    ret_code = UserActionRequired.InvalidAuthData
+
             elif (mode == AuthCall.UPDATE_TWO_FACTOR):
                 code : Optional[UserActionRequired] = response.get('two-factor-code', None)
                 method : Optional[UserActionRequired] = response.get('two-factor-method', None)

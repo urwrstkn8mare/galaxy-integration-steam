@@ -167,6 +167,7 @@ class SteamNetworkBackend(BackendInterface):
 
         if self._user_info_cache.changed:
             self._store_credentials(self._user_info_cache.to_dict())
+       
 
     # authentication
 
@@ -401,10 +402,8 @@ class SteamNetworkBackend(BackendInterface):
         ]
 
     async def get_subscription_games(self, subscription_name: str, context: Any):
-        games = []
         async for game in self._games_cache.get_shared_games():
-            games.append(SubscriptionGame(game_id=str(game.appid), game_title=game.title))
-        yield games
+            yield SubscriptionGame(game_id=str(game.appid), game_title=game.title)
 
     async def prepare_achievements_context(self, game_ids: List[str]) -> Any:
         if self._user_info_cache.steam_id is None:

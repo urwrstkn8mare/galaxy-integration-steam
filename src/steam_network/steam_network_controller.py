@@ -1,3 +1,6 @@
+from typing import Optional, Dict
+
+from .caches.user_info_cache import UserInfoCache
 from .steam_network_model import SteamNetworkModel
 from .steam_network_view import SteamNetworkView
 
@@ -17,4 +20,13 @@ class SteamNetworkController:
     pass
 
     def handshake_complete(self):
+
         logger.info("Handshake complete")
+
+    def check_stored_credentials_changed(): Optional[Dict[str, str]]
+        """
+        Check if the stored credentials have changed since the last time this was called. 
+        
+        If so, returns the User Info Cache as a Dictionary so it can be written to the cache. If not, returns None
+        This function is used by the tick function to periodically update the user information stored in the database. 
+        """

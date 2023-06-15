@@ -163,9 +163,7 @@ class SteamPlugin(Plugin):
     async def prepare_subscription_games_context(self, subscription_names: List[str]) -> Any:
         return await self._backend.prepare_subscription_games_context(subscription_names)
 
-    async def get_subscription_games(
-        self, subscription_name: str, context: Any
-    ) -> AsyncGenerator[List[SubscriptionGame], None]:
+    async def get_subscription_games(self, subscription_name: str, context: Any) -> AsyncGenerator[List[SubscriptionGame], None]:
         async for hunk in self._backend.get_subscription_games(subscription_name, context):
             yield hunk
 

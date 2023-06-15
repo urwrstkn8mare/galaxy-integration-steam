@@ -12,7 +12,7 @@ class SteamNetworkController:
     
     This includes standard MVC with the user during the login process as well as sending/retrieving game data between GOG and Steam.
 
-    This replaces the old BackendSteamNetwork. 
+    This replaces the old BackendSteamNetwork. This does not handle data that does not need to be retrieved from the user or Steam, such as launching games, checking install sizes, etc.
     """
     pass
 

@@ -288,6 +288,11 @@ class SteamPlugin(Plugin):
             return None
 
     async def shutdown_platform_client(self) -> None:
+        """
+        Shuts down the steam client. Usually necessary for launching games due to DRM, but can be optionally closed on game exit, depending on user settings.
+
+        This is called by the GOG Galaxy client. 
+        """
         launch_debounce_time = 30
         if time.time() < self._last_launch + launch_debounce_time:
             # workaround for quickly closed game (Steam sometimes dumps false positive just after a launch)

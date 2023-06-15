@@ -75,6 +75,7 @@
     <Compile Include="src\http_client.py" />
     <Compile Include="src\leveldb_parser.py" />
     <Compile Include="src\persistent_cache_state.py" />
+    <Compile Include="src\pluginV2.py" />
     <Compile Include="src\plugin.py" />
     <Compile Include="src\registry_monitor.py" />
     <Compile Include="src\steam_network\authentication_data.py" />

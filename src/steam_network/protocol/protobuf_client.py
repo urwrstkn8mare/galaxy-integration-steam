@@ -15,6 +15,8 @@ import vdf
 from websockets.client import WebSocketClientProtocol
 from betterproto import Message
 
+from steam_network.protocol.protobuf_socket_handler import ProtocolParser
+
 from .consts import EMsg, EResult, EAccountType, EFriendRelationship, EPersonaState
 from .messages.steammessages_base import (
     CMsgMulti,
@@ -85,7 +87,7 @@ from .messages.steammessages_webui_friends import (
 )
 
 from .steam_types import SteamId, ProtoUserInfo
-
+from .task_parallelizer import parallel_map_async
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -632,33 +634,34 @@ class ProtobufClient:
 
             await self.user_info_handler(user_id, user_info)
 
+    @staticmethod
+    def _parallel_process_license(license_: CMsgClientLicenseListLicense, owner_id: int) -> Optional[SteamLicense]:
+        # license_.type 1024 = free games
+        # license_.flags 520 = unidentified trash entries (games which are not owned nor are free)
+        if license_.flags == 520:
+            return None
+
+        if license_.package_id == 0:
+            # Packageid 0 contains trash entries for every user
+            #logger.debug("Skipping packageid 0 ")
+            return None
+
+        if license_.owner_id == owner_id:
+            return SteamLicense(license_data=license_, shared=False)
+        else:
+            return SteamLicense(license_data=license_, shared=True)
+
     async def _process_license_list(self, body: bytes):
         logger.debug("Processing message ClientLicenseList")
         if self.license_import_handler is None:
             return
 
         message : CMsgClientLicenseList = CMsgClientLicenseList().parse(body)
+        message_license_list = message.licenses
 
-        licenses_to_check : List[SteamLicense] = []
-
-        for license_ in message.licenses:
-            # license_.type 1024 = free games
-            # license_.flags 520 = unidentified trash entries (games which are not owned nor are free)
-            if license_.flags == 520:
-                continue
-
-            if license_.package_id == 0:
-                # Packageid 0 contains trash entries for every user
-                logger.debug("Skipping packageid 0 ")
-                continue
-
-            if license_.owner_id == int(self.confirmed_steam_id - self._ACCOUNT_ID_MASK):
-                licenses_to_check.append(SteamLicense(license_data=license_, shared=False))
-            else:
-                if license_.package_id in licenses_to_check:
-                    continue
-                licenses_to_check.append(SteamLicense(license_data=license_, shared=True))
-
+        owner_id: int =  int(self.confirmed_steam_id - self._ACCOUNT_ID_MASK)
+        licenses_to_check : List[SteamLicense] = await parallel_map_async(message_license_list, lambda x : ProtocolParser._parallel_process_license(message_license_list, owner_id))
+        
         await self.license_import_handler(licenses_to_check)
 
     async def _process_product_info_response(self, body : bytes):

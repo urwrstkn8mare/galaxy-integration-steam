@@ -368,6 +368,8 @@ class ProtocolClient:
         package_ids = set([str(steam_license.license_data.package_id) for steam_license in steam_licenses])
 
         for steam_license in steam_licenses:
+            if (steam_license is None):
+                continue
             if str(steam_license.license_data.package_id) not in resolved_packages:
                 not_resolved_licenses.append(steam_license)
 

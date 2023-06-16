@@ -103,8 +103,8 @@ class UserActionRequired(enum.IntEnum):
     InvalidAuthData = 5
 
 #We're going to store this in the User Info Cache so we don't need to pass it everywhere. 
-#WARNING! BE VERY CAREFUL WITH THIS: IT APPEARS IN THE USER INFO CACHE! IF IT IS EVER SAVED (toDict method), THIS ENUM BECOMES SOFT IMMUTABLE 
-#(You can add members but cannot delete, and must parse all options for backwards-compatibility). So, don't, lol.
+#Caution: since this enum is stored in a class that is serialized, removing entries may result in undefined behaviors.
+#currently, this enum is not serialized with the rest of the data, but this is something to be mindful of if this ever changes.
 class TwoFactorMethod(enum.IntEnum):
     Nothing = 0
     PhoneCode = 1

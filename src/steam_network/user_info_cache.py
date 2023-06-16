@@ -27,7 +27,7 @@ class UserInfoCache:
     def is_initialized(self) -> bool:
         #if testing and you want to disable login from saved token, you can return false here. 
 
-        return all([self._steam_id is not None, self._account_username is not None, self.account_username, self._persona_name is not None, self._persona_name, self._refresh_token is not None, self._refresh_token])
+        return all([self._steam_id is not None, self._account_username, self._persona_name, self._refresh_token])
 
 
     def to_dict(self):

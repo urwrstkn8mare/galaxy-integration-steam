@@ -3,10 +3,11 @@ invoke==2.1.2 #bump to at least 1.7 to get rid of some issues.
 certifi; sys_platform == 'darwin'
 #use specific pip version for dependencies to work nicely
 pip==23.1
+pip-tools==6.13 #bump to at least 5.4.0 to ignore certain errors
 
 #protoc install.
 requests==2.31.0
 
-#install requirements. 
+#install requirements.
 
 galaxy.plugin.api==0.69

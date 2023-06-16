@@ -101,6 +101,7 @@ LOGIN_CREDENTIALS = "Authentication.BeginAuthSessionViaCredentials#1"
 UPDATE_TWO_FACTOR = "Authentication.UpdateAuthSessionWithSteamGuardCode#1"
 CHECK_AUTHENTICATION_STATUS = "Authentication.PollAuthSessionStatus#1"
 
+
 class SteamLicense(NamedTuple):
     license_data: CMsgClientLicenseListLicense  # type: ignore[name-defined]
     shared: bool
@@ -682,7 +683,7 @@ class ProtobufClient:
         message = CMsgClientPICSProductInfoResponse().parse(body)
         apps_to_parse: List[str] = []
 
-        def product_info_handler(packages: List[CMsgClientPICSProductInfoResponsePackageInfo], apps: List[CMsgClientPICSProductInfoResponseAppInfo]):
+        def packages_handler(packages: List[CMsgClientPICSProductInfoResponsePackageInfo]):
             for info in packages:
                 self.package_info_handler()
 
@@ -697,6 +698,7 @@ class ProtobufClient:
                     self.app_info_handler(package_id=package_id, appid=appid)
                     apps_to_parse.append(app)
 
+        def apps_handler(apps: List[CMsgClientPICSProductInfoResponseAppInfo]):
             for info in apps:
                 app_content : dict = vdf.loads(info.buffer[:-1].decode('utf-8', 'replace'))
                 appid = str(app_content['appinfo']['appid'])
@@ -715,7 +717,11 @@ class ProtobufClient:
                     self.app_info_handler(appid=appid, title='unknown', type_='unknown', parent=None)
 
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, product_info_handler, message.packages, message.apps)
+
+        await loop.run_in_executor(None, packages_handler, message.packages)
+        await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
+        await loop.run_in_executor(None, apps_handler, message.apps)
+        await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
 
         if len(apps_to_parse) > 0:
             logger.debug("Apps to parse: %s", str(apps_to_parse))

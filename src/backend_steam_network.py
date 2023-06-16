@@ -183,12 +183,12 @@ class SteamNetworkBackend(BackendInterface):
         if len(allowed_methods) > 1:
             fallback_meth, fallback_message = allowed_methods[1]
         
-        if (fallback_meth == TwoFactorMethod.PhoneCode):
-            fallbackData["fallbackMethod"] = DisplayUriHelper.TWO_FACTOR_MOBILE.to_view_string()
-            fallbackData["fallbackMsg"] = fallback_message
-        elif (fallback_meth == TwoFactorMethod.EmailCode):
-            fallbackData["fallbackMethod"] = DisplayUriHelper.TWO_FACTOR_MAIL.to_view_string()
-            fallbackData["fallbackMsg"] = fallback_message
+            if (fallback_meth == TwoFactorMethod.PhoneCode):
+                fallbackData["fallbackMethod"] = DisplayUriHelper.TWO_FACTOR_MOBILE.to_view_string()
+                fallbackData["fallbackMsg"] = fallback_message
+            elif (fallback_meth == TwoFactorMethod.EmailCode):
+                fallbackData["fallbackMethod"] = DisplayUriHelper.TWO_FACTOR_MAIL.to_view_string()
+                fallbackData["fallbackMsg"] = fallback_message
 
         return fallbackData
 
@@ -281,9 +281,11 @@ class SteamNetworkBackend(BackendInterface):
             return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
         elif (result == UserActionRequired.NoActionConfirmToken):
             return await self._finish_auth_process()
-        #returned if we somehow got here but poll did not succeed. If we get here, the code should have been successfully input so this should never happen. 
         elif(result == UserActionRequired.NoActionConfirmLogin or result == UserActionRequired.TwoFactorRequired):
-            logger.info("Mobile Confirm did not complete. This is likely due to user error, but if not, this is something worth checking.")
+            if (is_confirm):
+                logger.info("Mobile Confirm did not complete. This is likely due to user error, but if not, this is something worth checking.")
+            else:
+                logger.info("Mobile code 2FA failed, likely expired. Could also be wrong code, as steam seems to give the same response.")
             return next_step_response_simple(fallback, True, **kwargs)
         elif (result == UserActionRequired.TwoFactorExpired):
             return next_step_response_simple(DisplayUriHelper.LOGIN, True, expired="true", **kwargs)

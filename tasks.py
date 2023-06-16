@@ -49,9 +49,6 @@ def build(c, output='output', ziparchive=None):
         print('--> Removing {} directory'.format(output))
         rmtree(output)
 
-    print('--> Fixing a pip issue, failing to import `BAR_TYPES` from `pip._internal.cli.progress_bars`')
-    c.run(PYTHON_EXE + ' -m pip install --upgrade pip==22.0.4')
-
     # Firstly dependencies need to be "flattened" with pip-compile,
     # as pip requires --no-deps if --platform is used.
     print('--> Flattening dependencies to temporary requirements file')

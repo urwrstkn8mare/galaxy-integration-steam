@@ -5,7 +5,7 @@ import logging
 import socket as sock
 import struct
 import ipaddress
-from itertools import count, chain, islice
+from itertools import count
 from typing import Awaitable, Callable, Coroutine, Dict, Optional, Any, List, NamedTuple, Iterator
 
 import base64
@@ -100,22 +100,6 @@ GET_RSA_KEY = "Authentication.GetPasswordRSAPublicKey#1"
 LOGIN_CREDENTIALS = "Authentication.BeginAuthSessionViaCredentials#1"
 UPDATE_TWO_FACTOR = "Authentication.UpdateAuthSessionWithSteamGuardCode#1"
 CHECK_AUTHENTICATION_STATUS = "Authentication.PollAuthSessionStatus#1"
-
-
-# taken from https://stackoverflow.com/a/8998040
-def batched(iterable, n):
-    "Batch data into iterators of length n. The last batch may be shorter."
-    # batched('ABCDEFG', 3) --> ABC DEF G
-    if n < 1:
-        raise ValueError('n must be at least one')
-    it = iter(iterable)
-    while True:
-        chunk_it = islice(it, n)
-        try:
-            first_el = next(chunk_it)
-        except StopIteration:
-            return
-        yield chain((first_el,), chunk_it)
 
 
 class SteamLicense(NamedTuple):
@@ -734,27 +718,10 @@ class ProtobufClient:
 
         loop = asyncio.get_running_loop()
 
-        if True: # toggle this between True and False to switch variants
-            # variant A
-            await loop.run_in_executor(None, packages_handler, message.packages)
-            await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
-            await loop.run_in_executor(None, apps_handler, message.apps)
-            await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
-        else:
-            # variant B
-            ctr = 1
-            for batch in batched(message.packages, 25):
-                logger.debug(f"importing batch {ctr} of packages")
-                ctr += 1
-                await loop.run_in_executor(None, packages_handler, batch)
-                await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
-
-            ctr = 1
-            for batch in batched(message.apps, 25):
-                logger.debug(f"importing batch {ctr} of apps")
-                ctr += 1
-                await loop.run_in_executor(None, apps_handler, batch)
-                await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
+        await loop.run_in_executor(None, packages_handler, message.packages)
+        await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
+        await loop.run_in_executor(None, apps_handler, message.apps)
+        await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
 
         if len(apps_to_parse) > 0:
             logger.debug("Apps to parse: %s", str(apps_to_parse))

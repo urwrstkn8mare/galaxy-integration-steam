@@ -131,8 +131,10 @@ class SteamNetworkBackend(BackendInterface):
         await self._websocket_client.close()
         await self._websocket_client.wait_closed()
 
-        await self._cancel_task(self._update_owned_games_task)
-        await self._cancel_task(self._steam_run_task)
+        if self._update_owned_games_task:
+            await self._cancel_task(self._update_owned_games_task)
+        if self._steam_run_task:
+            await self._cancel_task(self._steam_run_task)
 
     async def _cancel_task(self, task):
         with suppress(asyncio.CancelledError):

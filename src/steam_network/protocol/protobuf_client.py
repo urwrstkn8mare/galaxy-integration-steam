@@ -127,7 +127,7 @@ class ProtobufClient:
         self.user_info_handler:             Optional[Callable[[int, ProtoUserInfo], Awaitable[None]]] = None
         self.user_nicknames_handler:        Optional[Callable[[dict], Awaitable[None]]] = None
         self.license_import_handler:        Optional[Callable[[List[SteamLicense]], Awaitable[None]]] = None
-        self.package_handler:               Optional[Callable[[int, Dict[int, List[int]]], None]] = None
+        self.package_handler:               Optional[Callable[[Dict[int, List[int]]], None]] = None
         self.app_handler:                   Optional[Callable[[List[App]], None]] = None
         self.translations_handler:          Optional[Callable[[float, Any], Awaitable[None]]] = None
         self.stats_handler:                 Optional[Callable[[int, Any, Any], Awaitable[None]]] = None
@@ -666,11 +666,11 @@ class ProtobufClient:
                 logger.debug("Skipping packageid 0 ")
                 continue
 
+            logger.debug(f"received license for package {license_.package_id}")
+
             if license_.owner_id == int(self.confirmed_steam_id - self._ACCOUNT_ID_MASK):
                 licenses_to_check.append(SteamLicense(package_id=license_.package_id, access_token=license_.access_token, shared=False))
-            else:
-                if license_.package_id in licenses_to_check:
-                    continue
+            elif license_.package_id not in licenses_to_check:
                 licenses_to_check.append(SteamLicense(package_id=license_.package_id, access_token=license_.access_token, shared=True))
 
         await self.license_import_handler(licenses_to_check)
@@ -684,13 +684,13 @@ class ProtobufClient:
         for package_info in package_infos:
             package_id = package_info.packageid
             package_content = vdf.binary_loads(package_info.buffer[4:])
-            package = package_content.get(package_id)
+            package = package_content.get(str(package_id))
             if package is None:
                 continue
 
-            package_apps: List[int] = cast(List[int], list(package['appids'].values()))
-            apps.update(package_apps)
-            packages[package_id] = package_apps
+            app_ids: List[int] = [int(x) for x in package['appids'].values()]
+            apps.update(app_ids)
+            packages[package_id] = app_ids
 
         return (packages, apps)
 
@@ -704,12 +704,12 @@ class ProtobufClient:
             try:
                 type_: str = app_content['appinfo']['common']['type'].lower()
                 title: str = app_content['appinfo']['common']['name']
-                parent: Optional[str] = None
-                if type_ == 'dlc' and 'parent' in app_content['appinfo']['common']:
-                    parent = app_content['appinfo']['common']['parent']
-                    logger.debug(f"Retrieved dlc {title} for {parent}")
-                if type_ == 'game':
-                    logger.debug(f"Retrieved game {title}")
+                parent: Optional[str] = app_content['appinfo']['common'].get('parent', None)
+
+                logger.debug(f"Retrieved {type_} '{title}'" + (f" for {parent}" if parent else ""))
+
+                if type_ not in {"dlc", "game"}:
+                    logger.warning(f"app '{title}' has unexpected type '{type_}'")
 
                 apps.append(App(appid=appid, title=title, type_=type_, parent=parent))
             except KeyError as ex:
@@ -724,14 +724,15 @@ class ProtobufClient:
         message = CMsgClientPICSProductInfoResponse().parse(body)
 
         loop = asyncio.get_running_loop()
-        packages_processed = len(message.packages)
+
+        logger.debug(f"handling {len(message.packages)} packages")
         packages, apps_to_parse = await loop.run_in_executor(None, ProtobufClient.packages_handler, message.packages)
-        self.package_handler(packages_processed, packages)
+        self.package_handler(packages)
         await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
 
+        logger.debug(f"handling {len(message.apps)} apps")
         apps = await loop.run_in_executor(None, ProtobufClient.apps_handler, message.apps)
-        for app in apps:
-            self.app_handler(app)
+        self.app_handler(apps)
         await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
 
         if len(apps_to_parse) > 0:

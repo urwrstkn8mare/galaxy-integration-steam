@@ -393,11 +393,11 @@ class ProtocolClient:
         self._games_cache.start_packages_import(not_resolved_licenses)
         await self._protobuf_client.get_packages_info(not_resolved_licenses)
 
-    def _package_handler(self, total_packages_processed: int, packages_with_apps: Dict[int, List[int]]):
-        self._games_cache.update_license_apps(total_packages_processed, packages_with_apps)
+    def _package_handler(self, packages_with_apps: Dict[int, List[int]]):
+        self._games_cache.add_packages(packages_with_apps)
 
     def _app_handler(self, apps : List[App]):
-            self._games_cache.update_app_title(apps)
+        self._games_cache.add_apps(apps)
 
     def _package_info_handler(self):
         self._games_cache.update_packages()

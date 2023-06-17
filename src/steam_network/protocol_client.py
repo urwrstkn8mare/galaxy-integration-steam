@@ -2,7 +2,7 @@ import asyncio
 import logging
 import secrets
 
-from typing import Callable, List, TYPE_CHECKING, Optional, Tuple, Dict
+from typing import Callable, List, Optional, Tuple, Dict, Set
 from asyncio import Future
 
 from rsa import PublicKey
@@ -14,14 +14,14 @@ from .utils import get_os, translate_error
 
 from .caches.local_machine_cache import LocalMachineCache
 from .caches.friends_cache import FriendsCache
-from .caches.games_cache import GamesCache, App
+from .caches.games_cache import GamesCache, App, SteamLicense
 from .caches.stats_cache import StatsCache
 from .caches.user_info_cache import UserInfoCache
 from .caches.times_cache import TimesCache
 
 from .authentication_data import AuthenticationData
 
-from .protocol.protobuf_client import ProtobufClient, SteamLicense
+from .protocol.protobuf_client import ProtobufClient
 from .protocol.consts import EResult, EFriendRelationship, EPersonaState
 
 from .enums import TwoFactorMethod, UserActionRequired, to_TwoFactorWithMessage, to_EAuthSessionGuardType
@@ -364,13 +364,13 @@ class ProtocolClient:
 
     async def _license_import_handler(self, steam_licenses: List[SteamLicense]):
         logger.info('Handling %d user licenses', len(steam_licenses))
-        not_resolved_licenses = []
+        not_resolved_licenses: List[SteamLicense] = list()
 
         resolved_packages = self._games_cache.get_resolved_packages()
-        package_ids = set([str(steam_license.license_data.package_id) for steam_license in steam_licenses])
+        package_ids: Set[int] = {steam_license.package_id for steam_license in steam_licenses}
 
         for steam_license in steam_licenses:
-            if str(steam_license.license_data.package_id) not in resolved_packages:
+            if steam_license.package_id not in resolved_packages:
                 not_resolved_licenses.append(steam_license)
 
         if len(package_ids) < 12000:

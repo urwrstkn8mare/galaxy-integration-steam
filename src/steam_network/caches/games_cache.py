@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from dataclasses_json import dataclass_json
-from typing import Any, List, Dict, Optional, Set, AsyncGenerator
-import logging
-import json
-import copy
 import asyncio
+import copy
+import json
+import logging
+from dataclasses import dataclass, field
+from typing import AsyncGenerator, Dict, List, NamedTuple, Optional, Set
 
-from .cache_proto import ProtoCache
-from ..protocol.protobuf_client import SteamLicense
+from dataclasses_json import dataclass_json
+
 from ..w3_hack import WITCHER_3_DLCS_APP_IDS
-
+from .cache_proto import ProtoCache
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +31,7 @@ class GameLicense:
     shared: bool
     app_ids: Set[int] = field(default_factory=set)
 
+
 @dataclass_json
 @dataclass
 class LicensesCache:
@@ -50,9 +50,8 @@ class LicensesCache:
                 app["type_"] = app["type"]
                 del app["type"]
 
-            #CHECK ME!
-            if ("licenses" in obj):
-                obj["license_lookup"] = { int(item.package_id): item for item in obj["licenses"]}
+        if "licenses" in obj:
+            obj["license_lookup"] = { int(item.package_id): item for item in obj["licenses"]}
 
         return LicensesCache.from_dict(obj)
 
@@ -61,6 +60,12 @@ class LicensesCache:
 class ParsingStatus:
     packages_to_parse: Optional[int] = None
     apps_to_parse: Optional[int] = None
+
+
+class SteamLicense(NamedTuple):
+    package_id: int
+    access_token: str
+    shared: bool
 
 
 class GamesCache(ProtoCache):
@@ -90,9 +95,9 @@ class GamesCache(ProtoCache):
         self._parsing_status.packages_to_parse = 0
         logger.debug('Licenses to parse: %d, cached package_ids: %d', len(steam_licenses), len(package_ids))
         for steam_license in steam_licenses:
-            if steam_license.license_data.package_id in package_ids:
+            if steam_license.package_id in package_ids:
                 continue
-            pid = steam_license.license_data.package_id
+            pid = steam_license.package_id
             self._storing_map.license_lookup[pid] = (GameLicense(package_id=str(pid), shared=steam_license.shared))
             self._parsing_status.packages_to_parse += 1
         self._parsing_status.apps_to_parse = 0
@@ -113,10 +118,10 @@ class GamesCache(ProtoCache):
             return set()
         return set(self._storing_map.license_lookup.keys())
 
-    def get_resolved_packages(self) -> Set[str]:
+    def get_resolved_packages(self) -> Set[int]:
         if not self._storing_map:
             return set()
-        packages = set()
+        packages: Set[int] = set()
         storing_map = copy.copy(self._storing_map)
         for game_license in storing_map.license_lookup.values():
             if game_license.app_ids:

@@ -144,8 +144,6 @@ class GamesCache(ProtoCache):
     async def __consume_resolved_apps(self, shared_licenses: bool, apptype: str) -> AsyncGenerator[App, None]:
         storing_map = copy.copy(self._storing_map)
 
-        # the app_ids of packages are the base games/programs/etc
-        # those may or may not have app_ids on their own, which are their DLCs/components/whatever
         for game_license in storing_map.license_lookup.values():
             await asyncio.sleep(0.0001)  # do not block event loop; waiting one frame (0) was not enough 78#issuecomment-687140437
             if game_license.shared != shared_licenses:
@@ -198,7 +196,7 @@ class GamesCache(ProtoCache):
             self._parsing_status.apps_to_parse.discard(int(new_app.appid))
             self._storing_map.apps[int(new_app.appid)] = new_app
 
-            # if the app has a parent, it's a DLC/components/etc and the lookup table needs an update
+            # if the app has a parent, it's a DLC/component/etc and the lookup table needs an update
             if new_app.parent:
                 parent = int(new_app.parent)
                 if parent not in self._storing_map.dlc_lookup:
@@ -222,9 +220,8 @@ class GamesCache(ProtoCache):
             self._ready_event.clear()
 
     def get_dlcs_for_game(self, game_id: int) -> List[App]:
-        # this currently doesn't work because apparently a game is not a package; maybe a package contains
-        # the actual game in its app_ids which, in turn, has the DLCs as its own app_ids; but i don't know
-        # for sure its just guessing on my end right now
+        # this should work but I don't know where to see the DLCs in Galaxy
+        # so, as long I'm not proven otherwise, I declare this to be working as intended
         if game_id not in self._storing_map.dlc_lookup:
             return []
 

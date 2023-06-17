@@ -14,7 +14,7 @@ from .utils import get_os, translate_error
 
 from .caches.local_machine_cache import LocalMachineCache
 from .caches.friends_cache import FriendsCache
-from .caches.games_cache import GamesCache
+from .caches.games_cache import GamesCache, App
 from .caches.stats_cache import StatsCache
 from .caches.user_info_cache import UserInfoCache
 from .caches.times_cache import TimesCache
@@ -70,8 +70,8 @@ class ProtocolClient:
         self._protobuf_client.relationship_handler = self._relationship_handler
         self._protobuf_client.user_info_handler = self._user_info_handler
         self._protobuf_client.user_nicknames_handler = self._user_nicknames_handler
-        self._protobuf_client.app_info_handler = self._app_info_handler
-        self._protobuf_client.package_info_handler = self._package_info_handler
+        self._protobuf_client.package_handler = self._package_handler
+        self._protobuf_client.app_handler = self._app_handler
         self._protobuf_client.license_import_handler = self._license_import_handler
         self._protobuf_client.translations_handler = self._translations_handler
         self._protobuf_client.stats_handler = self._stats_handler
@@ -393,11 +393,11 @@ class ProtocolClient:
         self._games_cache.start_packages_import(not_resolved_licenses)
         await self._protobuf_client.get_packages_info(not_resolved_licenses)
 
-    def _app_info_handler(self, appid : str, package_id : Optional[str] = None, title: Optional[str]=None, type_: Optional[str]=None, parent: Optional[str]=None):
-        if package_id:
-            self._games_cache.update_license_apps(package_id, appid)
-        if title and type_:
-            self._games_cache.update_app_title(appid, title, type_, parent)
+    def _package_handler(self, total_packages_processed: int, packages_with_apps: Dict[int, List[int]]):
+        self._games_cache.update_license_apps(total_packages_processed, packages_with_apps)
+
+    def _app_handler(self, apps : List[App]):
+            self._games_cache.update_app_title(apps)
 
     def _package_info_handler(self):
         self._games_cache.update_packages()

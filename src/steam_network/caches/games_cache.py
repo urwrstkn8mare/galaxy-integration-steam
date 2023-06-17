@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from typing import Any, List, Dict, Optional, Set, AsyncGenerator
@@ -28,16 +30,17 @@ class App:
 class GameLicense:
     package_id: str
     shared: bool
-    app_ids: Set[str] = field(default_factory=set)
+    app_ids: Set[int] = field(default_factory=set)
 
 @dataclass_json
 @dataclass
 class LicensesCache:
-    licenses: List[GameLicense] = field(default_factory=list)
+    #licenses: List[GameLicense] = field(default_factory=list)
+    license_lookup: Dict[int, GameLicense] = field(default_factory=dict)
     apps: Dict[str, App] = field(default_factory=dict)
 
     @classmethod
-    def migrateV1(cls, data: str) -> "LicensesCache":
+    def migrateV1(cls, data: str) -> LicensesCache:
         obj = json.loads(data)
 
         for appid in obj.get("apps", {}):
@@ -46,6 +49,10 @@ class LicensesCache:
             if "type" in app:
                 app["type_"] = app["type"]
                 del app["type"]
+
+            #CHECK ME!
+            if ("licenses" in obj):
+                obj["license_lookup"] = { int(item.package_id): item for item in obj["licenses"]}
 
         return LicensesCache.from_dict(obj)
 
@@ -81,12 +88,12 @@ class GamesCache(ProtoCache):
     def start_packages_import(self, steam_licenses: List[SteamLicense]):
         package_ids = self.get_package_ids()
         self._parsing_status.packages_to_parse = 0
-        logger.debug('Licenses to parse: %d, cached package_ids: %d', len(steam_licenses), package_ids)
+        logger.debug('Licenses to parse: %d, cached package_ids: %d', len(steam_licenses), len(package_ids))
         for steam_license in steam_licenses:
             if steam_license.license_data.package_id in package_ids:
                 continue
-            self._storing_map.licenses.append(GameLicense(package_id=str(steam_license.license_data.package_id),
-                                             shared=steam_license.shared))
+            pid = steam_license.license_data.package_id
+            self._storing_map.license_lookup[pid] = (GameLicense(package_id=str(pid), shared=steam_license.shared))
             self._parsing_status.packages_to_parse += 1
         self._parsing_status.apps_to_parse = 0
         self._update_ready_state()
@@ -101,18 +108,17 @@ class GamesCache(ProtoCache):
                 games.append(app)
         return games
 
-    def get_package_ids(self) -> Set[str]:
+    def get_package_ids(self) -> Set[int]:
         if not self._storing_map:
             return set()
-        game_licenses : List[GameLicense] = self._storing_map.licenses.copy() #copy in case it's updated or something, idk. 
-        return set([game_license.package_id for game_license in game_licenses])
+        return set(self._storing_map.license_lookup.keys())
 
     def get_resolved_packages(self) -> Set[str]:
         if not self._storing_map:
             return set()
         packages = set()
         storing_map = copy.copy(self._storing_map)
-        for game_license in storing_map.licenses:
+        for game_license in storing_map.license_lookup.values():
             if game_license.app_ids:
                 resolved = True
                 for app in game_license.app_ids:
@@ -128,7 +134,7 @@ class GamesCache(ProtoCache):
 
     async def __consume_resolved_apps(self, shared_licenses: bool, apptype: str) -> AsyncGenerator[App, None]:
         storing_map = copy.copy(self._storing_map)
-        for game_license in storing_map.licenses:
+        for game_license in storing_map.license_lookup.values():
             await asyncio.sleep(0.0001)  # do not block event loop; waiting one frame (0) was not enough 78#issuecomment-687140437
             if game_license.shared != shared_licenses:
                 continue
@@ -156,22 +162,28 @@ class GamesCache(ProtoCache):
         async for app in self.__consume_resolved_apps(True, 'game'):
             yield app
 
-    def update_license_apps(self, package_id : str, appid: str):
-        self._parsing_status.apps_to_parse += 1
-        for game_license in self._storing_map.licenses:
-            if game_license.package_id == package_id:
-                game_license.app_ids.add(appid)
-
-    def update_app_title(self, appid : str, title : str, type_ : str, parent : str):
-        for game_license in self._storing_map.licenses:
-            if appid in game_license.app_ids:
-                self._parsing_status.apps_to_parse -= 1
-        new_app = App(appid=appid, title=title, type_= type_, parent=parent)
-        self._storing_map.apps[appid] = new_app
-        if self.add_game_lever and new_app not in self._sent_apps:
-            self._apps_added.append(new_app)
-
+    def update_license_apps(self, total_packages_processed: int, packages_with_apps: Dict[int, List[int]]):
+        self._parsing_status.packages_to_parse -= total_packages_processed
         self._update_ready_state()
+
+        for package_id, apps in packages_with_apps.items():
+            self._parsing_status.apps_to_parse += 1
+            if package_id in self._storing_map.license_lookup:
+                self._storing_map.license_lookup[package_id].app_ids.update(apps)
+            else:
+                self._storing_map.license_lookup[package_id] = set(apps)
+
+    def update_app_titles(self, new_apps : List[App]):
+        for new_app in new_apps:
+
+            appid = new_app.appid
+            if (appid.parent is not None and int(appid.parent) in self._storing_map.license_lookup):
+                self._parsing_status.apps_to_parse -= 1
+            self._storing_map.apps[appid] = new_app
+            if self.add_game_lever and new_app not in self._sent_apps:
+                self._apps_added.append(new_app)
+
+            self._update_ready_state()
 
     def _update_ready_state(self):
         if self._parsing_status.packages_to_parse == 0 and self._parsing_status.apps_to_parse == 0:
@@ -201,5 +213,7 @@ class GamesCache(ProtoCache):
             self._storing_map = LicensesCache.from_json(cache['licenses'])
         except KeyError:
             self._storing_map = LicensesCache.migrateV1(cache['licenses'])
+
+        self._storing_map.apps
 
         logging.info(f"Loaded games from cache {self._storing_map}")

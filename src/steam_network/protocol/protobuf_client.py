@@ -6,7 +6,7 @@ import socket as sock
 import struct
 import ipaddress
 from itertools import count
-from typing import Awaitable, Callable, Coroutine, Dict, Optional, Any, List, NamedTuple, Iterator
+from typing import Awaitable, Callable, Coroutine, Dict, Optional, Any, List, NamedTuple, Iterator, Tuple, Set, cast
 
 import base64
 
@@ -85,6 +85,8 @@ from .messages.steammessages_webui_friends import (
     CCommunity_GetAppRichPresenceLocalization_Response,
 )
 
+from ..caches.games_cache import App
+
 from .steam_types import SteamId, ProtoUserInfo
 
 
@@ -130,8 +132,8 @@ class ProtobufClient:
         self.user_info_handler:             Optional[Callable[[int, ProtoUserInfo], Awaitable[None]]] = None
         self.user_nicknames_handler:        Optional[Callable[[dict], Awaitable[None]]] = None
         self.license_import_handler:        Optional[Callable[[int], Awaitable[None]]] = None
-        self.app_info_handler:              Optional[Callable[[str, str, str, str, str], None]] = None
-        self.package_info_handler:          Optional[Callable[[], None]] = None
+        self.package_handler:               Optional[Callable[[int, Dict[int, List[int]]], None]] = None
+        self.app_handler:                   Optional[Callable[[List[App]], None]] = None
         self.translations_handler:          Optional[Callable[[float, Any], Awaitable[None]]] = None
         self.stats_handler:                 Optional[Callable[[int, Any, Any], Awaitable[None]]] = None
         self.confirmed_steam_id:            Optional[int] = None #this should only be set when the steam id is confirmed. this occurs when we actually complete the login. before then, it will cause errors.
@@ -678,49 +680,60 @@ class ProtobufClient:
 
         await self.license_import_handler(licenses_to_check)
 
+
+    @staticmethod
+    def packages_handler(packages: List[CMsgClientPICSProductInfoResponsePackageInfo]) -> Tuple[Dict[int, List[int]], Set[int]]:
+        package_return : Dict[int, List[int]] = {}
+        app_return : Set[int] = set()
+
+        for info in packages:
+            package_id = info.packageid
+            package_content = vdf.binary_loads(info.buffer[4:])
+            package = package_content.get(package_id)
+            if package is None:
+                continue
+
+            package_apps : List[int] = cast(List[int], list(package['appids'].values()))
+            app_return.update(package_apps)
+            package_return[package_id] = package_apps
+
+        return (package_return, app_return)
+
+    @staticmethod
+    def apps_handler(apps: List[CMsgClientPICSProductInfoResponseAppInfo]) -> List[App]:
+        retVal: List[App] = []
+        for info in apps:
+            app_content : dict = vdf.loads(info.buffer[:-1].decode('utf-8', 'replace'))
+            appid = str(app_content['appinfo']['appid'])
+            try:
+                type_ : str = app_content['appinfo']['common']['type'].lower()
+                title : str = app_content['appinfo']['common']['name']
+                parent : Optional[str] = None
+                if type_ == 'dlc' and 'parent' in app_content['appinfo']['common']:
+                    parent = app_content['appinfo']['common']['parent']
+                #i'd like to log these but idk how well that works with multiprocessing. 
+                    #logger.debug(f"Retrieved dlc {title} for {parent}")
+                #if type_ == 'game':
+                    #logger.debug(f"Retrieved game {title}")
+
+                retVal.append(App(appid=appid, title=title, type_=type_, parent=parent))
+            except KeyError as ex:
+                #logger.warning(f"Unrecognized app structure ({str(ex)}) {app_content}")
+                retVal.append(App(appid=appid, title='unknown', type_='unknown', parent=None))
+
     async def _process_product_info_response(self, body : bytes):
         logger.debug("Processing message ClientPICSProductInfoResponse")
         message = CMsgClientPICSProductInfoResponse().parse(body)
-        apps_to_parse: List[str] = []
-
-        def packages_handler(packages: List[CMsgClientPICSProductInfoResponsePackageInfo]):
-            for info in packages:
-                self.package_info_handler()
-
-                package_id = str(info.packageid)
-                package_content = vdf.binary_loads(info.buffer[4:])
-                package = package_content.get(package_id)
-                if package is None:
-                    continue
-
-                for app in package['appids'].values():
-                    appid = str(app)
-                    self.app_info_handler(package_id=package_id, appid=appid)
-                    apps_to_parse.append(app)
-
-        def apps_handler(apps: List[CMsgClientPICSProductInfoResponseAppInfo]):
-            for info in apps:
-                app_content : dict = vdf.loads(info.buffer[:-1].decode('utf-8', 'replace'))
-                appid = str(app_content['appinfo']['appid'])
-                try:
-                    type_ : str = app_content['appinfo']['common']['type'].lower()
-                    title : str = app_content['appinfo']['common']['name']
-                    parent : Optional[str] = None
-                    if type_ == 'dlc' and 'parent' in app_content['appinfo']['common']:
-                        parent = app_content['appinfo']['common']['parent']
-                        logger.debug(f"Retrieved dlc {title} for {parent}")
-                    if type_ == 'game':
-                        logger.debug(f"Retrieved game {title}")
-                    self.app_info_handler(appid=appid, title=title, type_=type_, parent=parent)
-                except KeyError as ex:
-                    logger.warning(f"Unrecognized app structure ({str(ex)}) {app_content}")
-                    self.app_info_handler(appid=appid, title='unknown', type_='unknown', parent=None)
+        
 
         loop = asyncio.get_running_loop()
-
-        await loop.run_in_executor(None, packages_handler, message.packages)
+        packages_processed = len(message.packages)
+        packages, apps_to_parse = await loop.run_in_executor(None, ProtobufClient.packages_handler, message.packages)
+        self.package_handler(packages_processed, packages)
         await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
-        await loop.run_in_executor(None, apps_handler, message.apps)
+        apps = await loop.run_in_executor(None, ProtobufClient.apps_handler, message.apps)
+        for app in apps:
+            self.app_handler(app)
         await asyncio.sleep(0) # don't block event loop; let other tasks run occasionally
 
         if len(apps_to_parse) > 0:

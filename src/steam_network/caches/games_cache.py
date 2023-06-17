@@ -24,6 +24,23 @@ class App:
     parent: Optional[str]
 
 
+# if i'm not mistaken, we can probably remove this class in favor of just using Apps.
+# some terminology first:
+# - App: any entity in the steam store (be it a game, a dlc, a tool, or else; all of which are Apps); an App may be referenced in multiple packages or have a parent App if it's a DLC/tool
+# - Package: probably "things you can buy in the steam store"; can contain one or more apps (e.g. a single game or a bundle of several games)
+#
+# after a long afternoon of debugging i have the feeling that packages (as referenced
+# by/in SteamLicense and GameLicense) are just entities you can buy in the steam store.
+# these packages may contain a single game or be a bundle of several games which explains
+# why they contain one or more appids. these appids are the actual games/programs you own
+# which we need to report to Galaxy.
+# that means that if we pass on the `shared' flag to Apps (which we need to distinguish
+# owned games from shared games) we can get rid of all the **License classes because
+# we can get all information we need from the App list:
+# * DLCs: Apps which have a parent and have type dlc (filter by the parent to get the game-specific list of DLCs)
+# * Games: Apps which don't have a parent and have type game (and maybe even demo if we want)
+# * Tools: Apps which may or may not have a parent and type tool
+# given that, there's no need to hold onto the License information from my perspective
 @dataclass_json
 @dataclass
 class GameLicense:
@@ -144,6 +161,8 @@ class GamesCache(ProtoCache):
     async def __consume_resolved_apps(self, shared_licenses: bool, apptype: str) -> AsyncGenerator[App, None]:
         storing_map = copy.copy(self._storing_map)
 
+        # this one needs a rework because it returns the same app multiple times if it's referenced in more than one package
+        # see comment on GameLicense for more info
         for game_license in storing_map.license_lookup.values():
             await asyncio.sleep(0.0001)  # do not block event loop; waiting one frame (0) was not enough 78#issuecomment-687140437
             if game_license.shared != shared_licenses:

@@ -27,6 +27,7 @@ from galaxy.api.types import (
     GameLibrarySettings,
     GameTime,
     Authentication, NextStep,
+    Dlc
 )
 
 from backend_interface import BackendInterface
@@ -152,11 +153,19 @@ class SteamNetworkBackend(BackendInterface):
         self._persistent_storage_state.modified = True
 
         for i, game in enumerate(new_games):
+            dlcs: List[Dlc] = list()
+            for app in self._games_cache.get_dlcs_for_game(int(game.appid)):
+                dlcs.append(Dlc(
+                    dlc_id=app.appid,
+                    dlc_title=app.title,
+                    license_info=LicenseInfo(LicenseType.SinglePurchase)
+                ))
+
             self._add_game(
                 Game(
                     game.appid,
                     game.title,
-                    [],
+                    dlcs,
                     license_info=LicenseInfo(LicenseType.SinglePurchase),
                 )
             )
@@ -353,11 +362,19 @@ class SteamNetworkBackend(BackendInterface):
 
         try:
             async for app in self._games_cache.get_owned_games():
+                dlcs: List[Dlc] = list()
+                for dlc in self._games_cache.get_dlcs_for_game(int(app.appid)):
+                    dlcs.append(Dlc(
+                        dlc_id=dlc.appid,
+                        dlc_title=dlc.title,
+                        license_info=LicenseInfo(LicenseType.SinglePurchase)
+                    ))
+
                 owned_games.append(
                     Game(
                         str(app.appid),
                         app.title,
-                        [],
+                        dlcs,
                         LicenseInfo(LicenseType.SinglePurchase, None),
                     )
                 )

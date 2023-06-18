@@ -434,13 +434,8 @@ class ProtobufClient:
     async def get_packages_info(self, steam_licenses: List[SteamLicense]):
         logger.info("Sending call %s with %d package_ids", repr(EMsg.ClientPICSProductInfoRequest), len(steam_licenses))
         message = CMsgClientPICSProductInfoRequest()
-        message.packages = list()
 
-        for steam_license in steam_licenses:
-            info = CMsgClientPICSProductInfoRequestPackageInfo()
-            info.packageid = steam_license.package_id
-            info.access_token = steam_license.access_token
-            message.packages.append(info)
+        message.packages = map(lambda x: CMsgClientPICSProductInfoRequestPackageInfo(x.packagie_id, x.access_token), steam_licenses)
 
         await self._send(EMsg.ClientPICSProductInfoRequest, message)
 

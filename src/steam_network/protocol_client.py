@@ -2,7 +2,7 @@ import asyncio
 import logging
 import secrets
 
-from typing import Callable, List, Optional, Tuple, Dict, Set
+from typing import Callable, List, Optional, Tuple, Dict
 from asyncio import Future
 
 from rsa import PublicKey
@@ -14,7 +14,7 @@ from .utils import get_os, translate_error
 
 from .caches.local_machine_cache import LocalMachineCache
 from .caches.friends_cache import FriendsCache
-from .caches.games_cache import GamesCache, App, SteamLicense
+from .caches.games_cache import GamesCache, App, SteamLicense, SteamPackage
 from .caches.stats_cache import StatsCache
 from .caches.user_info_cache import UserInfoCache
 from .caches.times_cache import TimesCache
@@ -363,40 +363,14 @@ class ProtocolClient:
         self._friends_cache.update_nicknames(nicknames)
 
     async def _license_import_handler(self, steam_licenses: List[SteamLicense]):
-        logger.info('Handling %d user licenses', len(steam_licenses))
-        not_resolved_licenses: List[SteamLicense] = list()
+        logger.info("Starting license import for %d packages", len(steam_licenses))
+        packages_to_import = self._games_cache.start_packages_import(steam_licenses)
+        await self._protobuf_client.get_packages_info(packages_to_import)
 
-        resolved_packages = self._games_cache.get_resolved_packages()
-        package_ids: Set[int] = {steam_license.package_id for steam_license in steam_licenses}
+    def _package_handler(self, packages_with_apps: List[SteamPackage]) -> List[int]:
+        return self._games_cache.add_packages(packages_with_apps)
 
-        for steam_license in steam_licenses:
-            if steam_license.package_id not in resolved_packages:
-                not_resolved_licenses.append(steam_license)
-
-        if len(package_ids) < 12000:
-            # TODO rework cache invalidation for bigger libraries (steam sends licenses in packs of >12k licenses)
-            if package_ids != self._games_cache.get_package_ids():
-                logger.info(
-                    "Licenses list different than last time (cached packages: %d, new packages: %d). Reseting cache.",
-                    len(self._games_cache.get_package_ids()),
-                    len(package_ids)
-                )
-                self._games_cache.reset_storing_map()
-                self._games_cache.start_packages_import(steam_licenses)
-                return await self._protobuf_client.get_packages_info(steam_licenses)
-
-        # This path will only attempt import on packages which aren't resolved (dont have any apps assigned)
-        logger.info("Starting license import for %d packages, skipping %d already resolved.",
-            len(package_ids - resolved_packages),
-            len(resolved_packages)
-        )
-        self._games_cache.start_packages_import(not_resolved_licenses)
-        await self._protobuf_client.get_packages_info(not_resolved_licenses)
-
-    def _package_handler(self, packages_with_apps: Dict[int, List[int]]):
-        self._games_cache.add_packages(packages_with_apps)
-
-    def _app_handler(self, apps : List[App]):
+    def _app_handler(self, apps: List[App]):
         self._games_cache.add_apps(apps)
 
     def _package_info_handler(self):

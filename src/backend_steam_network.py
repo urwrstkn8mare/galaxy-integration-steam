@@ -145,7 +145,7 @@ class SteamNetworkBackend(BackendInterface):
     # periodic tasks
 
     async def _update_owned_games(self):
-        new_games = self._games_cache.consume_added_games()
+        new_games = self._games_cache.get_apps_to_import_into_galaxy()
         if not new_games:
             return
 
@@ -154,12 +154,13 @@ class SteamNetworkBackend(BackendInterface):
 
         for i, game in enumerate(new_games):
             dlcs: List[Dlc] = list()
-            for app in self._games_cache.get_dlcs_for_game(int(game.appid)):
+            for dlc in self._games_cache.get_dlcs_for_game(int(game.appid)):
                 dlcs.append(Dlc(
-                    dlc_id=app.appid,
-                    dlc_title=app.title,
+                    dlc_id=dlc.appid,
+                    dlc_title=dlc.title,
                     license_info=LicenseInfo(LicenseType.SinglePurchase)
                 ))
+                self._games_cache.mark_app_as_sent_to_galaxy(dlc.appid)
 
             self._add_game(
                 Game(
@@ -169,6 +170,7 @@ class SteamNetworkBackend(BackendInterface):
                     license_info=LicenseInfo(LicenseType.SinglePurchase),
                 )
             )
+            self._games_cache.mark_app_as_sent_to_galaxy(game.appid)
             if i % 50 == 49:
                 await asyncio.sleep(5)  # give Galaxy a breath in case of adding thousands games
 
@@ -369,13 +371,12 @@ class SteamNetworkBackend(BackendInterface):
             raise AuthenticationRequired()
 
         await self._games_cache.wait_ready(GAME_CACHE_IS_READY_TIMEOUT)
-        self._games_cache.add_game_lever = True
 
         owned_games = []
         owned_witcher_3_dlcs = set()
 
         try:
-            async for app in self._games_cache.get_owned_games():
+            async for app in self._games_cache.get_apps(type_="game", shared=False):
                 dlcs: List[Dlc] = list()
                 for dlc in self._games_cache.get_dlcs_for_game(int(app.appid)):
                     dlcs.append(Dlc(
@@ -383,6 +384,7 @@ class SteamNetworkBackend(BackendInterface):
                         dlc_title=dlc.title,
                         license_info=LicenseInfo(LicenseType.SinglePurchase)
                     ))
+                    self._games_cache.mark_app_as_sent_to_galaxy(dlc.appid)
 
                 owned_games.append(
                     Game(
@@ -392,6 +394,8 @@ class SteamNetworkBackend(BackendInterface):
                         LicenseInfo(LicenseType.SinglePurchase, None),
                     )
                 )
+                self._games_cache.mark_app_as_sent_to_galaxy(app.appid)
+
                 if app.appid in WITCHER_3_DLCS_APP_IDS:
                     owned_witcher_3_dlcs.add(app.appid)
 
@@ -421,7 +425,7 @@ class SteamNetworkBackend(BackendInterface):
         if not self._owned_games_parsed:
             await self._games_cache.wait_ready(90)
         any_shared_game = False
-        async for _ in self._games_cache.get_shared_games():
+        async for _ in self._games_cache.get_apps(type_="game", shared=True):
             any_shared_game = True
             break
         return [
@@ -435,8 +439,9 @@ class SteamNetworkBackend(BackendInterface):
 
     async def get_subscription_games(self, subscription_name: str, context: Any):
         games = []
-        async for game in self._games_cache.get_shared_games():
+        async for game in self._games_cache.get_apps(type_="game", shared=True):
             games.append(SubscriptionGame(game_id=str(game.appid), game_title=game.title))
+            self._games_cache.mark_app_as_sent_to_galaxy(game.appid)
         yield games
 
     async def prepare_achievements_context(self, game_ids: List[str]) -> Any:

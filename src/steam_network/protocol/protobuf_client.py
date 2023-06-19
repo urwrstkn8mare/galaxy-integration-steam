@@ -416,7 +416,7 @@ class ProtobufClient:
         logger.info("Sending call %s with %d package_ids", repr(EMsg.ClientPICSProductInfoRequest), len(steam_licenses))
         message = CMsgClientPICSProductInfoRequest()
 
-        message.packages = [CMsgClientPICSProductInfoRequestPackageInfo(x.packagie_id, x.access_token) for x in steam_licenses]
+        message.packages = [CMsgClientPICSProductInfoRequestPackageInfo(x.package_id, x.access_token) for x in steam_licenses]
 
         await self._send(EMsg.ClientPICSProductInfoRequest, message)
 

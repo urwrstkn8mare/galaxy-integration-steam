@@ -146,7 +146,7 @@ class FutureInfo(NamedTuple):
         if (self.expected_return_type != return_type):
             return (False, f"Message has return type {return_type.name}, but we were expecting {expected_return_type_str}. Treating as an unsolicited message")
 
-        elif (return_type == EMsg.ServiceMethodResponse and target_name is None or target_name != self.send_recv_name):
+        elif (return_type == EMsg.ServiceMethodResponse and target_name is None or target_name != self.sent_recv_name):
             return (False, f"Received a service message, but not of the expected name. Got {target_name}, but we were expecting {self.sent_recv_name}. Treating as an unsolicited message")
 
         return (True, "")
@@ -286,8 +286,8 @@ class ProtocolParser:
         message.machine_name = sock.gethostname()
         message.access_token = access_token
         logger.info("Sending log on message using access token")
-        
-        header, resp_bytes = await self._send_recv(message, EMsg.ClientLogin, EMsg.ClientLogOnResponse, next(self._job_id_iterator), override_steam_id=override_steam_id)
+
+        header, resp_bytes = await self._send_recv(message, EMsg.ClientLogon, EMsg.ClientLogOnResponse, next(self._job_id_iterator), override_steam_id=override_steam_id)
 
         return ProtoResult(header.eresult, header.error_message, CMsgClientLogonResponse().parse(resp_bytes))
 
@@ -335,7 +335,7 @@ class ProtocolParser:
         logger.info("Sending call %s with %d package_ids", repr(EMsg.ClientPICSProductInfoRequest), len(steam_licenses))
         message = CMsgClientPICSProductInfoRequest()
 
-        message.packages = list(map(lambda x: CMsgClientPICSProductInfoRequestPackageInfo(x.packagie_id, x.access_token), steam_licenses))
+        message.packages = list(map(lambda x: CMsgClientPICSProductInfoRequestPackageInfo(x.package_id, x.access_token), steam_licenses))
 
         header, resp_bytes = await self._send_recv(message, EMsg.ClientPICSProductInfoRequest, EMsg.ClientPICSProductInfoResponse, next(self._job_id_iterator))
         return ProtoResult(header.eresult, header.error_message, CMsgClientPICSProductInfoResponse().parse(resp_bytes))
@@ -372,7 +372,7 @@ class ProtocolParser:
 
     async def close(self, send_log_off):
         if send_log_off:
-            await self.send_log_off_message()
+            await self.send_log_off_message()  # method name doesn't resolve to anything, pls fix
         if self._heartbeat_task is not None:
             self._heartbeat_task.cancel()
         for fi in self._future_lookup.values():

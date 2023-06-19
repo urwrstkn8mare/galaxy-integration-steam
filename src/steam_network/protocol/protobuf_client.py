@@ -375,10 +375,10 @@ class ProtobufClient:
 
     #retrieve info
 
-    async def _import_game_stats(self, game_id):
+    async def _import_game_stats(self, game_id: int):
         logger.info(f"Importing game stats for {game_id}")
         message = CMsgClientGetUserStats()
-        message.game_id = int(game_id)
+        message.game_id = game_id
         await self._send(EMsg.ClientGetUserStats, message)
 
     async def _import_game_time(self):
@@ -730,7 +730,7 @@ class ProtobufClient:
         logger.debug("Processing message ClientGetUserStatsResponse")
         message = CMsgClientGetUserStatsResponse().parse(body)
 
-        game_id = str(message.game_id)
+        game_id = int(message.game_id)
         stats = message.stats
         achievement_blocks = message.achievement_blocks
         achievements_schema = vdf.binary_loads(message.schema, merge_duplicate_keys=False)

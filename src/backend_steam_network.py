@@ -37,7 +37,7 @@ from persistent_cache_state import PersistentCacheState
 from steam_network.caches.friends_cache import FriendsCache
 from steam_network.caches.games_cache import GamesCache
 from steam_network.caches.local_machine_cache import LocalMachineCache
-from steam_network.caches.stats_cache import StatsCache
+from steam_network.caches.stats_cache import StatsCache, GameStats
 from steam_network.caches.times_cache import TimesCache
 from steam_network.caches.user_info_cache import UserInfoCache
 
@@ -121,12 +121,15 @@ class SteamNetworkBackend(BackendInterface):
 
         self._update_owned_games_task : Task[None] = asyncio.create_task(asyncio.sleep(0))
         self._owned_games_parsed : bool = False
-        
+
         self._load_persistent_cache()
-    
+
     def _load_persistent_cache(self):
         if "games" in self._persistent_cache:
             self._games_cache.loads(self._persistent_cache["games"])
+
+        if "stats" in self._persistent_cache:
+            self._stats_cache.loads(self._persistent_cache["stats"])
 
     async def shutdown(self):
         await self._websocket_client.close()
@@ -150,6 +153,7 @@ class SteamNetworkBackend(BackendInterface):
             return
 
         self._persistent_cache["games"] = self._games_cache.dump()
+        self._persistent_cache["stats"] = self._stats_cache.dump()
         self._persistent_storage_state.modified = True
 
         for i, game in enumerate(new_games):
@@ -417,6 +421,7 @@ class SteamNetworkBackend(BackendInterface):
             self._owned_games_parsed = True
 
         self._persistent_cache["games"] = self._games_cache.dump()
+        self._persistent_cache["stats"] = self._stats_cache.dump()
         self._persistent_storage_state.modified = True
 
         return owned_games
@@ -449,33 +454,33 @@ class SteamNetworkBackend(BackendInterface):
             raise AuthenticationRequired()
 
         if not self._stats_cache.import_in_progress:
-            await self._websocket_client.refresh_game_stats(game_ids.copy())
-        else:
-            logger.info("Game stats import already in progress")
-        await self._stats_cache.wait_ready(
-            10 * 60
-        )  # Don't block future imports in case we somehow don't receive one of the responses
+            await self._websocket_client.refresh_game_stats([int(x) for x in game_ids])
+
         logger.info("Finished achievements context prepare")
 
     async def get_unlocked_achievements(self, game_id: str, context: Any) -> List[Achievement]:
-        logger.info(f"Asked for achievs for {game_id}")
-        game_stats = self._stats_cache.get(game_id)
-        achievements = []
-        if game_stats and "achievements" in game_stats:
-            for achievement in game_stats["achievements"]:
-                # Fix for trailing whitespace in some achievement names which resulted in achievements not matching with website data
-                achievement_name = achievement["name"]
-                achievement_name = achievement_name.strip()
-                if not achievement_name:
-                    achievement_name = achievement["name"]
+        logger.info(f"Asked for achievements for {game_id}")
 
-                achievements.append(
-                    Achievement(
-                        achievement["unlock_time"],
-                        achievement_id=None,
-                        achievement_name=achievement_name,
-                    )
+        if not self._stats_cache.ready:
+            logger.debug(f"waiting for import to finish to get achievements for {game_id}")
+            await self._stats_cache.wait_ready()
+
+        game_stats: GameStats = self._stats_cache.get(int(game_id))
+        if not game_stats:
+            logger.warning(f"game stats for {game_id} not found in stats cache")
+            return []
+
+        achievements: List[Achievement] = []
+
+        for achievement in game_stats.achievements:
+            achievements.append(
+                Achievement(
+                    unlock_time=achievement.unlock_time,
+                    achievement_id=achievement.id_,
+                    achievement_name=achievement.name.strip(),
                 )
+            )
+
         return achievements
 
     async def prepare_game_times_context(self, game_ids: List[str]) -> Any:

@@ -2,7 +2,7 @@ import asyncio
 import logging
 import secrets
 
-from typing import Callable, List, Optional, Tuple, Dict
+from typing import Callable, List, Optional, Tuple, Dict, Iterable
 from asyncio import Future
 
 from rsa import PublicKey
@@ -15,7 +15,7 @@ from .utils import get_os, translate_error
 from .caches.local_machine_cache import LocalMachineCache
 from .caches.friends_cache import FriendsCache
 from .caches.games_cache import GamesCache, App, SteamLicense, SteamPackage
-from .caches.stats_cache import StatsCache
+from .caches.stats_cache import StatsCache, Achievement, Stat
 from .caches.user_info_cache import UserInfoCache
 from .caches.times_cache import TimesCache
 
@@ -35,7 +35,8 @@ from .protocol.messages.steammessages_auth import (
 )
 
 from .protocol.messages.steammessages_clientserver_userstats import (
-    CMsgClientGetUserStatsResponse,
+    CMsgClientGetUserStatsResponseAchievement_Blocks,
+    CMsgClientGetUserStatsResponseStats,
 )
 
 
@@ -303,7 +304,7 @@ class ProtocolClient:
             # known example is LogOnResponse with result=EResult.TryAnotherCM
             raise translate_error(result)
 
-    async def import_game_stats(self, game_ids):
+    async def import_game_stats(self, game_ids: Iterable[int]):
         for game_id in game_ids:
             self._protobuf_client.job_list.append({"job_name": "import_game_stats", "game_id": game_id})
         #pass
@@ -384,25 +385,35 @@ class ProtocolClient:
             await self._protobuf_client.get_presence_localization(appid)
 
     def _stats_handler(self,
-        game_id: str,
-        stats: "CMsgClientGetUserStatsResponse.Stats",
-        achievement_blocks: "CMsgClientGetUserStatsResponse.AchievementBlocks",
+        game_id: int,
+        stats: List[CMsgClientGetUserStatsResponseStats],
+        achievement_blocks: List[CMsgClientGetUserStatsResponseAchievement_Blocks],
         schema: dict
     ):
-        def get_achievement_name(achievements_block_schema: dict, bit_no: int) -> str:
-            name = achievements_block_schema['bits'][str(bit_no)]['display']['name']
+        def get_achievement_name(block_schema: dict, bit_no: int) -> str:
+            name = block_schema['bits'][str(bit_no)]['display']['name']
             try:
                 return name['english']
             except TypeError:
                 return name
 
-        logger.debug(f"Processing user stats response for {game_id}")
-        achievements_unlocked = []
+        def get_stat_name(block_schema: Dict) -> str:
+            return block_schema["display"]["name"] or block_schema["name"]
 
+        logger.debug(f"Processing user stats response for {game_id}")
+
+        if str(game_id) not in schema:
+            logger.debug(f"schema didn't contain game id {game_id}; received stats: {stats}, received achievements: {achievement_blocks}")
+            self._stats_cache.update_stats(game_id, [], [])
+            return
+
+        schema = schema[str(game_id)]  # short cut
+
+        achievements_unlocked: List[Achievement] = []
         for achievement_block in achievement_blocks:
             block_id = str(achievement_block.achievement_id)
             try:
-                stats_block_schema = schema[game_id]['stats'][block_id]
+                stats_block_schema = schema['stats'][block_id]
             except KeyError:
                 logger.warning("No stat schema for block %s for game: %s", block_id, game_id)
                 continue
@@ -417,13 +428,39 @@ class ProtocolClient:
                         )
                         continue
 
-                    achievements_unlocked.append({
-                        'id': 32 * (achievement_block.achievement_id - 1) + i,
-                        'unlock_time': unlock_time,
-                        'name': display_name
-                    })
+                    achievements_unlocked.append(Achievement(
+                        id_=32 * (achievement_block.achievement_id - 1) + i,
+                        name=display_name,
+                        unlock_time=int(unlock_time),
+                    ))
 
-        self._stats_cache.update_stats(game_id, stats, achievements_unlocked)
+        stats_result: List[Stat] = list()
+
+        # stat parsing deactivated for now, stats have some really weird properties to them which I do not yet fully understand
+        # Galaxy can't/won't import them either, so don't waste too much time on this
+
+        # for stat in stats:
+        #     stat_id = str(stat.stat_id)
+        #     block_schema = schema["stats"][stat_id]
+        #     if block_schema["type"] not in {"1", "2"}:
+        #         logger.debug(f"unexpected block type {block_schema['type']} for stats: {block_schema}")
+        #         continue
+
+        #     stat_name = get_stat_name(block_schema)
+
+        #     min_val = int(block_schema["min"]) if "min" in block_schema else None
+        #     max_val = int(block_schema["max"]) if "max" in block_schema else None
+        #     default_val = int(block_schema["default"]) if "default" in block_schema else None
+
+        #     stats_result.append(Stat(
+        #         name=stat_name,
+        #         default=default_val,
+        #         min=min_val,
+        #         max=max_val,
+        #         value=stat.stat_value
+        #     ))
+
+        self._stats_cache.update_stats(game_id, stats_result, achievements_unlocked)
 
     async def _user_authentication_handler(self, key, value):
         logger.info(f"Updating user info cache with new {key}")

@@ -24,8 +24,6 @@ class App:
     parent: Optional[int]  # if an app is a DLC/tool/etc, this specifies the parent app (aka base game)
     shared: bool = False  # true if (family) sharing
 
-    _sent_to_galaxy: bool = False  # internal flag indicating whether we already sent this to Galaxy
-
 
 @dataclass_json
 @dataclass
@@ -70,6 +68,12 @@ class GamesCache(ProtoCache):
 
         self._parsing_status = ParsingStatus()
 
+        # volatile list of all apps we imported into Galaxy during a runtime; we can't save this
+        # information to the long-time cache as it would block us from re-importing the games
+        # after a user disconnected the plugin from Galaxy (doing so removes the games from Galaxy's
+        # internal state but since we kept the mark in out own cache, we never re-import them afterwards)
+        self._sent_apps_cache: Set[int] = set()
+
     @property
     def version(self):
         return self._VERSION
@@ -99,14 +103,14 @@ class GamesCache(ProtoCache):
         return packages_to_import
 
     def get_apps_to_import_into_galaxy(self, type_: str = "game") -> List[App]:
-        return list(filter(lambda app: app.type_ == type_ and not app._sent_to_galaxy, self._cache.apps.values()))
+        return list(filter(lambda app: app.type_ == type_ and not app.appid in self._sent_apps_cache, self._cache.apps.values()))
 
     def mark_app_as_sent_to_galaxy(self, app_id: int) -> None:
         app = self._cache.apps.get(app_id)
         if not app:
             return
 
-        app._sent_to_galaxy = True
+        self._sent_apps_cache.add(app_id)
 
     async def get_apps(self, type_: str = "game", shared: bool = False) -> AsyncGenerator[App, None]:
         cache = self._cache.apps.copy()

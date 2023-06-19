@@ -48,4 +48,4 @@ class SteamPollingData:
 
     def has_valid_confirmation_method(self):
         #if any value in allowed confirmations does not equal unknown, return true. else return false.
-        return any(c for c in self._allowed_confirmations if c != TwoFactorMethod.Unknown)
+        return any(c != TwoFactorMethod.Unknown for c in self._allowed_confirmations)

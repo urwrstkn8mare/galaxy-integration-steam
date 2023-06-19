@@ -1,7 +1,11 @@
-__version__ = "1.0.6"
+__version__ = "1.0.7"
 __changelog__ = {
     "unreleased": '''
     ''',
+    "1.0.7": """
+    - Fixes issues when SteamGuard is disabled. Made it so 2FA codes would ignore leading or trailing whitespace.
+    - Code cleanup
+    """,
     "1.0.6": """
     - reintroduces password santization so users with long passwords or illegal characters can log in as intended
     - Code cleanup

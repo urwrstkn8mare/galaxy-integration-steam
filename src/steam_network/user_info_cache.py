@@ -1,7 +1,7 @@
 import asyncio
 import base64
 import logging
-from typing import Optional
+from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -31,30 +31,37 @@ class UserInfoCache:
 
 
     def to_dict(self):
-        creds = {
-            'steam_id': base64.b64encode(str(self._steam_id).encode('utf-8')).decode('utf-8'),
-            'refresh_token': base64.b64encode(str(self._refresh_token).encode('utf-8')).decode('utf-8'),
-            'account_username': base64.b64encode(str(self._account_username).encode('utf-8')).decode('utf-8'),
-            'persona_name': base64.b64encode(str(self._persona_name).encode('utf-8')).decode('utf-8'),
-        }
+        creds = {}
+        if self.is_initialized():
+            creds = {
+                'steam_id': base64.b64encode(str(self._steam_id).encode('utf-8')).decode('utf-8'),
+                'refresh_token': base64.b64encode(self._refresh_token.encode('utf-8')).decode('utf-8'),
+                'account_username': base64.b64encode(self._account_username.encode('utf-8')).decode('utf-8'),
+                'persona_name': base64.b64encode(self._persona_name.encode('utf-8')).decode('utf-8'),
+            }
         return creds
 
-    def from_dict(self, lookup):
-        for key in lookup.keys():
-            if lookup[key]:
+    def from_dict(self, lookup: Dict[str, str]):
+        for key, val in lookup.items():
+            if val:
                 logger.info(f"Loaded {key} from stored credentials")
 
-        if 'steam_id' in lookup:
-            self._steam_id = int(base64.b64decode(lookup['steam_id']).decode('utf-8'))
+        item = lookup.get('steam_id')
+        if item is not None:
+            self._steam_id = int(base64.b64decode(item).decode('utf-8'))
 
-        if 'account_username' in lookup:
-            self._account_username = base64.b64decode(lookup['account_username']).decode('utf-8')
+        item = lookup.get('account_username')
+        if item is not None:
+            self._account_username = base64.b64decode(item).decode('utf-8')
 
-        if 'persona_name' in lookup:
-            self._persona_name = base64.b64decode(lookup['persona_name']).decode('utf-8')
 
-        if 'refresh_token' in lookup:
-            self._refresh_token = base64.b64decode(lookup['refresh_token']).decode('utf-8')
+        item = lookup.get('persona_name')
+        if item is not None:
+            self._persona_name = base64.b64decode(item).decode('utf-8')
+
+        item = lookup.get('refresh_token')
+        if item is not None:
+            self._refresh_token = base64.b64decode(item).decode('utf-8')
 
     @property
     def changed(self):

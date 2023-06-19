@@ -114,7 +114,7 @@ class TwoFactorMethod(enum.IntEnum):
     #EmailConfirm = 5 #Does not exist? Likely something Steam thought about implementing and decided not to. if that changes, we can support it. 
     
 
-def to_TwoFactorMethod(auth_enum : EnumTypeWrapper) -> TwoFactorMethod:
+def to_TwoFactorMethod(auth_enum : Union[CAuthentication_AllowedConfirmation, EnumTypeWrapper]) -> TwoFactorMethod:
     if (isinstance(auth_enum, CAuthentication_AllowedConfirmation)):
         auth_enum = auth_enum.confirmation_type
     ret_val, _ = _to_TwoFactorMethod(auth_enum, None)

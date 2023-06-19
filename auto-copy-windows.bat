@@ -6,4 +6,4 @@ set "PLUGIN_PATH=%localappdata%\GOG.com\Galaxy\plugins\installed\steam_ca27391f-
 
 rmdir /S /Q -rf "%PLUGIN_PATH%"
 mkdir "%PLUGIN_PATH%"
-powershell Expand-Archive ".\windows.zip" -DestinationPath %PLUGIN_PATH%
+powershell "[Environment]::CurrentDirectory = Get-Location; Expand-Archive '.\windows.zip' -DestinationPath '%PLUGIN_PATH%'"

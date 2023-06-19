@@ -38,11 +38,9 @@ from backend_interface import BackendInterface
 from backend_steam_network import SteamNetworkBackend
 from http_client import HttpClient
 from persistent_cache_state import PersistentCacheState
-from registry_monitor import get_steam_registry_monitor
-from uri_scheme_handler import is_uri_handler_installed
 from version import __version__
 
-from local import Client, IS_WIN
+from local import IS_WIN, Client as LocalClient
 from local.shared import load_vdf, StateFlags
 
 
@@ -60,7 +58,7 @@ class SteamPlugin(Plugin):
         super().__init__(Platform.Steam, __version__, reader, writer, token)
 
         # local features
-        self._regmon = get_steam_registry_monitor()
+        self._regmon = LocalClient.get_steam_registry_monitor()
         self._local_games_cache: Optional[List[LocalGame]] = None
         self._last_launch: Timestamp = 0
         self._update_local_games_task = asyncio.create_task(asyncio.sleep(0))
@@ -79,7 +77,7 @@ class SteamPlugin(Plugin):
         self.__backend_mode : Type[BackendInterface] = SteamNetworkBackend
 
         # local client
-        self.local = Client()
+        self.local = LocalClient()
 
     @property
     def features(self):
@@ -237,10 +235,10 @@ class SteamPlugin(Plugin):
         return self._local_games_cache
 
     @staticmethod
-    def _steam_command(command, game_id):
+    def _steam_command(self, command, game_id):
         if game_id == "499450": #witcher 3 hack?
             game_id = "292030"
-        if is_uri_handler_installed("steam"):
+        if LocalClient.is_uri_handler_installed("steam"):
             webbrowser.open("steam://{}/{}".format(command, game_id))
         else:
             webbrowser.open("https://store.steampowered.com/about/")

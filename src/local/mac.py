@@ -1,6 +1,7 @@
 from logging import getLogger
 import os
-from typing import Optional
+from CoreServices.LaunchServices import LSCopyDefaultHandlerForURLScheme
+from AppKit import NSWorkspace
 
 from .shared import load_vdf
 from .base import BaseClient
@@ -10,6 +11,30 @@ log = getLogger(__name__)
 
 CONFIG_FOLDER = os.path.expanduser("~/Library/Application Support/Steam")
 CLIENT_EXE = "/Applications/Steam.app/Contents/MacOS/steam_osx"
+
+
+class FileRegistryMonitor:
+
+    def __init__(self, filename):
+        self._filename = filename
+        self._stat = self._get_stat()
+
+    def _get_stat(self):
+        try:
+            st = os.stat(self._filename)
+        except OSError:
+            return (0, 0)
+        return (st.st_size, st.st_mtime_ns)
+
+    def is_updated(self):
+        current_stat = self._get_stat()
+        changed = self._stat != current_stat
+        self._stat = current_stat
+        return changed
+
+    def close(self):
+        pass
+
 
 class MacClient(BaseClient):
     def registry_apps_as_dict(self):
@@ -38,3 +63,14 @@ class MacClient(BaseClient):
         if os.path.isdir(CONFIG_FOLDER):
             return CONFIG_FOLDER
         log.warning("Steam not installed")
+
+    @staticmethod
+    def is_uri_handler_installed(protocol):
+        bundle_id = LSCopyDefaultHandlerForURLScheme(protocol)
+        if bundle_id:
+            return NSWorkspace.sharedWorkspace().absolutePathForAppBundleWithIdentifier_(bundle_id) is not None
+        return False
+    
+    @staticmethod
+    def get_steam_registry_monitor():
+        return FileRegistryMonitor(os.path.expanduser("~/Library/Application Support/Steam/registry.vdf"))

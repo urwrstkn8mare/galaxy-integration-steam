@@ -111,6 +111,12 @@ class BaseClient:
 
     def get_client_executable() -> Optional[str]:
         raise NotImplementedError
+    
+    def is_uri_handler_installed(protocol) -> bool:
+        raise NotImplementedError
+    
+    def get_steam_registry_monitor():
+        raise NotImplementedError
 
 
     

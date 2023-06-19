@@ -1,10 +1,16 @@
+from contextlib import suppress
 from logging import getLogger
-from typing import Optional
+import os
+import shlex
 import winreg
+from galaxy.registry_monitor import RegistryMonitor
 
 from .base import BaseClient
 
 log = getLogger(__name__)
+
+
+HKEY_CURRENT_USER = 0x80000001
 
 
 def get_reg_val(name):
@@ -56,9 +62,23 @@ class WinClient(BaseClient):
         return apps_dict
 
     @staticmethod
-    def get_client_executable() -> Optional[str]:
+    def get_client_executable():
         return get_reg_val("SteamExe")
 
     @staticmethod
     def get_configuration_folder():
         return get_reg_val("SteamPath")
+    
+    @staticmethod
+    def is_uri_handler_installed(protocol):
+        with suppress(OSError, ValueError), winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"{}\shell\open\command".format(protocol)) as key:
+            executable_template = winreg.QueryValue(key, None)
+            splitted_exec = shlex.split(executable_template)
+            if splitted_exec:
+                return os.path.exists(splitted_exec[0])
+            
+        return False
+    
+    @staticmethod
+    def get_steam_registry_monitor():
+        return RegistryMonitor(HKEY_CURRENT_USER, r"Software\Valve\Steam\Apps")

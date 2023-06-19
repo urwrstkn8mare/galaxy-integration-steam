@@ -37,20 +37,14 @@ from galaxy.api.consts import Platform
 from backend_interface import BackendInterface
 from backend_steam_network import SteamNetworkBackend
 from http_client import HttpClient
-from client import (
-    StateFlags,
-    local_games_list,
-    get_state_changes,
-    get_client_executable,
-    load_vdf,
-    get_library_folders,
-    get_app_manifests,
-    app_id_from_manifest_path,
-)
 from persistent_cache_state import PersistentCacheState
 from registry_monitor import get_steam_registry_monitor
 from uri_scheme_handler import is_uri_handler_installed
 from version import __version__
+
+from local import Client, IS_WIN
+from local.shared import load_vdf, StateFlags
+
 
 
 logger = logging.getLogger(__name__)
@@ -59,10 +53,6 @@ Timestamp = NewType("Timestamp", int)
 
 COOLDOWN_TIME = 5
 AUTH_SETUP_ON_VERSION__CACHE_KEY = "auth_setup_on_version"
-
-
-def is_windows():
-    return platform.system().lower() == "windows"
 
 
 class SteamPlugin(Plugin):
@@ -87,6 +77,9 @@ class SteamPlugin(Plugin):
         # backend client
         self.__backend: Optional[BackendInterface] = None
         self.__backend_mode : Type[BackendInterface] = SteamNetworkBackend
+
+        # local client
+        self.local = Client()
 
     @property
     def features(self):
@@ -209,8 +202,8 @@ class SteamPlugin(Plugin):
 
     async def _update_local_games(self):
         loop = asyncio.get_running_loop()
-        new_list = await loop.run_in_executor(None, local_games_list)
-        notify_list = get_state_changes(self._local_games_cache, new_list)
+        new_list = await loop.run_in_executor(None, self.local.local_games_list)
+        notify_list = self.local.get_state_changes(self._local_games_cache, new_list)
         self._local_games_cache = new_list
         for game in notify_list:
             if LocalGameState.Running in game.local_game_state:
@@ -240,7 +233,7 @@ class SteamPlugin(Plugin):
 
     async def get_local_games(self):
         loop = asyncio.get_running_loop()
-        self._local_games_cache = await loop.run_in_executor(None, local_games_list)
+        self._local_games_cache = await loop.run_in_executor(None, self.local.local_games_list)
         return self._local_games_cache
 
     @staticmethod
@@ -262,9 +255,9 @@ class SteamPlugin(Plugin):
         SteamPlugin._steam_command("uninstall", game_id)
 
     async def prepare_local_size_context(self, game_ids: List[str]) -> Dict[str, str]:
-        library_folders = get_library_folders()
-        app_manifests = list(get_app_manifests(library_folders))
-        return {app_id_from_manifest_path(path): path for path in app_manifests}
+        library_folders = self.local.get_library_folders()
+        app_manifests = list(self.local.get_app_manifests(library_folders))
+        return {self.local.app_id_from_manifest_path(path): path for path in app_manifests}
 
     async def get_local_size(self, game_id: str, context: Dict[str, str]) -> Optional[int]:
         try:
@@ -289,8 +282,8 @@ class SteamPlugin(Plugin):
             # workaround for quickly closed game (Steam sometimes dumps false positive just after a launch)
             logging.info("Ignoring shutdown request because game was launched a moment ago")
             return
-        if is_windows():
-            exe = get_client_executable()
+        if IS_WIN:
+            exe = self.local.get_client_executable()
             if exe is None:
                 return
             cmd = '"{}" -shutdown -silent'.format(exe)

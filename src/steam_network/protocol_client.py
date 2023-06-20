@@ -304,9 +304,9 @@ class ProtocolClient:
             # known example is LogOnResponse with result=EResult.TryAnotherCM
             raise translate_error(result)
 
-    async def import_game_stats(self, game_ids: Iterable[int]):
-        for game_id in game_ids:
-            self._protobuf_client.job_list.append({"job_name": "import_game_stats", "game_id": game_id})
+    async def import_game_stats(self, tuples: Iterable[Tuple[int, int]]):
+        for tup in tuples:
+            self._protobuf_client.job_list.append({"job_name": "import_game_stats", "game_id": tup[0], "crc_stats": tup[1]})
         #pass
 
     async def import_game_times(self):
@@ -388,7 +388,8 @@ class ProtocolClient:
         game_id: int,
         stats: List[CMsgClientGetUserStatsResponseStats],
         achievement_blocks: List[CMsgClientGetUserStatsResponseAchievement_Blocks],
-        schema: dict
+        schema: dict,
+        crc_stats: int
     ):
         def get_achievement_name(block_schema: dict, bit_no: int) -> str:
             name = block_schema['bits'][str(bit_no)]['display']['name']
@@ -404,7 +405,7 @@ class ProtocolClient:
 
         if str(game_id) not in schema:
             logger.debug(f"schema didn't contain game id {game_id}; received stats: {stats}, received achievements: {achievement_blocks}")
-            self._stats_cache.update_stats(game_id, [], [])
+            self._stats_cache.update_stats(game_id, [], [], 0)
             return
 
         schema = schema[str(game_id)]  # short cut
@@ -460,7 +461,7 @@ class ProtocolClient:
         #         value=stat.stat_value
         #     ))
 
-        self._stats_cache.update_stats(game_id, stats_result, achievements_unlocked)
+        self._stats_cache.update_stats(game_id, stats_result, achievements_unlocked, crc_stats)
 
     async def _user_authentication_handler(self, key, value):
         logger.info(f"Updating user info cache with new {key}")

@@ -3,7 +3,7 @@ from asyncio.futures import Future
 import logging
 import ssl
 from contextlib import suppress
-from typing import Callable, Optional, Any, Dict
+from typing import Callable, Optional, Any, Dict, List
 
 import websockets
 from galaxy.api.errors import BackendNotAvailable, BackendTimeout, BackendError, InvalidCredentials, NetworkError, AccessDenied, AuthenticationRequired
@@ -199,9 +199,10 @@ class WebSocketClient:
                 result[user_id] = user_info
         return result
 
-    async def refresh_game_stats(self, game_ids):
-        self._stats_cache.start_game_stats_import(game_ids)
-        await self._protocol_client.import_game_stats(game_ids)
+    async def refresh_game_stats(self, game_ids: List[str]):
+        self._stats_cache.add_games_to_import(game_ids)
+        to_import = self._stats_cache.get_games_to_import()
+        await self._protocol_client.import_game_stats(to_import)
 
     async def refresh_game_times(self):
         self._times_cache.start_game_times_import()

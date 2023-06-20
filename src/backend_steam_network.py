@@ -153,7 +153,6 @@ class SteamNetworkBackend(BackendInterface):
             return
 
         self._persistent_cache["games"] = self._games_cache.dump()
-        self._persistent_cache["stats"] = self._stats_cache.dump()
         self._persistent_storage_state.modified = True
 
         for i, game in enumerate(new_games):
@@ -184,6 +183,10 @@ class SteamNetworkBackend(BackendInterface):
 
         if self._user_info_cache.changed:
             self._store_credentials(self._user_info_cache.to_dict())
+
+        if self._stats_cache.dirty:
+            self._persistent_cache["stats"] = self._stats_cache.dump()
+            self._persistent_storage_state.modified = True
 
     # authentication
 
@@ -453,10 +456,9 @@ class SteamNetworkBackend(BackendInterface):
         if self._user_info_cache.steam_id is None:
             raise AuthenticationRequired()
 
-        if not self._stats_cache.import_in_progress:
-            await self._websocket_client.refresh_game_stats([int(x) for x in game_ids])
+        await self._websocket_client.refresh_game_stats([int(x) for x in game_ids])
 
-        logger.info("Finished achievements context prepare")
+        logger.info(f"Finished achievements context prepare: {game_ids}")
 
     async def get_unlocked_achievements(self, game_id: str, context: Any) -> List[Achievement]:
         logger.info(f"Asked for achievements for {game_id}")

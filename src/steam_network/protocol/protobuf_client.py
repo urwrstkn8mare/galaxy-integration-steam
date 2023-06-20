@@ -158,7 +158,7 @@ class ProtobufClient:
                     logger.info(f"New job on list {job}")
                     jobs_to_process += 1
                     if job['job_name'] == "import_game_stats":
-                        await self._import_game_stats(job['game_id'])
+                        await self._import_game_stats(job['game_id'], job['crc_stats'])
                         self.job_list.remove(job)
                     elif job['job_name'] == "import_collections":
                         await self._import_collections()
@@ -375,10 +375,11 @@ class ProtobufClient:
 
     #retrieve info
 
-    async def _import_game_stats(self, game_id: int):
+    async def _import_game_stats(self, game_id: int, crc_stats: int):
         logger.info(f"Importing game stats for {game_id}")
         message = CMsgClientGetUserStats()
         message.game_id = game_id
+        message.crc_stats = crc_stats
         await self._send(EMsg.ClientGetUserStats, message)
 
     async def _import_game_time(self):
@@ -735,7 +736,7 @@ class ProtobufClient:
         achievement_blocks = message.achievement_blocks
         achievements_schema = vdf.binary_loads(message.schema, merge_duplicate_keys=False)
 
-        self.stats_handler(game_id, stats, achievement_blocks, achievements_schema)
+        self.stats_handler(game_id, stats, achievement_blocks, achievements_schema, message.crc_stats)
 
     async def _process_user_time_response(self, body: bytes):
         message = CPlayer_GetLastPlayedTimes_Response().parse(body)

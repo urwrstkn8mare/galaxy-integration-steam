@@ -2,7 +2,7 @@ import asyncio
 import logging
 import ssl
 from contextlib import suppress
-from typing import Callable, List, Any, Dict, Union, Coroutine
+from typing import Callable, List, Any, Dict, Union, Coroutine, cast
 from urllib import parse
 from pprint import pformat
 
@@ -192,7 +192,7 @@ class SteamNetworkBackend(BackendInterface):
 
         return fallbackData
 
-    async def pass_login_credentials(self, step, credentials, cookies):
+    async def pass_login_credentials(self, step, credentials: Dict[str, str], cookies):
         end_uri = credentials["end_uri"]
 
         if (DisplayUriHelper.LOGIN.EndUri() in end_uri):
@@ -219,7 +219,7 @@ class SteamNetworkBackend(BackendInterface):
         """
         return (''.join([i if ord(i) < 128 else '' for i in data]))[:64]
 
-    async def _handle_login_finished(self, credentials) -> Union[NextStep, Authentication]:
+    async def _handle_login_finished(self, credentials: Dict[str, str]) -> Union[NextStep, Authentication]:
         parsed_url = parse.urlsplit(credentials["end_uri"])
         params = parse.parse_qs(parsed_url.query)
         if ("password" not in params or "username" not in params):
@@ -250,12 +250,12 @@ class SteamNetworkBackend(BackendInterface):
             return next_step_response_simple(DisplayUriHelper.LOGIN, True)
         #result here should be password, or unathorized. 
 
-    async def _handle_steam_guard(self, credentials, method: TwoFactorMethod, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
-        parsed_url = parse.urlsplit(credentials["end_uri"])
+    async def _handle_steam_guard(self, credentials: Dict[str, str], method: TwoFactorMethod, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
+        parsed_url: parse.SplitResult = parse.urlsplit(credentials["end_uri"])
         params = parse.parse_qs(parsed_url.query)
         if ("code" not in params):
             return next_step_response_simple(fallback, True)
-        code = params["code"][0]
+        code = params["code"][0].strip()
         await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.UPDATE_TWO_FACTOR, 'two-factor-code' : code, 'two-factor-method' : method })
         result = await self._get_websocket_auth_step()
         if (result == UserActionRequired.NoActionConfirmLogin):

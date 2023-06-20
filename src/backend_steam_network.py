@@ -476,7 +476,7 @@ class SteamNetworkBackend(BackendInterface):
             achievements.append(
                 Achievement(
                     unlock_time=achievement.unlock_time,
-                    achievement_id=achievement.id_,
+                    # achievement_id=achievement.id_,  # Galaxy doesn't like us sending an achievement id - so we won't
                     achievement_name=achievement.name.strip(),
                 )
             )

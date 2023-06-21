@@ -258,7 +258,7 @@ class ProtocolClient:
             if (two_factor_is_confirm):
                 return (UserActionRequired.NoActionConfirmLogin, data.new_client_id)
             else:
-                logger.warning("Received a file not found but were not using mobile confirm. This is unexpected, but maybe ok? no idea.")
+                logger.warning("Received a file not found but were not using mobile confirm. This is unexpected, but seems to occur when you time out a 2FA code.")
                 return (UserActionRequired.TwoFactorExpired, data.new_client_id)
         #TODO: This will likely error if the code is bad. Figure out what to do here. 
         else:

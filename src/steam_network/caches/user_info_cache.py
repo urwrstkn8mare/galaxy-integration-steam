@@ -1,7 +1,7 @@
 import asyncio
 import base64
 import logging
-from typing import Optional
+from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +14,6 @@ class UserInfoCache:
         self._refresh_token : Optional[str] = None #persistent token. Used to log in, despite the fact that we should use an access token. weird quirk in how steam does things.
         self._access_token : Optional[str] = None #session login token. Largely useless. May be useful in future if steam fixes their login to use an access token instead of refresh token. 
 
-        #self._guard_data : Optional[str] = None #steam guard data. It might no longer be necessary, but i'll save it just in case. Causes issues with mobile confirm, so it's now excluded
-        
         self._changed = False
         
         self.initialized = asyncio.Event()
@@ -27,42 +25,43 @@ class UserInfoCache:
             self._changed = True
 
     def is_initialized(self) -> bool:
-        #THIS CURRENTLY ENABLES OR DISABLES LOGGING IN FROM CACHE. 
+        #if testing and you want to disable login from saved token, you can return false here. 
 
-        #type hinting didn't want to place nice if i didn't do it this way. if you can python better than me and get this to properly bool type hint, go for it -BaumherA
-        #return True if (self._steam_id and self._account_username and self._persona_name and self._refresh_token and self._guard_data) else False
-        return True if (self._steam_id and self._account_username and self._persona_name and self._refresh_token) else False
+        return all([self._steam_id is not None, self._account_username, self._persona_name, self._refresh_token])
 
 
     def to_dict(self):
-        creds = {
-            'steam_id': base64.b64encode(str(self._steam_id).encode('utf-8')).decode('utf-8'),
-            'refresh_token': base64.b64encode(str(self._refresh_token).encode('utf-8')).decode('utf-8'),
-            'account_username': base64.b64encode(str(self._account_username).encode('utf-8')).decode('utf-8'),
-            'persona_name': base64.b64encode(str(self._persona_name).encode('utf-8')).decode('utf-8'),
-            #'guard_data': base64.b64encode(str(self._guard_data).encode('utf-8')).decode('utf-8')
-        }
+        creds = {}
+        if self.is_initialized():
+            creds = {
+                'steam_id': base64.b64encode(str(self._steam_id).encode('utf-8')).decode('utf-8'),
+                'refresh_token': base64.b64encode(self._refresh_token.encode('utf-8')).decode('utf-8'),
+                'account_username': base64.b64encode(self._account_username.encode('utf-8')).decode('utf-8'),
+                'persona_name': base64.b64encode(self._persona_name.encode('utf-8')).decode('utf-8'),
+            }
         return creds
 
-    def from_dict(self, lookup):
-        for key in lookup.keys():
-            if lookup[key]:
+    def from_dict(self, lookup: Dict[str, str]):
+        for key, val in lookup.items():
+            if val:
                 logger.info(f"Loaded {key} from stored credentials")
 
-        if 'steam_id' in lookup:
-            self._steam_id = int(base64.b64decode(lookup['steam_id']).decode('utf-8'))
+        item = lookup.get('steam_id')
+        if item is not None:
+            self._steam_id = int(base64.b64decode(item).decode('utf-8'))
 
-        if 'account_username' in lookup:
-            self._account_username = base64.b64decode(lookup['account_username']).decode('utf-8')
+        item = lookup.get('account_username')
+        if item is not None:
+            self._account_username = base64.b64decode(item).decode('utf-8')
 
-        if 'persona_name' in lookup:
-            self._persona_name = base64.b64decode(lookup['persona_name']).decode('utf-8')
 
-        if 'refresh_token' in lookup:
-            self._refresh_token = base64.b64decode(lookup['refresh_token']).decode('utf-8')
+        item = lookup.get('persona_name')
+        if item is not None:
+            self._persona_name = base64.b64decode(item).decode('utf-8')
 
-        #if 'guard_data' in lookup:
-        #    self._guard_data = base64.b64decode(lookup['guard_data']).decode('utf-8')
+        item = lookup.get('refresh_token')
+        if item is not None:
+            self._refresh_token = base64.b64decode(item).decode('utf-8')
 
     @property
     def changed(self):
@@ -137,16 +136,3 @@ class UserInfoCache:
         self._account_username = None 
         self._persona_name = None 
         self._access_token  = None 
-        #self._guard_data = None
-
-    #@property
-    #def guard_data(self):
-    #    return self._guard_data
-
-    #@guard_data.setter
-    #def guard_data(self, val):
-    #    if self._guard_data != val and self.initialized.is_set():
-    #        self._changed = True
-    #    self._guard_data = val
-    #    if not self.initialized.is_set():
-    #        self._check_initialized()

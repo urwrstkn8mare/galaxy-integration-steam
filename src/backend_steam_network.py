@@ -2,7 +2,7 @@ import asyncio
 import logging
 import ssl
 from contextlib import suppress
-from typing import Callable, List, Any, Dict, Union, Coroutine
+from typing import Callable, List, Any, Dict, Union, Coroutine, cast
 from urllib import parse
 from pprint import pformat
 
@@ -196,16 +196,16 @@ class SteamNetworkBackend(BackendInterface):
         if len(allowed_methods) > 1:
             fallback_meth, fallback_message = allowed_methods[1]
         
-        if (fallback_meth == TwoFactorMethod.PhoneCode):
-            fallbackData["fallbackMethod"] = DisplayUriHelper.TWO_FACTOR_MOBILE.to_view_string()
-            fallbackData["fallbackMsg"] = fallback_message
-        elif (fallback_meth == TwoFactorMethod.EmailCode):
-            fallbackData["fallbackMethod"] = DisplayUriHelper.TWO_FACTOR_MAIL.to_view_string()
-            fallbackData["fallbackMsg"] = fallback_message
+            if (fallback_meth == TwoFactorMethod.PhoneCode):
+                fallbackData["fallbackMethod"] = DisplayUriHelper.TWO_FACTOR_MOBILE.to_view_string()
+                fallbackData["fallbackMsg"] = fallback_message
+            elif (fallback_meth == TwoFactorMethod.EmailCode):
+                fallbackData["fallbackMethod"] = DisplayUriHelper.TWO_FACTOR_MAIL.to_view_string()
+                fallbackData["fallbackMsg"] = fallback_message
 
         return fallbackData
 
-    async def pass_login_credentials(self, step, credentials, cookies):
+    async def pass_login_credentials(self, step, credentials: Dict[str, str], cookies):
         end_uri = credentials["end_uri"]
 
         if (DisplayUriHelper.LOGIN.EndUri() in end_uri):
@@ -223,13 +223,23 @@ class SteamNetworkBackend(BackendInterface):
             logger.warning("Unexpected state in pass_login_credentials")
             raise UnknownBackendResponse()
 
-    async def _handle_login_finished(self, credentials) -> Union[NextStep, Authentication]:
+    @staticmethod
+    def sanitize_string(data : str) -> str:
+        """Remove any characters steam silently strips, then trims it down to their max length.
+
+        Steam appears to ignore all characters that it cannot handle, and trim it down to 64 legal characters.
+        For whatever reason, they don't enforce this, they just silently ignore anything bad. This is our attempt to copy that behavior.
+        """
+        return (''.join([i if ord(i) < 128 else '' for i in data]))[:64]
+
+    async def _handle_login_finished(self, credentials: Dict[str, str]) -> Union[NextStep, Authentication]:
         parsed_url = parse.urlsplit(credentials["end_uri"])
         params = parse.parse_qs(parsed_url.query)
         if ("password" not in params or "username" not in params):
             return next_step_response_simple(DisplayUriHelper.LOGIN, True)
         user = params["username"][0]
-        pws = params["password"][0]
+        pws = self.sanitize_string(params["password"][0])
+
         await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.RSA_AND_LOGIN, 'username' : user, 'password' : pws })
         result = await self._get_websocket_auth_step()
         if (result == UserActionRequired.NoActionConfirmLogin):
@@ -239,7 +249,7 @@ class SteamNetworkBackend(BackendInterface):
             allowed_methods = self._authentication_cache.two_factor_allowed_methods
             method, msg = allowed_methods[0]
             if (method == TwoFactorMethod.Nothing):
-                result = await self._handle_steam_guard_none()
+                return await self._handle_steam_guard_none()
             elif (method == TwoFactorMethod.PhoneCode):
                 return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MOBILE)
             elif (method == TwoFactorMethod.EmailCode):
@@ -253,12 +263,12 @@ class SteamNetworkBackend(BackendInterface):
             return next_step_response_simple(DisplayUriHelper.LOGIN, True)
         #result here should be password, or unathorized. 
 
-    async def _handle_steam_guard(self, credentials, method: TwoFactorMethod, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
-        parsed_url = parse.urlsplit(credentials["end_uri"])
+    async def _handle_steam_guard(self, credentials: Dict[str, str], method: TwoFactorMethod, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
+        parsed_url: parse.SplitResult = parse.urlsplit(credentials["end_uri"])
         params = parse.parse_qs(parsed_url.query)
         if ("code" not in params):
             return next_step_response_simple(fallback, True)
-        code = params["code"][0]
+        code = params["code"][0].strip()
         await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.UPDATE_TWO_FACTOR, 'two-factor-code' : code, 'two-factor-method' : method })
         result = await self._get_websocket_auth_step()
         if (result == UserActionRequired.NoActionConfirmLogin):
@@ -272,10 +282,12 @@ class SteamNetworkBackend(BackendInterface):
 
     async def _handle_steam_guard_none(self) -> Authentication:
         result = await self._handle_2FA_PollOnce()
-        if (result != UserActionRequired.NoActionRequired):
-            raise UnknownBackendResponse()
-        else:
+        if (result == UserActionRequired.NoActionRequired):
             return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
+        elif result == UserActionRequired.NoActionConfirmToken:
+            return await self._finish_auth_process()
+        else:
+            raise UnknownBackendResponse()
 
     async def _handle_steam_guard_check(self, fallback: DisplayUriHelper, is_confirm: bool, **kwargs:str) -> Union[NextStep, Authentication]:
         result = await self._handle_2FA_PollOnce(is_confirm)
@@ -284,9 +296,11 @@ class SteamNetworkBackend(BackendInterface):
             return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
         elif (result == UserActionRequired.NoActionConfirmToken):
             return await self._finish_auth_process()
-        #returned if we somehow got here but poll did not succeed. If we get here, the code should have been successfully input so this should never happen. 
         elif(result == UserActionRequired.NoActionConfirmLogin or result == UserActionRequired.TwoFactorRequired):
-            logger.info("Mobile Confirm did not complete. This is likely due to user error, but if not, this is something worth checking.")
+            if (is_confirm):
+                logger.info("Mobile Confirm did not complete. This is likely due to user error, but if not, this is something worth checking.")
+            else:
+                logger.info("Mobile code 2FA failed, likely expired. Could also be wrong code, as steam seems to give the same response.")
             return next_step_response_simple(fallback, True, **kwargs)
         elif (result == UserActionRequired.TwoFactorExpired):
             return next_step_response_simple(DisplayUriHelper.LOGIN, True, expired="true", **kwargs)

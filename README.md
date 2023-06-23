@@ -14,9 +14,9 @@ This project is in open beta. It is not completely bulletproof, but it has been 
 * There is a zip file in the releases directory. Download this.
 * Navigate to where GOG stores the steam plugin. 
   * Windows:
-    <br>`%localappdata%\GOG.com\Galaxy\plugins\installed\steam_ca27391f-2675-49b1-92c0-896d43afa4f8`
+	<br>`%localappdata%\GOG.com\Galaxy\plugins\installed\steam_ca27391f-2675-49b1-92c0-896d43afa4f8`
   * MacOS:
-    <br>`~/Library/Application Support/GOG.com/Galaxy/plugins/installed/steam_ca27391f-2675-49b1-92c0-896d43afa4f8`
+	<br>`~/Library/Application Support/GOG.com/Galaxy/plugins/installed/steam_ca27391f-2675-49b1-92c0-896d43afa4f8`
 * If the file does not exist, create it. If it does, delete everything inside it. 
 * Extract the zip release so all the contents are in that file. 
 * Start GOG Galaxy. 
@@ -47,7 +47,7 @@ You will need Python 3.7, and at least Python 3.7.9. If on Windows, you need to 
 ### Environment Setup (MacOS)
 * Python 3.7.9 is available as a package at [Python 3.7.9 32-bit][Python379]. However, if you have another version of python installed, it is highly recommended you get `pyenv` and install python 3.7 through there. It's likely to be a newer version of python 3.7. 
   - The easiest way to get pyenv is through `Homebrew`. This can be installed from [Homebrew — The Missing Package Manager for macOS (or Linux)](https://brew.sh/)<br/> 
-    Then, from terminal, you can run `brew install pyenv`<br/>
+	Then, from terminal, you can run `brew install pyenv`<br/>
 	To actually get python 3.7.9, run `pyenv install 3.7.9`. You can also use a newer version of 3.7, like 3.7.16 <br/>
 	Finally, tell this project to use python 3.7.x for all python commands from this folder. <br/>
 	`pyenv local 3.7.9` or whatever newer version you used.
@@ -58,7 +58,7 @@ You will need Python 3.7, and at least Python 3.7.9. If on Windows, you need to 
 * Install the dev dependencies:<br>
   `pip install -r requirements/dev.txt`
 * NOTE: MacOS requires certifications. We installed certifi, but it typically requires a symlink be added to your certificates, and that's not the case. If you installed the program from the pkg on python's website, it comes bundled with an `Install Certificates.command` that you can run. We have also provided a slimmed-down version of it, but it likely does not have permission to run. 
-    - To User our version:<br/>
+	- To User our version:<br/>
 	`chmod +x "Install Certificates.command"`<br/>
 	`./Install Certificates.command` You may need to allow it through gatekeeper. we recommend viewing the script before allowing it if you are uncomfortable with executing our script. It is copied directly from the python 3.7.9 pkg, we just remove the install certifi command (we already did that).
 
@@ -88,10 +88,10 @@ Please do the following:
   <br/> FOR MAC: run `Install Certificates.command`
 
 * Create a new virtual env:
-    - If you only have python 3.7.9<br>
-    `python -m venv .venv`
-    - IF you have multiple python versions installed and are on Windows (assumes you have `py` as well)<br>
-    `py -3.7 -m venv .venv`
+	- If you only have python 3.7.9<br>
+	`python -m venv .venv`
+	- IF you have multiple python versions installed and are on Windows (assumes you have `py` as well)<br>
+	`py -3.7 -m venv .venv`
 	- If you are on MacOS, you will need to specify which python you are using. Please consult StackOverflow (we're Windows developers, sorry!).
 * Activate the virtual env 
   - Windows, Powershell:<br>

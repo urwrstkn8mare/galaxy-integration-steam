@@ -1,8 +1,10 @@
+from collections import defaultdict
 from contextlib import contextmanager
 from logging import getLogger
 from platform import system
 from typing import Any, Dict
 import vdf
+from galaxy.api.types import LocalGameState
 
 log = getLogger(__name__)
 
@@ -33,3 +35,9 @@ def load_vdf(path: str) -> Dict[str, Any]:
         log.exception("Failed to read VDF: " + path)
     except KeyError:
         log.exception("Failed to parse VDF: " + path)
+
+
+# other
+
+def create_games_dict() -> Dict[str, LocalGameState]:
+    return defaultdict(lambda:LocalGameState.None_)

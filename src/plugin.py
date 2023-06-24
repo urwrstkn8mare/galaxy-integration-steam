@@ -223,8 +223,7 @@ class SteamPlugin(Plugin):
     # TODO: -> local
     async def get_local_games(self):
         loop = asyncio.get_running_loop()
-        latest = await loop.run_in_executor(None, self.local.latest)
-        return list(latest)
+        return await loop.run_in_executor(None, self.local.latest)
 
     async def launch_game(self, game_id):
         self.local.steam_cmd("launch", game_id)

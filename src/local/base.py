@@ -88,7 +88,7 @@ class BaseClient:
     def _get_library_folders(self) -> Iterable[str]:
         configuration_folder = self.get_configuration_folder()
         if configuration_folder:
-            yield configuration_folder # default location
+            # yield configuration_folder # default location
             config_path = os.path.join(configuration_folder, "steamapps", "libraryfolders.vdf")
             log.info("Finding library folders from: " + config_path)
             with load_vdf(config_path) as config:

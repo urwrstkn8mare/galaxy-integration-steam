@@ -2,12 +2,14 @@ from contextlib import suppress
 from logging import getLogger
 import os
 import shlex
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, List, Optional
 import winreg
 from galaxy.api.types import LocalGameState, LocalGame
 from galaxy.registry_monitor import RegistryMonitor
 
+
 from .base import BaseClient
+from .shared import create_games_dict
 
 log = getLogger(__name__)
 
@@ -62,7 +64,7 @@ def registry_apps():
 class WinClient(BaseClient):
     def __init__(self) -> None:
         self._regmon = RegistryMonitor(HKEY_CURRENT_USER, r"Software\Valve\Steam\Apps")
-        self._states_last: Dict[str, LocalGameState] = {}
+        self._states_last = create_games_dict()
         self.is_updated = self._regmon.is_updated
     
     def _states_latest(self) -> Optional[Dict[str, LocalGameState]]:
@@ -73,16 +75,16 @@ class WinClient(BaseClient):
                 for k, v in game_data.items():
                     if k.lower() == "running" and str(v) == "1":
                         state |= LocalGameState.Running
-                    elif k.lower() == "installed" and str(v) == "1":
+                    if k.lower() == "installed" and str(v) == "1":
                         state |= LocalGameState.Installed
                 states[game] = state
             return states
         
-    def latest(self) -> Iterable[LocalGame]:
+    def latest(self) -> List[LocalGame]:
         self._states_last = self._states_latest() or self._states_last
         for m in self.manifests():
-            id = m.id()
-            yield LocalGame(id, self._states_last.get(id, LocalGameState.Installed))
+            self._states_last[m.id()] |= LocalGameState.Installed
+        return [LocalGame(k,v) for k,v in self._states_last.items()]
 
     def changed(self) -> Iterable[LocalGame]:
         new = self._states_latest()

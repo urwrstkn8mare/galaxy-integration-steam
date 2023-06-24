@@ -1,131 +1,132 @@
+import asyncio
+from contextlib import suppress
+import enum
+from functools import lru_cache
 import glob
-from itertools import count
 from logging import getLogger
 import os
-from typing import Iterable, List, Optional
+import subprocess
+from typing import Dict, Iterable, Optional
+import webbrowser
+from attr import dataclass
+# TODO: use autocloud and lastlaunch in `config/config.vdf` to detect running games
+
 from galaxy.api.types import LocalGame, LocalGameState
 
-from .shared import load_vdf
+from .shared import BaseState, load_vdf, StateFlags
 
 log = getLogger(__name__)
 
 
+class StateFlags(enum.Flag):
+    """StateFlags from appmanifest.acf file"""
+    Invalid = 0
+    Uninstalled = 1
+    UpdateRequired = 2
+    FullyInstalled = 4
+    Encrypted = 8
+    Locked = 16
+    FilesMissing = 32
+    AppRunning = 64
+    FilesCorrupt = 128
+    UpdateRunning = 256
+    UpdatePaused = 512
+    UpdateStarted = 1024
+    Uninstalling = 2048
+    BackupRunning = 4096
+    Reconfiguring = 65536
+    Validating = 131072
+    AddingFiles = 262144
+    Preallocating = 524288
+    Downloading = 1048576
+    Staging = 2097152
+    Committing = 4194304
+    UpdateStopping = 8388608
+
+
+@dataclass
+class Manifest:
+    path: str
+    
+    def id(self):
+        return os.path.basename(self.path)[len('appmanifest_'):-4]
+    
+    def app_size(self):
+        with load_vdf(self.path) as manifest:
+            app_state = manifest["AppState"]
+            if StateFlags.FullyInstalled in StateFlags(int(app_state["StateFlags"])):
+                return int(app_state["SizeOnDisk"])
+            else:
+                return int(app_state["BytesDownloaded"])
+
+
 class BaseClient:
 
-    @staticmethod
-    def get_app_states_from_registry(app_dict):
-        app_states = {}
-        for game, game_data in app_dict.items():
-            state = LocalGameState.None_
-            for k, v in game_data.items():
-                if k.lower() == "running" and str(v) == "1":
-                    state |= LocalGameState.Running
-                if k.lower() == "installed" and str(v) == "1":
-                    state |= LocalGameState.Installed
-            app_states[game] = state
-
-        return app_states
+    # os dependant
 
     def get_configuration_folder() -> Optional[str]:
         raise NotImplementedError
     
-    def get_custom_library_folders(self, config_path: str) -> Optional[List[str]]:
-        """Parses library folders config file and returns a list of folders paths"""
-        try:
-            config = load_vdf(config_path)
-            result = []
-            for i in count(1):
-                library_folders = config["LibraryFolders"]
-                numerical_vdf_key = str(i)
-                library_folder = library_folders.get(numerical_vdf_key)
-                if library_folder is None:
-                    break
-                try:
-                    library_path = library_folder["path"]
-                except TypeError:
-                    library_path = library_folder
-                result.append(os.path.join(library_path, "steamapps"))
-            return result
-        except (OSError, SyntaxError, KeyError):
-            log.exception("Failed to parse %s", config_path)
-            return None
-
-    def get_library_folders(self) -> Iterable[str]:
-        configuration_folder = self.get_configuration_folder()
-        if not configuration_folder:
-            return []
-        steam_apps_folder = os.path.join(configuration_folder, "steamapps")  # default location
-        library_folders_config = os.path.join(steam_apps_folder, "libraryfolders.vdf")
-        library_folders = self.get_custom_library_folders(library_folders_config) or []
-        return [steam_apps_folder] + library_folders
-
-    @staticmethod
-    def get_app_manifests(library_folders: Iterable[str]) -> Iterable[str]:
-        for library_folder in library_folders:
-            escaped_path = glob.escape(library_folder)
-            yield from glob.iglob(os.path.join(escaped_path, "*.acf"))
-
-    @staticmethod
-    def app_id_from_manifest_path(path):
-        return os.path.basename(path)[len('appmanifest_'):-4]
-
-    def get_installed_games(self, library_paths: Iterable[str]) -> Iterable[str]:
-        for app_manifest_path in self.get_app_manifests(library_paths):
-            app_id = self.app_id_from_manifest_path(app_manifest_path)
-            if app_id:
-                yield app_id
-
-    def registry_apps_as_dict():
-        raise NotImplementedError
-
-    def local_games_list(self):
-        local_games = []
-        try:
-            library_folders = self.get_library_folders()
-            log.debug("Checking library folders: %s", str(library_folders))
-            apps_ids = self.get_installed_games(library_folders)
-            app_states = self.get_app_states_from_registry(self.registry_apps_as_dict())
-            for app_id in apps_ids:
-                app_state = app_states.get(app_id)
-                if app_state is None:
-                    continue
-                local_game = LocalGame(app_id, app_state)
-                local_games.append(local_game)
-        except:
-            log.exception("Failed to get local games list")
-        finally:
-            return local_games
-
-    def get_state_changes(old_list, new_list):
-        old_dict = {x.game_id: x.local_game_state for x in old_list}
-        new_dict = {x.game_id: x.local_game_state for x in new_list}
-        result = []
-        # removed games
-        result.extend(LocalGame(id, LocalGameState.None_) for id in old_dict.keys() - new_dict.keys())
-        # added games
-        result.extend(local_game for local_game in new_list if local_game.game_id in new_dict.keys() - old_dict.keys())
-        # state changed
-        result.extend(
-            LocalGame(id, new_dict[id]) for id in new_dict.keys() & old_dict.keys() if new_dict[id] != old_dict[id])
-        return result
-
     def get_client_executable() -> Optional[str]:
         raise NotImplementedError
     
-    def is_uri_handler_installed(protocol) -> bool:
+    def _is_uri_handler_installed() -> bool:
         raise NotImplementedError
     
-    def get_steam_registry_monitor():
+    def _get_steam_shutdown_cmd():
+        raise NotImplementedError
+    
+    def latest() -> Iterable[LocalGame]:
         raise NotImplementedError
 
-
+    def changed() -> Iterable[LocalGame]:
+        raise NotImplementedError
     
-
-
+    def is_updated() -> bool:
+        raise NotImplementedError
     
+    # os independent
 
+    def _get_library_folders(self) -> Iterable[str]:
+        configuration_folder = self.get_configuration_folder()
+        if configuration_folder:
+            yield configuration_folder # default location
+            config_path = os.path.join(configuration_folder, "steamapps", "libraryfolders.vdf")
+            log.info("Finding library folders from: " + config_path)
+            with load_vdf(config_path) as config:
+                for library_folder in config["LibraryFolders"].values():
+                    with suppress(TypeError):
+                        library_folder = library_folder["path"]
+                    if type(library_folder) is str:
+                        yield library_folder
 
-   
-
-
+    def manifests(self) -> Iterable[Manifest]:
+        for library_folder in self._get_library_folders():
+            log.info("Getting app manifests in: " + library_folder)
+            for path in glob.iglob(os.path.join(
+                glob.escape(library_folder), 
+                "steamapps",
+                "*.acf"
+            )):
+                yield Manifest(path)
     
+    def steam_cmd(self, command, game_id):
+        if game_id == "499450": #witcher 3 hack?
+            game_id = "292030"
+        if self._is_uri_handler_installed():
+            webbrowser.open(f"steam://{command}/{game_id}") 
+        else:
+            log.warning("Steam URI Handler not installed!")
+            webbrowser.open("https://store.steampowered.com/about/")
+
+    async def steam_shutdown(self):
+        cmd = self._get_steam_shutdown_cmd()
+        if cmd:
+            log.debug("Running command '%s'", cmd)
+            proc = await asyncio.create_subprocess_shell(
+                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+            stdout, stderr = await proc.communicate()
+    
+    def close(self):
+        pass

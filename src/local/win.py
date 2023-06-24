@@ -2,7 +2,9 @@ from contextlib import suppress
 from logging import getLogger
 import os
 import shlex
+from typing import Dict, Iterable, Optional
 import winreg
+from galaxy.api.types import LocalGameState, LocalGame
 from galaxy.registry_monitor import RegistryMonitor
 
 from .base import BaseClient
@@ -21,16 +23,13 @@ def get_reg_val(name):
         log.warning("Steam not installed")
 
 
-class WinClient(BaseClient):
-    @staticmethod
-    def registry_apps_as_dict():
+def registry_apps():
         try:
             apps = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam\Apps")
         except OSError as e:
             log.info("Steam Apps registry cannot be read: %s", str(e))
             return {}
 
-        apps_dict = dict()
         sub_key_index = 0
 
         while True:
@@ -51,7 +50,7 @@ class WinClient(BaseClient):
                         except OSError:
                             break
                     winreg.CloseKey(sub_key)
-                apps_dict[sub_key_name] = sub_key_dict
+                yield sub_key_name, sub_key_dict
                 sub_key_index += 1
             except OSError:
                 log.exception("Failed to parse Steam registry")
@@ -59,7 +58,42 @@ class WinClient(BaseClient):
 
         winreg.CloseKey(apps)
 
-        return apps_dict
+
+class WinClient(BaseClient):
+    def __init__(self) -> None:
+        self._regmon = RegistryMonitor(HKEY_CURRENT_USER, r"Software\Valve\Steam\Apps")
+        self._states_last: Dict[str, LocalGameState] = {}
+        self.is_updated = self._regmon.is_updated
+    
+    def _states_latest(self) -> Optional[Dict[str, LocalGameState]]:
+        if self.is_updated():
+            states = {}
+            for game, game_data in registry_apps():
+                state = LocalGameState.None_    
+                for k, v in game_data.items():
+                    if k.lower() == "running" and str(v) == "1":
+                        state |= LocalGameState.Running
+                    elif k.lower() == "installed" and str(v) == "1":
+                        state |= LocalGameState.Installed
+                states[game] = state
+            return states
+        
+    def latest(self) -> Iterable[LocalGame]:
+        self._states_last = self._states_latest() or self._states_last
+        for m in self.manifests():
+            id = m.id()
+            yield LocalGame(id, self._states_last.get(id, LocalGameState.Installed))
+
+    def changed(self) -> Iterable[LocalGame]:
+        new = self._states_latest()
+        if new is None:
+            return
+        old = self._states_last
+        for id in old.keys() - new.keys():
+            yield LocalGame(id, LocalGameState.None_)
+        for id, state in new.items() - old.items():
+            yield LocalGame(id, state)
+        self._states_last = new
 
     @staticmethod
     def get_client_executable():
@@ -70,8 +104,8 @@ class WinClient(BaseClient):
         return get_reg_val("SteamPath")
     
     @staticmethod
-    def is_uri_handler_installed(protocol):
-        with suppress(OSError, ValueError), winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"{}\shell\open\command".format(protocol)) as key:
+    def _is_uri_handler_installed():
+        with suppress(OSError, ValueError), winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"{}\shell\open\command".format("steam")) as key:
             executable_template = winreg.QueryValue(key, None)
             splitted_exec = shlex.split(executable_template)
             if splitted_exec:
@@ -79,6 +113,11 @@ class WinClient(BaseClient):
             
         return False
     
-    @staticmethod
-    def get_steam_registry_monitor():
-        return RegistryMonitor(HKEY_CURRENT_USER, r"Software\Valve\Steam\Apps")
+    def _get_steam_shutdown_cmd(self):
+        exe = self.get_client_executable()
+        if exe:
+            return f'"{exe}" -shutdown -silent'
+        
+    def close(self):
+        super().close()
+        self._regmon.close()

@@ -1,10 +1,7 @@
 import asyncio
 import logging
-import platform
-import subprocess
 import ssl
 import sys
-import webbrowser
 import time
 from functools import partial
 from contextlib import suppress
@@ -15,7 +12,6 @@ import traceback
 import certifi
 from galaxy.api.plugin import Plugin, create_and_run_plugin
 from galaxy.api.types import (
-    LocalGame,
     LocalGameState,
     UserPresence,
     UserInfo,
@@ -37,12 +33,11 @@ from galaxy.api.consts import Platform
 from backend_interface import BackendInterface
 from backend_steam_network import SteamNetworkBackend
 from http_client import HttpClient
+from local.base import Manifest
 from persistent_cache_state import PersistentCacheState
 from version import __version__
 
 from local import IS_WIN, Client as LocalClient
-from local.shared import load_vdf, StateFlags
-
 
 
 logger = logging.getLogger(__name__)
@@ -51,6 +46,7 @@ Timestamp = NewType("Timestamp", int)
 
 COOLDOWN_TIME = 5
 AUTH_SETUP_ON_VERSION__CACHE_KEY = "auth_setup_on_version"
+LAUNCH_DEBOUNCE_TIME = 30
 
 
 class SteamPlugin(Plugin):
@@ -58,8 +54,6 @@ class SteamPlugin(Plugin):
         super().__init__(Platform.Steam, __version__, reader, writer, token)
 
         # local features
-        self._regmon = LocalClient.get_steam_registry_monitor()
-        self._local_games_cache: Optional[List[LocalGame]] = None
         self._last_launch: Timestamp = 0
         self._update_local_games_task = asyncio.create_task(asyncio.sleep(0))
 
@@ -130,8 +124,9 @@ class SteamPlugin(Plugin):
 
         return auth
 
+    # TODO: -> local
     async def shutdown(self):
-        self._regmon.close()
+        self.local.close()
         await self._http_client.close()
         await self._backend.shutdown()
 
@@ -198,12 +193,11 @@ class SteamPlugin(Plugin):
     def subscription_games_import_complete(self):
         self._backend.subscription_games_import_complete()
 
+    # TODO: -> local
     async def _update_local_games(self):
         loop = asyncio.get_running_loop()
-        new_list = await loop.run_in_executor(None, self.local.local_games_list)
-        notify_list = self.local.get_state_changes(self._local_games_cache, new_list)
-        self._local_games_cache = new_list
-        for game in notify_list:
+        changes = await loop.run_in_executor(None, self.local.changed)
+        for game in changes:
             if LocalGameState.Running in game.local_game_state:
                 self._last_launch = time.time()
             self.update_local_game_status(game)
@@ -219,79 +213,44 @@ class SteamPlugin(Plugin):
     def tick(self):
         self._backend.tick()
 
-        if (
-            self._local_games_cache is not None
-            and self._update_local_games_task.done()
-            and self._regmon.is_updated()
-        ):
+        # TODO: -> local
+        if self._update_local_games_task.done() and self.local.is_updated():
             self._update_local_games_task = asyncio.create_task(self._update_local_games())
 
         if self._pushing_cache_task.done() and self._persistent_storage_state.modified:
             self._pushing_cache = asyncio.create_task(self._push_cache())
 
+    # TODO: -> local
     async def get_local_games(self):
         loop = asyncio.get_running_loop()
-        self._local_games_cache = await loop.run_in_executor(None, self.local.local_games_list)
-        return self._local_games_cache
-
-    @staticmethod
-    def _steam_command(self, command, game_id):
-        if game_id == "499450": #witcher 3 hack?
-            game_id = "292030"
-        if LocalClient.is_uri_handler_installed("steam"):
-            webbrowser.open("steam://{}/{}".format(command, game_id))
-        else:
-            webbrowser.open("https://store.steampowered.com/about/")
+        latest = await loop.run_in_executor(None, self.local.latest)
+        return list(latest)
 
     async def launch_game(self, game_id):
-        SteamPlugin._steam_command("launch", game_id)
+        self.local.steam_cmd("launch", game_id)
 
     async def install_game(self, game_id):
-        SteamPlugin._steam_command("install", game_id)
+        self.local.steam_cmd("install", game_id)
 
     async def uninstall_game(self, game_id):
-        SteamPlugin._steam_command("uninstall", game_id)
+        self.local.steam_cmd("uninstall", game_id)
 
-    async def prepare_local_size_context(self, game_ids: List[str]) -> Dict[str, str]:
-        library_folders = self.local.get_library_folders()
-        app_manifests = list(self.local.get_app_manifests(library_folders))
-        return {self.local.app_id_from_manifest_path(path): path for path in app_manifests}
+    # TODO: -> local
+    async def prepare_local_size_context(self, game_ids: List[str]):
+        return {m.id(): m for m in self.local.manifests()}
 
-    async def get_local_size(self, game_id: str, context: Dict[str, str]) -> Optional[int]:
-        try:
-            manifest_path = context[game_id]
-        except KeyError:  # not installed
-            return 0
-        try:
-            manifest = load_vdf(manifest_path)
-            app_state = manifest["AppState"]
-            state_flags = StateFlags(int(app_state["StateFlags"]))
-            if StateFlags.FullyInstalled in state_flags:
-                return int(app_state["SizeOnDisk"])
-            else:  # as SizeOnDisk is 0
-                return int(app_state["BytesDownloaded"])
-        except Exception as e:
-            logger.warning("Cannot parse SizeOnDisk in %s: %r", manifest_path, e)
-            return None
+    # TODO: -> local
+    async def get_local_size(self, game_id: str, context: Dict[str, Manifest]) -> Optional[int]:
+        m = context.get(game_id)
+        if m:
+            return m.app_size()
 
     async def shutdown_platform_client(self) -> None:
-        launch_debounce_time = 30
-        if time.time() < self._last_launch + launch_debounce_time:
+        if time.time() < self._last_launch + LAUNCH_DEBOUNCE_TIME:
             # workaround for quickly closed game (Steam sometimes dumps false positive just after a launch)
             logging.info("Ignoring shutdown request because game was launched a moment ago")
             return
-        if IS_WIN:
-            exe = self.local.get_client_executable()
-            if exe is None:
-                return
-            cmd = '"{}" -shutdown -silent'.format(exe)
-        else:
-            cmd = "osascript -e 'quit app \"Steam\"'"
-        logger.debug("Running command '%s'", cmd)
-        process = await asyncio.create_subprocess_shell(
-            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-        await process.communicate()
+        await self.local.steam_shutdown()
 
 
 def main():

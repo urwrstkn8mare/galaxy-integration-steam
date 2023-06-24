@@ -1,19 +1,17 @@
 import asyncio
 from contextlib import suppress
 import enum
-from functools import lru_cache
 import glob
 from logging import getLogger
 import os
 import subprocess
-from typing import Dict, Iterable, Optional
+from typing import Iterable, Optional
 import webbrowser
 from attr import dataclass
-# TODO: use autocloud and lastlaunch in `config/config.vdf` to detect running games
 
-from galaxy.api.types import LocalGame, LocalGameState
+from galaxy.api.types import LocalGame
 
-from .shared import BaseState, load_vdf, StateFlags
+from .shared import load_vdf
 
 log = getLogger(__name__)
 

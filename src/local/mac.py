@@ -32,7 +32,7 @@ class ContentLog:
 
     def all_lines(self):
         with FileReadBackwards(self.path, encoding="ascii") as f:
-            self._last_size = f.iterator.__buf.read_position # file size
+            self._last_size = f.iterator._FileReadBackwardsIterator__buf.read_position # file size
             yield from f
 
     def is_updated(self):
@@ -44,7 +44,7 @@ class ContentLog:
             with FileReadBackwards(self.path, encoding="ascii") as f:
                 for l in f:
                     yield l
-                    if f.iterator.__buf.read_position <= self._last_size:
+                    if f.iterator._FileReadBackwardsIterator__buf.read_position <= self._last_size:
                         break
             self._last_size = size
 
@@ -66,17 +66,18 @@ class MacClient(BaseClient):
         ids = [m.id() for m in self.manifests()]
         for line in lines:
             words = line.strip().split()[2:]
-            if words[0] == "AppID":
-                app_id = words[1]
-                with suppress(ValueError):
-                    ids.remove(app_id)
-                if words[2] + words[3] == "statechanged":
-                    states = words[5].split(",")
-                    for k,v in STATE_MAPPING.items():
-                        if k in states:
-                            yield LocalGame(app_id, v)
-                if len(ids) == 0:
-                    break
+            if len(words) >= 6:
+                if words[0] == "AppID":
+                    app_id = words[1]
+                    with suppress(ValueError):
+                        ids.remove(app_id)
+                    if words[2] + words[3] == "statechanged":
+                        states = words[5].split(",")
+                        for k,v in STATE_MAPPING.items():
+                            if k in states:
+                                yield LocalGame(app_id, v)
+                    if len(ids) == 0:
+                        break
                             
     def latest(self) -> Iterable[LocalGame]:
         # should we make sure all manifests are always detected as installed?

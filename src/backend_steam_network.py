@@ -2,7 +2,7 @@ import asyncio
 import logging
 import ssl
 from contextlib import suppress
-from typing import Callable, List, Any, Dict, Union, Coroutine
+from typing import Callable, List, Any, Dict, Union, Coroutine, cast
 from urllib import parse
 from pprint import pformat
 
@@ -37,7 +37,7 @@ from persistent_cache_state import PersistentCacheState
 from steam_network.caches.friends_cache import FriendsCache
 from steam_network.caches.games_cache import GamesCache
 from steam_network.caches.local_machine_cache import LocalMachineCache
-from steam_network.caches.stats_cache import StatsCache
+from steam_network.caches.stats_cache import StatsCache, GameStats
 from steam_network.caches.times_cache import TimesCache
 from steam_network.caches.user_info_cache import UserInfoCache
 
@@ -121,12 +121,15 @@ class SteamNetworkBackend(BackendInterface):
 
         self._update_owned_games_task : Task[None] = asyncio.create_task(asyncio.sleep(0))
         self._owned_games_parsed : bool = False
-        
+
         self._load_persistent_cache()
-    
+
     def _load_persistent_cache(self):
         if "games" in self._persistent_cache:
             self._games_cache.loads(self._persistent_cache["games"])
+
+        if "stats" in self._persistent_cache:
+            self._stats_cache.loads(self._persistent_cache["stats"])
 
     async def shutdown(self):
         await self._websocket_client.close()
@@ -145,7 +148,7 @@ class SteamNetworkBackend(BackendInterface):
     # periodic tasks
 
     async def _update_owned_games(self):
-        new_games = self._games_cache.consume_added_games()
+        new_games = self._games_cache.get_apps_to_import_into_galaxy()
         if not new_games:
             return
 
@@ -154,12 +157,13 @@ class SteamNetworkBackend(BackendInterface):
 
         for i, game in enumerate(new_games):
             dlcs: List[Dlc] = list()
-            for app in self._games_cache.get_dlcs_for_game(int(game.appid)):
+            for dlc in self._games_cache.get_dlcs_for_game(int(game.appid)):
                 dlcs.append(Dlc(
-                    dlc_id=app.appid,
-                    dlc_title=app.title,
+                    dlc_id=dlc.appid,
+                    dlc_title=dlc.title,
                     license_info=LicenseInfo(LicenseType.SinglePurchase)
                 ))
+                self._games_cache.mark_app_as_sent_to_galaxy(dlc.appid)
 
             self._add_game(
                 Game(
@@ -169,6 +173,7 @@ class SteamNetworkBackend(BackendInterface):
                     license_info=LicenseInfo(LicenseType.SinglePurchase),
                 )
             )
+            self._games_cache.mark_app_as_sent_to_galaxy(game.appid)
             if i % 50 == 49:
                 await asyncio.sleep(5)  # give Galaxy a breath in case of adding thousands games
 
@@ -178,6 +183,10 @@ class SteamNetworkBackend(BackendInterface):
 
         if self._user_info_cache.changed:
             self._store_credentials(self._user_info_cache.to_dict())
+
+        if self._stats_cache.dirty:
+            self._persistent_cache["stats"] = self._stats_cache.dump()
+            self._persistent_storage_state.modified = True
 
     # authentication
 
@@ -196,16 +205,16 @@ class SteamNetworkBackend(BackendInterface):
         if len(allowed_methods) > 1:
             fallback_meth, fallback_message = allowed_methods[1]
         
-        if (fallback_meth == TwoFactorMethod.PhoneCode):
-            fallbackData["fallbackMethod"] = DisplayUriHelper.TWO_FACTOR_MOBILE.to_view_string()
-            fallbackData["fallbackMsg"] = fallback_message
-        elif (fallback_meth == TwoFactorMethod.EmailCode):
-            fallbackData["fallbackMethod"] = DisplayUriHelper.TWO_FACTOR_MAIL.to_view_string()
-            fallbackData["fallbackMsg"] = fallback_message
+            if (fallback_meth == TwoFactorMethod.PhoneCode):
+                fallbackData["fallbackMethod"] = DisplayUriHelper.TWO_FACTOR_MOBILE.to_view_string()
+                fallbackData["fallbackMsg"] = fallback_message
+            elif (fallback_meth == TwoFactorMethod.EmailCode):
+                fallbackData["fallbackMethod"] = DisplayUriHelper.TWO_FACTOR_MAIL.to_view_string()
+                fallbackData["fallbackMsg"] = fallback_message
 
         return fallbackData
 
-    async def pass_login_credentials(self, step, credentials, cookies):
+    async def pass_login_credentials(self, step, credentials: Dict[str, str], cookies):
         end_uri = credentials["end_uri"]
 
         if (DisplayUriHelper.LOGIN.EndUri() in end_uri):
@@ -223,13 +232,23 @@ class SteamNetworkBackend(BackendInterface):
             logger.warning("Unexpected state in pass_login_credentials")
             raise UnknownBackendResponse()
 
-    async def _handle_login_finished(self, credentials) -> Union[NextStep, Authentication]:
+    @staticmethod
+    def sanitize_string(data : str) -> str:
+        """Remove any characters steam silently strips, then trims it down to their max length.
+
+        Steam appears to ignore all characters that it cannot handle, and trim it down to 64 legal characters.
+        For whatever reason, they don't enforce this, they just silently ignore anything bad. This is our attempt to copy that behavior.
+        """
+        return (''.join([i if ord(i) < 128 else '' for i in data]))[:64]
+
+    async def _handle_login_finished(self, credentials: Dict[str, str]) -> Union[NextStep, Authentication]:
         parsed_url = parse.urlsplit(credentials["end_uri"])
         params = parse.parse_qs(parsed_url.query)
         if ("password" not in params or "username" not in params):
             return next_step_response_simple(DisplayUriHelper.LOGIN, True)
         user = params["username"][0]
-        pws = params["password"][0]
+        pws = self.sanitize_string(params["password"][0])
+
         await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.RSA_AND_LOGIN, 'username' : user, 'password' : pws })
         result = await self._get_websocket_auth_step()
         if (result == UserActionRequired.NoActionConfirmLogin):
@@ -239,7 +258,7 @@ class SteamNetworkBackend(BackendInterface):
             allowed_methods = self._authentication_cache.two_factor_allowed_methods
             method, msg = allowed_methods[0]
             if (method == TwoFactorMethod.Nothing):
-                result = await self._handle_steam_guard_none()
+                return await self._handle_steam_guard_none()
             elif (method == TwoFactorMethod.PhoneCode):
                 return next_step_response_simple(DisplayUriHelper.TWO_FACTOR_MOBILE)
             elif (method == TwoFactorMethod.EmailCode):
@@ -253,12 +272,12 @@ class SteamNetworkBackend(BackendInterface):
             return next_step_response_simple(DisplayUriHelper.LOGIN, True)
         #result here should be password, or unathorized. 
 
-    async def _handle_steam_guard(self, credentials, method: TwoFactorMethod, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
-        parsed_url = parse.urlsplit(credentials["end_uri"])
+    async def _handle_steam_guard(self, credentials: Dict[str, str], method: TwoFactorMethod, fallback: DisplayUriHelper) -> Union[NextStep, Authentication]:
+        parsed_url: parse.SplitResult = parse.urlsplit(credentials["end_uri"])
         params = parse.parse_qs(parsed_url.query)
         if ("code" not in params):
             return next_step_response_simple(fallback, True)
-        code = params["code"][0]
+        code = params["code"][0].strip()
         await self._websocket_client.communication_queues["websocket"].put({'mode': AuthCall.UPDATE_TWO_FACTOR, 'two-factor-code' : code, 'two-factor-method' : method })
         result = await self._get_websocket_auth_step()
         if (result == UserActionRequired.NoActionConfirmLogin):
@@ -272,10 +291,12 @@ class SteamNetworkBackend(BackendInterface):
 
     async def _handle_steam_guard_none(self) -> Authentication:
         result = await self._handle_2FA_PollOnce()
-        if (result != UserActionRequired.NoActionRequired):
-            raise UnknownBackendResponse()
-        else:
+        if (result == UserActionRequired.NoActionRequired):
             return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
+        elif result == UserActionRequired.NoActionConfirmToken:
+            return await self._finish_auth_process()
+        else:
+            raise UnknownBackendResponse()
 
     async def _handle_steam_guard_check(self, fallback: DisplayUriHelper, is_confirm: bool, **kwargs:str) -> Union[NextStep, Authentication]:
         result = await self._handle_2FA_PollOnce(is_confirm)
@@ -284,9 +305,11 @@ class SteamNetworkBackend(BackendInterface):
             return Authentication(self._user_info_cache.steam_id, self._user_info_cache.persona_name)
         elif (result == UserActionRequired.NoActionConfirmToken):
             return await self._finish_auth_process()
-        #returned if we somehow got here but poll did not succeed. If we get here, the code should have been successfully input so this should never happen. 
         elif(result == UserActionRequired.NoActionConfirmLogin or result == UserActionRequired.TwoFactorRequired):
-            logger.info("Mobile Confirm did not complete. This is likely due to user error, but if not, this is something worth checking.")
+            if (is_confirm):
+                logger.info("Mobile Confirm did not complete. This is likely due to user error, but if not, this is something worth checking.")
+            else:
+                logger.info("Mobile code 2FA failed, likely expired. Could also be wrong code, as steam seems to give the same response.")
             return next_step_response_simple(fallback, True, **kwargs)
         elif (result == UserActionRequired.TwoFactorExpired):
             return next_step_response_simple(DisplayUriHelper.LOGIN, True, expired="true", **kwargs)
@@ -355,13 +378,12 @@ class SteamNetworkBackend(BackendInterface):
             raise AuthenticationRequired()
 
         await self._games_cache.wait_ready(GAME_CACHE_IS_READY_TIMEOUT)
-        self._games_cache.add_game_lever = True
 
         owned_games = []
         owned_witcher_3_dlcs = set()
 
         try:
-            async for app in self._games_cache.get_owned_games():
+            async for app in self._games_cache.get_apps(type_="game", shared=False):
                 dlcs: List[Dlc] = list()
                 for dlc in self._games_cache.get_dlcs_for_game(int(app.appid)):
                     dlcs.append(Dlc(
@@ -369,6 +391,7 @@ class SteamNetworkBackend(BackendInterface):
                         dlc_title=dlc.title,
                         license_info=LicenseInfo(LicenseType.SinglePurchase)
                     ))
+                    self._games_cache.mark_app_as_sent_to_galaxy(dlc.appid)
 
                 owned_games.append(
                     Game(
@@ -378,6 +401,8 @@ class SteamNetworkBackend(BackendInterface):
                         LicenseInfo(LicenseType.SinglePurchase, None),
                     )
                 )
+                self._games_cache.mark_app_as_sent_to_galaxy(app.appid)
+
                 if app.appid in WITCHER_3_DLCS_APP_IDS:
                     owned_witcher_3_dlcs.add(app.appid)
 
@@ -399,6 +424,7 @@ class SteamNetworkBackend(BackendInterface):
             self._owned_games_parsed = True
 
         self._persistent_cache["games"] = self._games_cache.dump()
+        self._persistent_cache["stats"] = self._stats_cache.dump()
         self._persistent_storage_state.modified = True
 
         return owned_games
@@ -407,7 +433,7 @@ class SteamNetworkBackend(BackendInterface):
         if not self._owned_games_parsed:
             await self._games_cache.wait_ready(90)
         any_shared_game = False
-        async for _ in self._games_cache.get_shared_games():
+        async for _ in self._games_cache.get_apps(type_="game", shared=True):
             any_shared_game = True
             break
         return [
@@ -421,42 +447,42 @@ class SteamNetworkBackend(BackendInterface):
 
     async def get_subscription_games(self, subscription_name: str, context: Any):
         games = []
-        async for game in self._games_cache.get_shared_games():
+        async for game in self._games_cache.get_apps(type_="game", shared=True):
             games.append(SubscriptionGame(game_id=str(game.appid), game_title=game.title))
+            self._games_cache.mark_app_as_sent_to_galaxy(game.appid)
         yield games
 
     async def prepare_achievements_context(self, game_ids: List[str]) -> Any:
         if self._user_info_cache.steam_id is None:
             raise AuthenticationRequired()
 
-        if not self._stats_cache.import_in_progress:
-            await self._websocket_client.refresh_game_stats(game_ids.copy())
-        else:
-            logger.info("Game stats import already in progress")
-        await self._stats_cache.wait_ready(
-            10 * 60
-        )  # Don't block future imports in case we somehow don't receive one of the responses
-        logger.info("Finished achievements context prepare")
+        await self._websocket_client.refresh_game_stats([int(x) for x in game_ids])
+
+        logger.info(f"Finished achievements context prepare: {game_ids}")
 
     async def get_unlocked_achievements(self, game_id: str, context: Any) -> List[Achievement]:
-        logger.info(f"Asked for achievs for {game_id}")
-        game_stats = self._stats_cache.get(game_id)
-        achievements = []
-        if game_stats and "achievements" in game_stats:
-            for achievement in game_stats["achievements"]:
-                # Fix for trailing whitespace in some achievement names which resulted in achievements not matching with website data
-                achievement_name = achievement["name"]
-                achievement_name = achievement_name.strip()
-                if not achievement_name:
-                    achievement_name = achievement["name"]
+        logger.info(f"Asked for achievements for {game_id}")
 
-                achievements.append(
-                    Achievement(
-                        achievement["unlock_time"],
-                        achievement_id=None,
-                        achievement_name=achievement_name,
-                    )
+        if not self._stats_cache.ready:
+            logger.debug(f"waiting for import to finish to get achievements for {game_id}")
+            await self._stats_cache.wait_ready()
+
+        game_stats: GameStats = self._stats_cache.get(int(game_id))
+        if not game_stats:
+            logger.warning(f"game stats for {game_id} not found in stats cache")
+            return []
+
+        achievements: List[Achievement] = []
+
+        for achievement in game_stats.achievements:
+            achievements.append(
+                Achievement(
+                    unlock_time=achievement.unlock_time,
+                    # achievement_id=achievement.id_,  # Galaxy doesn't like us sending an achievement id - so we won't
+                    achievement_name=achievement.name.strip(),
                 )
+            )
+
         return achievements
 
     async def prepare_game_times_context(self, game_ids: List[str]) -> Any:

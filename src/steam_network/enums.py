@@ -100,8 +100,8 @@ class UserActionRequired(enum.IntEnum):
     InvalidAuthData = 5
 
 #We're going to store this in the User Info Cache so we don't need to pass it everywhere. 
-#WARNING! BE VERY CAREFUL WITH THIS: IT APPEARS IN THE USER INFO CACHE! IF IT IS EVER SAVED (toDict method), THIS ENUM BECOMES SOFT IMMUTABLE 
-#(You can add members but cannot delete, and must parse all options for backwards-compatibility). So, don't, lol.
+#Caution: since this enum is stored in a class that is serialized, removing entries may result in undefined behaviors.
+#currently, this enum is not serialized with the rest of the data, but this is something to be mindful of if this ever changes.
 class TwoFactorMethod(enum.IntEnum):
     Nothing = 0
     PhoneCode = 1
@@ -163,6 +163,7 @@ def to_UserAction(method: TwoFactorMethod) -> UserActionRequired:
     else: #if TwoFactorMethod.InvalidAuthData or an invalid number
         return UserActionRequired.InvalidAuthData
 
+#may be used in the future to help display additional errors on the HTML page. for now they are unused and therefore commented out. 
 #class DisplayErrors(enum):
 #    """Enumeration to help us display errors in our custom webpage. 
 #    Each name is associated with an error url parameter.

@@ -1,7 +1,18 @@
-__version__ = "1.0.4"
+__version__ = "1.0.7"
 __changelog__ = {
     "unreleased": '''
     ''',
+    "1.0.7": """
+    - Fixes issues when SteamGuard is disabled. Made it so 2FA codes would ignore leading or trailing whitespace.
+    - Code cleanup
+    """,
+    "1.0.6": """
+    - reintroduces password santization so users with long passwords or illegal characters can log in as intended
+    - Code cleanup
+    """,
+    "1.0.5": """
+    - implemented a temporary fix to make the receive loop only send off a few jobs before stopping to receive a message, instead of doing all the jobs at once.
+    """,
     "1.0.4": """
     - refreshed python generated protobuf files
     - removed public profiles `backend`. The new auth flow makes it irrelevant.

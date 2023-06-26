@@ -68,10 +68,6 @@ class BaseClient(ABC):
         pass
     
     @abstractmethod
-    def get_client_executable() -> Optional[str]:
-        pass
-    
-    @abstractmethod
     def _is_uri_handler_installed() -> bool:
         pass
     

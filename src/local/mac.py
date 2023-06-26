@@ -13,7 +13,6 @@ log = getLogger(__name__)
 
 
 CONFIG_FOLDER = os.path.expanduser("~/Library/Application Support/Steam")
-CLIENT_EXE = "/Applications/Steam.app/Contents/MacOS/steam_osx"
 CONTENTLOG = os.path.join(CONFIG_FOLDER, "logs/content_log.txt")
 STATE_MAPPING = { # order matters !
     "Uninstalled": LocalGameState.None_,
@@ -102,12 +101,6 @@ class MacClient(BaseClient):
 
     def changed(self) -> Iterable[LocalGame]:
         return (LocalGame(id, v) for id, v in self._states(self._contentlog.new_lines()))
-
-    @staticmethod
-    def get_client_executable():
-        if os.access(CLIENT_EXE, os.X_OK):
-            return CLIENT_EXE
-        log.warning("Steam not installed")
 
     @staticmethod
     def get_configuration_folder():

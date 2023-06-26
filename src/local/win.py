@@ -98,10 +98,6 @@ class WinClient(BaseClient):
         self._states_last = new
 
     @staticmethod
-    def get_client_executable():
-        return get_reg_val("SteamExe")
-
-    @staticmethod
     def get_configuration_folder():
         return get_reg_val("SteamPath")
     
@@ -116,7 +112,7 @@ class WinClient(BaseClient):
         return False
     
     def _get_steam_shutdown_cmd(self):
-        exe = self.get_client_executable()
+        exe = get_reg_val("SteamExe")
         if exe:
             return f'"{exe}" -shutdown -silent'
         

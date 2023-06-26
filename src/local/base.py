@@ -128,7 +128,7 @@ class BaseClient(ABC):
             proc = await asyncio.create_subprocess_shell(
                 cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )
-            stdout, stderr = await proc.communicate()
+            await proc.communicate()
     
     def close(self):
         pass

@@ -65,7 +65,9 @@ class MacClient(BaseClient):
     def __init__(self) -> None:
         super().__init__()
         self._contentlog = ContentLog(CONTENTLOG)
-        self.is_updated = self._contentlog.is_updated
+
+    def is_updated(self) -> bool:
+        return self._contentlog.is_updated()
 
     def _states(self, lines): # lines is an iterable
         yielded = set()

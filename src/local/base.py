@@ -84,7 +84,7 @@ class BaseClient(ABC):
         pass
     
     @abstractmethod
-    def is_updated() -> bool:
+    def is_updated(self) -> bool:
         pass
     
     # os independent

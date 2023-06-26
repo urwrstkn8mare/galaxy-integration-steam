@@ -66,7 +66,9 @@ class WinClient(BaseClient):
         super().__init__()
         self._regmon = RegistryMonitor(HKEY_CURRENT_USER, r"Software\Valve\Steam\Apps")
         self._states_last = create_games_dict()
-        self.is_updated = self._regmon.is_updated
+        
+    def is_updated(self) -> bool:
+        return self._regmon.is_updated()
     
     def _states_latest(self) -> Optional[Dict[str, LocalGameState]]:
         if self.is_updated():

@@ -63,34 +63,27 @@ class ContentLog:
 
 class MacClient(BaseClient):
     def __init__(self) -> None:
+        super().__init__()
         self._contentlog = ContentLog(CONTENTLOG)
         self.is_updated = self._contentlog.is_updated
 
-    def _states(self, lines):
-        # TODO: set max length of log to read
-
-        yielded = {}
+    def _states(self, lines): # lines is an iterable
+        yielded = set()
         for i, line in enumerate(lines):
             if i == MAX_PARSE:
                 break
-            log.debug("Parsing: " + line)
             words = line.strip().split(maxsplit=7)[2:]
-            log.debug("Found words: " + str(words))
             if len(words) == 6:
                 if words[0] == "AppID":
                     app_id = words[1]
-                    log.debug("Found app_id: " + app_id)
-                    if not yielded.get(app_id):
+                    if app_id in yielded:
                         if words[2] + words[3] == "statechanged":
                             states = words[5].split(",")
-                            log.debug("Found states: " + str(states))
                             for k,v in STATE_MAPPING.items():
                                 if k in states:
                                     yield app_id, v
-                                    yielded[app_id] = True
+                                    yielded.add(app_id)
                                     break
-                    else:
-                        log.debug("Skipped: " + app_id)
                             
     def latest(self) -> List[LocalGame]:
         games = create_games_dict()

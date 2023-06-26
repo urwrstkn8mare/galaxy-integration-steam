@@ -63,6 +63,7 @@ def registry_apps():
 
 class WinClient(BaseClient):
     def __init__(self) -> None:
+        super().__init__()
         self._regmon = RegistryMonitor(HKEY_CURRENT_USER, r"Software\Valve\Steam\Apps")
         self._states_last = create_games_dict()
         self.is_updated = self._regmon.is_updated

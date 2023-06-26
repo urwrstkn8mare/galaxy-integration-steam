@@ -3,42 +3,26 @@ import logging
 import ssl
 import sys
 import time
-from functools import partial
-from contextlib import suppress
-from typing import List, Optional, NewType, Dict, AsyncGenerator, Any, Callable, Type
-
 import traceback
+from contextlib import suppress
+from typing import Any, AsyncGenerator, Dict, List, NewType, Optional, Type
 
 import certifi
-from galaxy.api.plugin import Plugin, create_and_run_plugin
-from galaxy.api.types import (
-    LocalGameState,
-    UserPresence,
-    UserInfo,
-    Game,
-    GameLibrarySettings,
-    GameTime,
-    Achievement,
-    SubscriptionGame,
-    Subscription,
-)
-from galaxy.api.errors import (
-    AccessDenied,
-    InvalidCredentials,
-    NetworkError,
-    UnknownError,
-)
 from galaxy.api.consts import Platform
+from galaxy.api.errors import (AccessDenied, InvalidCredentials, NetworkError,
+                               UnknownError)
+from galaxy.api.plugin import Plugin, create_and_run_plugin
+from galaxy.api.types import (Achievement, Game, GameLibrarySettings, GameTime,
+                              LocalGameState, Subscription, SubscriptionGame,
+                              UserInfo, UserPresence)
 
 from backend_interface import BackendInterface
 from backend_steam_network import SteamNetworkBackend
 from http_client import HttpClient
+from local import Client as LocalClient
 from local.base import Manifest
 from persistent_cache_state import PersistentCacheState
 from version import __version__
-
-from local import IS_WIN, Client as LocalClient
-
 
 logger = logging.getLogger(__name__)
 

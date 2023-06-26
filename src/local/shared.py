@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from logging import getLogger
 from platform import system
 from typing import Any, Dict
+
 import vdf
 from galaxy.api.types import LocalGameState
 

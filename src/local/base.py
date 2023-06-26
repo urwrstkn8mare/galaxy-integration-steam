@@ -1,15 +1,15 @@
 import asyncio
-from contextlib import suppress
 import enum
 import glob
-from logging import getLogger
 import os
 import subprocess
-from typing import Iterable, Optional
 import webbrowser
-from attr import dataclass
 from abc import ABC, abstractmethod
+from contextlib import suppress
+from logging import getLogger
+from typing import Iterable, Optional
 
+from attr import dataclass
 from galaxy.api.types import LocalGame
 
 from .shared import load_vdf

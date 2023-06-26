@@ -1,10 +1,11 @@
-from logging import getLogger
 import os
+from logging import getLogger
 from typing import Dict, Iterable, List
-from CoreServices.LaunchServices import LSCopyDefaultHandlerForURLScheme 
+
 from AppKit import NSWorkspace
-from galaxy.api.types import LocalGame, LocalGameState 
+from CoreServices.LaunchServices import LSCopyDefaultHandlerForURLScheme
 from file_read_backwards import FileReadBackwards
+from galaxy.api.types import LocalGame, LocalGameState
 
 from .base import BaseClient
 from .shared import create_games_dict

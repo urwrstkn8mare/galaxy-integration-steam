@@ -1,12 +1,12 @@
-from contextlib import suppress
-from logging import getLogger
 import os
 import shlex
-from typing import Dict, Iterable, List, Optional
 import winreg
-from galaxy.api.types import LocalGameState, LocalGame
-from galaxy.registry_monitor import RegistryMonitor
+from contextlib import suppress
+from logging import getLogger
+from typing import Dict, Iterable, List, Optional
 
+from galaxy.api.types import LocalGame, LocalGameState
+from galaxy.registry_monitor import RegistryMonitor
 
 from .base import BaseClient
 from .shared import create_games_dict

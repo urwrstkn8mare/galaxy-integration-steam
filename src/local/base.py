@@ -8,6 +8,7 @@ import subprocess
 from typing import Iterable, Optional
 import webbrowser
 from attr import dataclass
+from abc import ABC, abstractmethod
 
 from galaxy.api.types import LocalGame
 
@@ -58,30 +59,37 @@ class Manifest:
                 return int(app_state["BytesDownloaded"])
 
 
-class BaseClient:
+class BaseClient(ABC):
 
     # os dependant
 
+    @abstractmethod
     def get_configuration_folder() -> Optional[str]:
-        raise NotImplementedError
+        pass
     
+    @abstractmethod
     def get_client_executable() -> Optional[str]:
-        raise NotImplementedError
+        pass
     
+    @abstractmethod
     def _is_uri_handler_installed() -> bool:
-        raise NotImplementedError
+        pass
     
+    @abstractmethod
     def _get_steam_shutdown_cmd():
-        raise NotImplementedError
+        pass
     
+    @abstractmethod
     def latest() -> Iterable[LocalGame]:
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def changed() -> Iterable[LocalGame]:
-        raise NotImplementedError
+        pass
     
+    @abstractmethod
     def is_updated() -> bool:
-        raise NotImplementedError
+        pass
     
     # os independent
 

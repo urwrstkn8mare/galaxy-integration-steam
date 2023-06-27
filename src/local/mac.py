@@ -78,7 +78,7 @@ class MacClient(BaseClient):
             if len(words) == 6:
                 if words[0] == "AppID":
                     app_id = words[1]
-                    if app_id in yielded:
+                    if app_id not in yielded:
                         if words[2] + words[3] == "statechanged":
                             states = words[5].split(",")
                             for k,v in STATE_MAPPING.items():

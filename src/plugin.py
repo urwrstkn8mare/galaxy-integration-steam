@@ -108,7 +108,6 @@ class SteamPlugin(Plugin):
 
         return auth
 
-    # TODO: -> local
     async def shutdown(self):
         self.local.close()
         await self._http_client.close()
@@ -177,7 +176,6 @@ class SteamPlugin(Plugin):
     def subscription_games_import_complete(self):
         self._backend.subscription_games_import_complete()
 
-    # TODO: -> local
     async def _update_local_games(self):
         loop = asyncio.get_running_loop()
         changes = await loop.run_in_executor(None, self.local.changed)
@@ -197,17 +195,14 @@ class SteamPlugin(Plugin):
     def tick(self):
         self._backend.tick()
 
-        # TODO: -> local
         if self._update_local_games_task.done() and self.local.is_updated():
             self._update_local_games_task = asyncio.create_task(self._update_local_games())
 
         if self._pushing_cache_task.done() and self._persistent_storage_state.modified:
             self._pushing_cache = asyncio.create_task(self._push_cache())
 
-    # TODO: -> local
     async def get_local_games(self):
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self.local.latest)
+        return await asyncio.get_running_loop().run_in_executor(None, self.local.latest)
 
     async def launch_game(self, game_id):
         self.local.steam_cmd("launch", game_id)
@@ -218,11 +213,9 @@ class SteamPlugin(Plugin):
     async def uninstall_game(self, game_id):
         self.local.steam_cmd("uninstall", game_id)
 
-    # TODO: -> local
     async def prepare_local_size_context(self, game_ids: List[str]):
         return {m.id(): m for m in self.local.manifests()}
 
-    # TODO: -> local
     async def get_local_size(self, game_id: str, context: Dict[str, Manifest]) -> Optional[int]:
         m = context.get(game_id)
         if m:
